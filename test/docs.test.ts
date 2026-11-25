@@ -2,9 +2,10 @@
  * The documentation runs: every sample it shows from examples/ is that file, every link
  * resolves, and every scene in examples/ builds and renders without a warning.
  */
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { townsfolk } from '../src/art';
 import { Surface } from '../src/core/surface';
 import { assertScene } from '../src/player/scene-info';
 import { createRenderer } from '../src/render';
@@ -42,6 +43,11 @@ function tsFiles(dir: string): string[] {
 describe('docs', () => {
   it('shows samples that match the files, and links that resolve', () => {
     expect(checkDocs()).toEqual([]);
+  });
+
+  it('lists the whole cast in the authoring guide', () => {
+    const guide = readFileSync(join(ROOT, 'docs/authoring.md'), 'utf8');
+    for (const p of townsfolk) expect(guide).toContain(`| \`${p.id}\` | ${p.name} | ${p.role} | ${p.description} |`);
   });
 
   it('imports every file in examples/', () => {

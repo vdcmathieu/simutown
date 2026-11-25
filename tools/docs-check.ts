@@ -7,7 +7,8 @@
  *   that whole file, character for character. The files in examples/ are built and rendered
  *   by test/docs.test.ts, so a sample shown this way is known to run.
  * - With `(excerpt)` on that first line, the rest of the block must appear in the file as
- *   consecutive lines (leading and trailing spaces aside).
+ *   consecutive lines (leading and trailing spaces aside). An ```html block marks its file
+ *   with `<!-- examples/<file>.html (excerpt) -->`.
  * - Every relative link and image in the Markdown must point at a file that exists.
  *   Paths under docs/media/ are skipped: another branch commits those pictures.
  *
@@ -29,12 +30,13 @@ export function docFiles(root = ROOT): string[] {
   return files.filter((f) => existsSync(join(root, f)));
 }
 
-const MARKER = /^\/\/ ((?:examples|scenes|src)\/[\w./-]+\.ts)\b(.*)$/;
+/** `// examples/x.ts ...` in code, `<!-- examples/x.html ... -->` in HTML. */
+const MARKER = /^(?:\/\/|<!--) ((?:examples|scenes|src)\/[\w./-]+\.(?:ts|html))\b(.*)$/;
 
 /** Problems with the code blocks of one Markdown file. */
 function checkBlocks(root: string, file: string, text: string): string[] {
   const problems: string[] = [];
-  const fence = /```ts\n([\s\S]*?)```/g;
+  const fence = /```(?:ts|html)\n([\s\S]*?)```/g;
   for (const m of text.matchAll(fence)) {
     const body = m[1]!;
     const [first = '', ...rest] = body.split('\n');

@@ -1,0 +1,21 @@
+<!doctype html>
+<!-- examples/embed.html - the player in a page of your own. Serve it with: pnpm vite examples -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A scene in a page</title>
+  </head>
+  <body style="max-width: 960px; margin: 2rem auto; font-family: system-ui, sans-serif">
+    <h1>Good morning</h1>
+    <p>The player below is a canvas that draws each frame from the scene itself.</p>
+    <div id="stage"></div>
+    <script type="module">
+      import { mount } from '../src/player';
+      import scene from './good-morning';
+
+      const player = mount(document.getElementById('stage'), scene, { autoplay: true, loop: true });
+      // player.pause(); player.seek(3); player.play(); player.destroy();
+    </script>
+  </body>
+</html>

@@ -70,7 +70,7 @@ describe('defineTown', () => {
     expect(t.places['house.door']).toEqual({ tx: 5, ty: 3 });
   });
 
-  it.fails('rejects tiles that are not whole numbers', () => {
+  it('rejects tiles that are not whole numbers', () => {
     expect(() => defineTown({ ...spec, props: [{ kind: 'lamp', at: [1.5, 1] }] }, art)).toThrow(/Prop "lamp" at \[1.5, 1\] must be on a whole tile/);
     expect(() => defineTown({ ...spec, places: { mid: [1, 0.5] } }, art)).toThrow(/Place "mid" at \[1, 0.5\] \(in places\) must be on a whole tile/);
   });

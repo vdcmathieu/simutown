@@ -94,6 +94,9 @@ export function defineTown(spec: TownSpec, art: ArtRegistry = builtinArt): Town 
     if (!def) throw unknownName('prop kind', p.kind, Object.keys(art.props), `(prop "${id}")`);
     if (props.some((q) => q.id === id)) throw new Error(`Town "${spec.name}": two props are called "${id}". Give each a unique id.`);
     const [tx, ty] = p.at;
+    if (!Number.isInteger(tx) || !Number.isInteger(ty)) {
+      throw new Error(`Prop "${id}" at ${fmtTile({ tx, ty })} must be on a whole tile: use integers, like [${Math.floor(tx)}, ${Math.floor(ty)}].`);
+    }
     if (!inBounds(town, tx, ty)) {
       throw new Error(`Prop "${id}" at ${fmtTile({ tx, ty })} is outside the ${w}x${h} map (tiles [0, 0] to [${w - 1}, ${h - 1}]).`);
     }
@@ -118,6 +121,9 @@ export function defineTown(spec: TownSpec, art: ArtRegistry = builtinArt): Town 
 
   const addPlace = (name: string, tx: number, ty: number, from: string): void => {
     if (town.places[name]) throw new Error(`Place "${name}" is defined twice (${from}).`);
+    if (!Number.isInteger(tx) || !Number.isInteger(ty)) {
+      throw new Error(`Place "${name}" at ${fmtTile({ tx, ty })} (${from}) must be on a whole tile: use integers, like [${Math.floor(tx)}, ${Math.floor(ty)}].`);
+    }
     if (!inBounds(town, tx, ty)) throw new Error(`Place "${name}" at ${fmtTile({ tx, ty })} (${from}) is outside the ${w}x${h} map.`);
     if (solid[ty * w + tx]) {
       throw new Error(`Place "${name}" at ${fmtTile({ tx, ty })} (${from}) is on a solid tile: ${blockerAt(town, tx, ty, art)}. Places must be walkable.`);

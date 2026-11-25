@@ -83,7 +83,7 @@ function propCells(props: Record<string, PropDef>): Cell[] {
   const cells: Cell[] = [];
   for (const def of Object.values(props)) {
     const frames = def.anim ? def.anim.frames : [def.sprite];
-    frames.forEach((s, i) => cells.push(spriteCell(`${def.id}${def.anim ? `~${i}` : ''}`, s, 'moss.1')));
+    frames.forEach((s, i) => cells.push(spriteCell(`${def.id}${def.anim ? `~${i}` : ''}`, s, 'moss.2')));
     if (def.emissive) cells.push(spriteCell(`${def.id} (lit)`, frames[0]!, 'steel.1', def.emissive));
   }
   return cells;
@@ -97,7 +97,7 @@ function characterCells(): Cell[] {
     const push = (pose: string, set: Record<Dir, Sprite[]>) => {
       for (const dir of dirs) {
         set[dir].forEach((s, i) => {
-          cells.push(spriteCell(`${def.id}.${pose}.${dir}#${i}`, s, 'moss.1', undefined, first));
+          cells.push(spriteCell(`${def.id}.${pose}.${dir}#${i}`, s, 'moss.2', undefined, first));
           first = false;
         });
       }
@@ -111,7 +111,7 @@ function characterCells(): Cell[] {
 
 function uiCells(): Cell[] {
   const cells: Cell[] = [];
-  for (const [name, s] of Object.entries(art.emotes)) cells.push(spriteCell(`emote.${name}`, s, 'moss.1'));
+  for (const [name, s] of Object.entries(art.emotes)) cells.push(spriteCell(`emote.${name}`, s, 'moss.2'));
   let first = true;
   for (const [ch, g] of Object.entries(art.font.glyphs)) {
     cells.push(spriteCell(`glyph ${JSON.stringify(ch)}`, g.sprite, 'cream.2', undefined, first));

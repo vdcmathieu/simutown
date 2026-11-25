@@ -221,3 +221,29 @@ describe('nearest', () => {
     expect(nearest('xyzzy', ['cafe.door', 'plaza'])).toBeUndefined();
   });
 });
+
+describe('prop ids (regression)', () => {
+  it('never generates an id that a prop or a lone kind already uses', async () => {
+    const { defineTown } = await import('../src/world');
+    const { art: builtin } = await import('../src/art');
+    const lamp = builtin.props.lamp!;
+    const art = { ...builtin, props: { lamp, 'lamp-2': { ...lamp, id: 'lamp-2' } } };
+    const town = defineTown(
+      {
+        name: 'ids',
+        terrain: 'gggggggg\ngggggggg',
+        legend: { g: 'grass' },
+        props: [
+          { kind: 'lamp', at: [0, 1] },
+          { kind: 'lamp', at: [2, 1] },
+          { kind: 'lamp-2', at: [4, 1] },
+          { kind: 'lamp', at: [6, 1], id: 'lamp-1' },
+        ],
+      },
+      art,
+    );
+    const ids = town.props.map((p) => p.id);
+    expect(new Set(ids).size).toBe(4);
+    expect(ids).toEqual(['lamp-3', 'lamp-4', 'lamp-2', 'lamp-1']);
+  });
+});

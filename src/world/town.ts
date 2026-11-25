@@ -55,16 +55,27 @@ function parseGrid(spec: TownSpec, art: ArtRegistry): { w: number; h: number; te
   return { w, h: rows.length, terrain };
 }
 
-/** Give every prop an id: its own, its kind, or kind-n when the kind repeats. */
+/**
+ * Give every prop an id: its own, its kind, or kind-n when the kind repeats.
+ * A generated kind-n never takes an id that is already in use (a prop given that id, or a
+ * lone prop whose kind is literally "kind-n"): the number moves on to the next free one.
+ */
 function propIds(props: PropSpec[]): string[] {
   const unnamed = new Map<string, number>();
   for (const p of props) if (!p.id) unnamed.set(p.kind, (unnamed.get(p.kind) ?? 0) + 1);
-  const seen = new Map<string, number>();
+  const taken = new Set<string>();
+  for (const p of props) {
+    if (p.id) taken.add(p.id);
+    else if (unnamed.get(p.kind) === 1) taken.add(p.kind);
+  }
+  const next = new Map<string, number>();
   return props.map((p) => {
     if (p.id) return p.id;
     if (unnamed.get(p.kind) === 1) return p.kind;
-    const n = (seen.get(p.kind) ?? 0) + 1;
-    seen.set(p.kind, n);
+    let n = (next.get(p.kind) ?? 0) + 1;
+    while (taken.has(`${p.kind}-${n}`)) n++;
+    next.set(p.kind, n);
+    taken.add(`${p.kind}-${n}`);
     return `${p.kind}-${n}`;
   });
 }

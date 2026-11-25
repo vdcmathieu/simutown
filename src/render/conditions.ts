@@ -71,8 +71,8 @@ const MOODS: readonly Mood[] = [
   { hour: 9, ...DAY },
   { hour: 16, ...DAY },
   { hour: 18, tint: ['ochre.2'], amount: 0.3, bright: 1.03, sat: 1.05, lift: 0, shadow: 0.26 },
-  { hour: 19, tint: ['rose.1', 'ochre.1'], amount: 0.4, bright: 0.97, sat: 1.05, lift: 0, shadow: 0.24 },
-  { hour: 19.5, tint: ['sky.0', 'plum.1'], amount: 0.7, bright: 0.93, sat: 1.1, lift: 0.07, shadow: 0.22 },
+  { hour: 19, tint: ['rose.1', 'ochre.2'], amount: 0.3, bright: 0.97, sat: 1.05, lift: 0, shadow: 0.24 },
+  { hour: 19.5, tint: ['sky.0', 'plum.1'], amount: 0.72, bright: 0.9, sat: 1.1, lift: 0.13, shadow: 0.22 },
   { hour: 21.5, ...NIGHT },
   { hour: 24, ...NIGHT },
 ];

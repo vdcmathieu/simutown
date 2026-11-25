@@ -390,10 +390,7 @@ export function frameAt(tl: Timeline, time: number): FrameState {
 
   const frame: FrameState = {
     t,
-    camera: (() => {
-      const c = cameraAt(tl, t);
-      return { x: Math.round(c.x), y: Math.round(c.y), zoom: c.zoom };
-    })(),
+    camera: snapCamera(tl.town, cameraAt(tl, t)),
     timeOfDay: rampAt(tl.hours, t, tl.timeOfDay),
     actors,
     bubbles,

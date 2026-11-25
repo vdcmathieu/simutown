@@ -238,7 +238,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
   };
 
   const checkZoom = (zoom: number | undefined): void => {
-    if (zoom !== undefined && !(Number.isInteger(zoom) && zoom >= 1)) throw new Error(`Camera zoom must be a whole number >= 1, got ${zoom}.`);
+    if (zoom !== undefined && !(Number.isInteger(zoom) && zoom >= 1 && zoom <= 16)) throw new Error(`Camera zoom must be a whole number from 1 to 16, got ${zoom}.`);
   };
 
   // --- actor handles ------------------------------------------------------------------

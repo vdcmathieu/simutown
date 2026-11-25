@@ -392,7 +392,8 @@ describe('camera', () => {
       s.camera.cut([30, 20]);
     }, big);
     expect(sc.frame(0.5).camera).toEqual({ x: 240, y: 135, zoom: 1 });
-    expect(sc.frame(1.5).camera).toEqual({ x: 960 - 120, y: 573, zoom: 2 });
+    // At zoom 2 the view is 240 x 135: centre 572 puts its rounded top at 505 and bottom at 640.
+    expect(sc.frame(1.5).camera).toEqual({ x: 960 - 120, y: 572, zoom: 2 });
     expect(sc.frame(2).camera).toEqual({ x: 30 * 16 + 8, y: 20 * 16, zoom: 2 });
   });
 
@@ -533,7 +534,8 @@ describe('errors an author can act on', () => {
     ).toThrow(/already an actor "ana". Give the second one an id/);
     expect(err((s) => s.link({} as ActorHandle, {} as ActorHandle))).toThrow(/expected an actor handle returned by s.actor\(\)/);
     expect(err((s) => s.wait(-1))).toThrow(/s.wait must be a number of seconds >= 0/);
-    expect(err((s) => s.camera.cut('plaza', { zoom: 1.5 }))).toThrow(/zoom must be a whole number >= 1/);
+    expect(err((s) => s.camera.cut('plaza', { zoom: 1.5 }))).toThrow(/zoom must be a whole number from 1 to 16/);
+    expect(err((s) => s.camera.pan('plaza', { zoom: 17 }))).toThrow(/from 1 to 16, got 17/);
     expect(err((s) => s.timeOfDay(25))).toThrow(/between 0 and 24/);
     expect(
       err((s) => {
@@ -694,9 +696,9 @@ describe('regressions from review', () => {
     expect(g.annotations![0]).toMatchObject({ at: center(10, 8) });
   });
 
-  it.fails('the rounded view the renderer draws stays inside the town at every zoom', () => {
+  it('the rounded view the renderer draws stays inside the town at every zoom', () => {
     const targets: [number, number][] = [[0, 0], [59, 39], [0, 39], [59, 0], [30, 20], [7, 33], [52, 3]];
-    for (let zoom = 1; zoom <= 8; zoom++) {
+    for (let zoom = 1; zoom <= 16; zoom++) {
       const sc = make((s) => {
         for (const tile of targets) {
           s.camera.cut(tile, { zoom });

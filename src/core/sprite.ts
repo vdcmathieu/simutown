@@ -35,6 +35,8 @@ export const LEGEND: Legend = {
   's': 'skin.c.0', 't': 'skin.c.1',
   'd': 'plum.0', 'e': 'plum.1',
   '6': 'teal.0', '7': 'teal.1',
+  '8': 'sky.0', '9': 'sky.1', 'f': 'sky.2',
+  '+': 'rose.0', '*': 'rose.1',
 };
 
 export interface SpriteOpts {

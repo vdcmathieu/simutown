@@ -1,59 +1,206 @@
-import { blank, sprite, stack } from '../../core/sprite';
-import type { Sprite } from '../../core/sprite';
-import type { CharacterDef, Dir } from '../../core/types';
+import type { CharacterDef } from '../../core/types';
+import { person } from './kit';
 
-// Reference character from the pin: one front-facing frame, reused for every direction.
-// The real character kit replaces this. Keep the id `ana` (fixtures and tests use it).
+// The reference townsfolk of Willow Square. Keep the id `ana` (fixtures and tests use it).
+// See kit.ts for the role letters.
 
-const anaDown = sprite(
-  `
-  ................
-  .....000000.....
-  ....0vvvvvv0....
-  ...0vvvvvvvv0...
-  ...0vvvvvvvv0...
-  ...0vullllvv0...
-  ...0ullllllu0...
-  ...0ul0ll0lu0...
-  ...0kl0ll0lk0...
-  ....0llllll0....
-  ....0kllllk0....
-  .....000000.....
-  ....07777770....
-  ...0677777760...
-  ...0l677776l0...
-  ...0l677776l0...
-  ...0k677776k0...
-  ....06666660....
-  ....02222220....
-  ....02211220....
-  ....02200220....
-  ....02200220....
-  ....0uu00uu0....
-  ....000..000....
-`,
-  { anchor: [8, 24] },
-);
-
-/** Shift a sprite up by one pixel inside its own box: a one-frame walking bob. */
-function bob(s: Sprite): Sprite {
-  const px = new Uint8Array(s.px.length);
-  px.set(s.px.subarray(s.w), 0);
-  return stack(blank(s.w, s.h, [s.ax, s.ay]), { ...s, px });
-}
-
-const all = (frames: Sprite[]): Record<Dir, Sprite[]> => ({
-  down: frames,
-  up: frames,
-  left: frames,
-  right: frames,
+const ana = person({
+  id: 'ana',
+  name: 'Ana',
+  legend: {
+    S: 'skin.a.1', K: 'skin.a.0', B: 'rose.1',
+    H: 'wood.1', D: 'wood.0', L: 'wood.2',
+    T: 'teal.1', U: 'teal.0',
+    P: 'plum.0', Q: 'steel.1',
+    F: 'wood.0',
+    R: 'rose.0', // the ribbon under her bun
+  },
+  head: {
+    down: `
+      ......0000......
+      .....0HLHH0.....
+      ....00RRRR00....
+      ...0HHHHHHHH0...
+      ..0HLLHHHHHHH0..
+      .0HLHHHHHHHHHH0.
+      .0HHHHHHHHHHHD0.
+      .0HHHSSHHHSSHD0.
+      .0HHSSSSSSSSHD0.
+      .0HSS0SSSS0SSD0.
+      .0HSS0SSSS0SSD0.
+      ..0SBSSSSSSBS0..
+      ...0SSSSSSSS0...
+      ....00000000....
+    `,
+    up: `
+      ......0000......
+      .....0HLHH0.....
+      ....00RRRR00....
+      ...0HHHHHHHH0...
+      ..0HLLHHHHHHH0..
+      .0HLHHHHHHHHHH0.
+      .0HHHHHHHHHHHD0.
+      .0HHHHHHHHHHHD0.
+      .0HHHHHHHHHHHD0.
+      .0HHHHHHHHHHDD0.
+      .0DHHHHHHHHDDD0.
+      ..0DDHHHHDDDD0..
+      ...0DDDDDDDD0...
+      ....00000000....
+    `,
+    right: `
+      ......0000......
+      .....0HLHH0.....
+      ....00RRRR00....
+      ...0HHHHHHHH0...
+      ..0HLLHHHHHHH0..
+      .0HLHHHHHHHHHH0.
+      .0HHHHHHHHHHHH0.
+      .0HHHHHHHHSSHH0.
+      .0DHHHHHSSSSSS0.
+      .0DHHHHSSSS0SS0.
+      .0DDHHHSSSS0SS0.
+      ..0DDHSSSSSSB0..
+      ...0DDSSSSSS0...
+      ....00000000....
+    `,
+  },
 });
 
-export const characters: Record<string, CharacterDef> = {
-  ana: {
-    id: 'ana',
-    name: 'Ana',
-    idle: all([anaDown]),
-    walk: all([anaDown, bob(anaDown)]),
+const tomas = person({
+  id: 'tomas',
+  name: 'Tomas',
+  legend: {
+    S: 'skin.c.1', K: 'skin.c.0', B: 'skin.c.1',
+    H: 'steel.5', D: 'steel.4', L: 'steel.5',
+    T: 'brick.1', U: 'brick.0',
+    P: 'sky.0', Q: 'steel.1',
+    F: 'wood.0',
+    // straw hat: light, base, shade, band
+    Y: 'ochre.3', A: 'ochre.2', Z: 'ochre.1', R: 'brick.1',
   },
-};
+  head: {
+    down: `
+      ................
+      .....000000.....
+      ....0YYAAAA0....
+      ...0RRRRRRRR0...
+      .00YYAAAAAAAZ00.
+      0YAAAAAAAAAAAAZ0
+      .00000000000000.
+      ..0HSSSSSSSSH0..
+      ..0SSSSSSSSSS0..
+      ..0SS0SSSS0SS0..
+      ..0SS0SSSS0SS0..
+      ..0HHSSSSSSHH0..
+      ...0HHHHHHHH0...
+      ....00000000....
+    `,
+    up: `
+      ................
+      .....000000.....
+      ....0YYAAAA0....
+      ...0RRRRRRRR0...
+      .00YYAAAAAAAZ00.
+      0YAAAAAAAAAAAAZ0
+      .00000000000000.
+      ..0HHHHHHHHHD0..
+      ..0HHHHHHHHHD0..
+      ..0HHHHHHHHDD0..
+      ..0SDDDDDDDDS0..
+      ..0SSSSSSSSSS0..
+      ...0SSSSSSSS0...
+      ....00000000....
+    `,
+    right: `
+      ................
+      .....000000.....
+      ....0YYAAAA0....
+      ...0RRRRRRRR0...
+      .00YYAAAAAAAZ00.
+      0YAAAAAAAAAAAAZ0
+      .00000000000000.
+      ..0HHHSSSSSSS0..
+      ..0HHSSSSSSSS0..
+      ..0HHSSSSS0SS0..
+      ..0SSSSSSS0SS0..
+      ..0SSSSSHHHHH0..
+      ...0SSSHHHHH0...
+      ....00000000....
+    `,
+  },
+});
+
+const mira = person({
+  id: 'mira',
+  name: 'Mira',
+  body: 'dress',
+  legend: {
+    S: 'skin.b.1', K: 'skin.b.0', B: 'rose.1',
+    H: 'steel.1', D: 'steel.0', L: 'steel.2',
+    T: 'steel.5', U: 'steel.4',
+    P: 'rose.1', Q: 'rose.0',
+    F: 'brick.0',
+  },
+  // long hair: the head grids run past row 14 and hang over the shoulders
+  head: {
+    down: `
+      ................
+      ................
+      ....00000000....
+      ...0HHHHHHHH0...
+      ..0HLLHHHHHHH0..
+      .0HLHHHHHHHHHH0.
+      .0HHHHHHHHHHHH0.
+      .0HHHHSSSSHHHH0.
+      .0HHSSSSSSSSHH0.
+      .0HSS0SSSS0SSH0.
+      .0HSS0SSSS0SSH0.
+      .0HSBSSSSSSBSH0.
+      .0HH0SSSSSS0HH0.
+      .0HH00000000HH0.
+      .0HH0......0HH0.
+      ..00........00..
+    `,
+    up: `
+      ................
+      ................
+      ....00000000....
+      ...0HHHHHHHH0...
+      ..0HLLHHHHHHH0..
+      .0HLHHHHHHHHHH0.
+      .0HHHHHHHHHHHH0.
+      .0HHHHHHHHHHHH0.
+      .0HHHHHHHHHHHH0.
+      .0HHHHHHHHHHHH0.
+      .0HHHHHHHHHHHH0.
+      .0HHHHHHHHHHHH0.
+      .0HHLHHHHHHHHH0.
+      .0HHLHHHHHHDHH0.
+      .0HHHLHHHHHDHH0.
+      ..0HHHHHHHHHH0..
+      ...0000000000...
+    `,
+    right: `
+      ................
+      ................
+      ....00000000....
+      ...0HHHHHHHH0...
+      ..0HLLHHHHHHH0..
+      .0HLHHHHHHHHHH0.
+      .0HHHHHHHHHHHH0.
+      .0HHHHHHHHHSSH0.
+      .0HHHHHHHSSSSS0.
+      .0HHHHHHSSS0SS0.
+      .0HHHHHHSSS0SS0.
+      .0HHHHHHSSSSSB0.
+      .0HHHHHHSSSSS0..
+      .0HHHHH0000000..
+      ..0HHHH0........
+      ..0HHHH0........
+      ...0000.........
+    `,
+  },
+});
+
+export const characters: Record<string, CharacterDef> = { ana, tomas, mira };

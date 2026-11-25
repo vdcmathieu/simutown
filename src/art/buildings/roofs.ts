@@ -129,5 +129,8 @@ export function roof(spec: RoofSpec): Canvas {
   for (const [x, y] of [[inset(0) + 1, 1], [w - 2 - inset(0), 1], [1, h - 2], [w - 2, h - 2]] as const) {
     rect(c, INK, x, y, 1, 1);
   }
+  // on a small, steep cap the side has already stepped out by row 1: keep the corner closed
+  rect(c, INK, inset(0), 1, 1, 1);
+  rect(c, INK, w - 1 - inset(0), 1, 1, 1);
   return tint(c, spec.color);
 }

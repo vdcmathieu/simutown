@@ -1,10 +1,11 @@
 /**
  * A contact sheet of the building kit's parts, for reviewing each piece on its own.
  *
- *   pnpm tsx tools/buildings-parts.ts [--scale 6]
+ *   pnpm tsx tools/buildings-parts.ts [--scale 6] [--row 5]
  *
- * Writes out/buildings-parts.png. Rows: doors, windows (by day, then each lit look on a
- * dark wall), wall materials with roofs, wall extras, signs, rooftop pieces.
+ * Writes out/buildings-parts.png. Rows: 1 doors, 2 windows (by day, then each lit look on
+ * a dark wall), 3 wall materials with roofs, 4 wall extras, 5 signs, 6 rooftop pieces.
+ * `--row` keeps one row, for a closer look.
  */
 import {
   awning,
@@ -74,7 +75,7 @@ function swatch(kind: (typeof WALL_KINDS)[number], color: (typeof ROOF_COLORS)[n
   return cell(c, false, 'moss.2');
 }
 
-const rows: Cell[][] = [
+const allRows: Cell[][] = [
   DOOR_STYLES.flatMap((style) => PAINTS.slice(0, style === 'panelled' ? 6 : 2).map((paint) => cell(door(style, paint)))),
   [
     ...WINDOW_KINDS.map((k) => cell(windowPart(k))),
@@ -104,8 +105,13 @@ const rows: Cell[][] = [
   ],
 ];
 
-const scaleArg = process.argv.indexOf('--scale');
-const scale = scaleArg >= 0 ? Number(process.argv[scaleArg + 1]) : 6;
+const option = (name: string, fallback: number): number => {
+  const i = process.argv.indexOf(name);
+  return i >= 0 ? Number(process.argv[i + 1]) : fallback;
+};
+const scale = option('--scale', 6);
+const row = option('--row', 0);
+const rows = row > 0 ? allRows.slice(row - 1, row) : allRows;
 const W = Math.max(...rows.map((r) => r.reduce((n, c) => n + c.w + GAP, GAP)));
 const H = rows.reduce((n, r) => n + Math.max(...r.map((c) => c.h)) + GAP, GAP);
 const sheet = new Surface(W, H).clear(col('steel.3'));

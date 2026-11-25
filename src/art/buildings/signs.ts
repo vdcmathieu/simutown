@@ -84,13 +84,13 @@ const ICONS: Record<SignIcon, string> = {
   `,
   // scissors: steel blades, red handles
   scissors: `
+    2......2
     22....22
     .22..22.
     ..2222..
-    ...22...
-    .yy..yy.
-    y..yy..y
-    .yy..yy.
+    yyy22yyy
+    y.y..y.y
+    yyy..yyy
   `,
   // a wicker basket with a hoop handle
   basket: `
@@ -105,10 +105,10 @@ const ICONS: Record<SignIcon, string> = {
   // a brass key
   key: `
     .ppp....
-    p...p...
-    p...pppp
-    p...p.pp
-    .ppp..p.
+    pp.pp...
+    pp.ppppp
+    pp.pp.pp
+    .ppp..oo
   `,
 };
 

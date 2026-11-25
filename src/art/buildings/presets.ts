@@ -29,7 +29,7 @@ export const presetSpecs: BuildingSpec[] = [
     roof: { form: 'hip', color: 'blue', height: 38 },
     door: { at: 1.5, style: 'panelled', paint: 'wood' },
     windows: [{ at: 3, box: true }],
-    upperWindows: [{ at: 1, shutters: 'teal' }, { at: 3, shutters: 'teal', lit: 'curtains' }],
+    upperWindows: [{ at: 1, shutters: 'teal' }, { at: 3, shutters: 'teal' }],
     chimney: true,
   },
   // Brick under a low hip roof, the door to one side, an attic dormer.

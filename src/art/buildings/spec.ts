@@ -4,9 +4,9 @@
  */
 import { TILE } from '../../core/types';
 import { DOOR_H, DOOR_STYLES, type DoorStyle, doorWidth, type Paint, PAINTS } from './doors';
-import { AWNING_COLORS, type AwningColor, awningWidth, SHUTTER_COLORS, SHUTTER_W, type ShutterColor } from './extras';
+import { AWNING_COLORS, type AwningColor, awningWidth, lantern as lanternPart, SHUTTER_COLORS, SHUTTER_W, type ShutterColor } from './extras';
 import { FACE_W, HIP_LEAN, OVERHANG, ROOF_COLORS, ROOF_FORMS, type RoofColor, type RoofForm } from './roofs';
-import { CHIMNEY_RISE } from './rooftop';
+import { bellTurret, chimney, CHIMNEY_RISE, clockFace, clockTurret, dormer } from './rooftop';
 import { SIGN_ICONS, SIGN_W, type SignIcon } from './signs';
 import { GROUND, isTimber, TIMBER, UPPER, WALL_KINDS, type WallKind } from './walls';
 import { LIT_LOOKS, type LitLook, WINDOW_KINDS, type WindowKind, windowSize } from './windows';
@@ -162,13 +162,16 @@ export interface Plan {
   clock?: { x: number; y: number };
 }
 
-/** Sizes of the roof pieces the plan has to keep apart. */
-const CHIMNEY_W = 12;
-const DORMER_W = 19;
-const DORMER_H = 19;
-const TURRET = { bell: { w: 22, rise: 19 }, clock: { w: 31, rise: 31 } } as const;
-const LANTERN_W = 5;
-const CLOCK_W = 13;
+/** Sizes of the pieces the plan has to keep apart, measured on the pieces themselves. */
+const CHIMNEY_W = chimney.w;
+const DORMER_W = dormer('red').day.w;
+const DORMER_H = dormer('red').day.h;
+const TURRET = {
+  bell: { w: bellTurret('red').day.w, rise: bellTurret('red').rise },
+  clock: { w: clockTurret('red').day.w, rise: clockTurret('red').rise },
+} as const;
+const LANTERN_W = lanternPart.day.w;
+const CLOCK_W = clockFace.day.w;
 /** Pieces on a wall keep at least this many pixels apart. */
 const GAP = 2;
 /** Tiles a building may be wide. A door needs a whole tile clear of the corners, so three is the least. */

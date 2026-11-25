@@ -37,8 +37,8 @@ Your job: turn the request into a short, clear film, check it by looking at stil
 4. **Write** `scenes/<kebab-name>.ts`:
 
    ```ts
-   import { scene } from '../src';
-   import { willowSquare } from '../src/towns/willow-square';
+   import { scene } from 'simutown';
+   import { willowSquare } from 'simutown/towns';
 
    export default scene({ title: 'My scene', town: willowSquare, timeOfDay: 10 }, (s) => {
      const a = s.actor('ana', { at: 'some.place' });

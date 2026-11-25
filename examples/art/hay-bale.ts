@@ -1,5 +1,5 @@
 // examples/art/hay-bale.ts - a prop drawn as a text grid, with a footprint.
-import { art, type PropDef, sprite } from '../../src';
+import { art, type PropDef, sprite } from 'simutown';
 
 // One character per pixel, one letter per palette slot (docs/style/palette.png):
 // 0 ink, r q p the ochre ramp from light to dark, v wood for the twine, . transparent.

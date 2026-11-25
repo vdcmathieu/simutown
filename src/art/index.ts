@@ -13,6 +13,9 @@ export { makeBuilding } from './buildings';
 export type { BuildingSpec } from './buildings';
 export { CHARACTER_OPTIONS, makeCharacter, person, townsfolk } from './characters';
 export type { CharacterSpec, PersonSpec, Townsperson } from './characters';
+// The helpers for new grounds (docs/making-art.md): marks on a flat tile, and the usual edges.
+export { ground } from './terrain/ground';
+export { driftEdge, recolorFringe, straightEdge, turf } from './terrain/edges';
 
 /** The built-in art: everything Simutown can draw out of the box. */
 export const art: ArtRegistry = {

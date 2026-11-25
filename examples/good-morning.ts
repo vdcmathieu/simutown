@@ -1,5 +1,5 @@
 // examples/good-morning.ts - the smallest complete scene: a town, two people, a few lines.
-import { defineTown, scene } from '../src';
+import { defineTown, scene } from 'simutown';
 
 // A lane between two lawns: a bakery on the north side, a bench and a tree on the south.
 const lane = defineTown({

@@ -29,7 +29,7 @@ This one defines a small town inline, puts two of the townsfolk in it, and has t
 
 ```ts
 // examples/good-morning.ts - the smallest complete scene: a town, two people, a few lines.
-import { defineTown, scene } from '../src';
+import { defineTown, scene } from 'simutown';
 
 // A lane between two lawns: a bakery on the north side, a bench and a tree on the south.
 const lane = defineTown({
@@ -161,7 +161,7 @@ With a bundler such as Vite, import it and the scene:
 <!-- examples/embed.html (excerpt) -->
     <div id="stage"></div>
     <script type="module">
-      import { mount } from '../src/player';
+      import { mount } from 'simutown/player';
       import scene from './good-morning';
 
       const player = mount(document.getElementById('stage'), scene, { autoplay: true, loop: true });

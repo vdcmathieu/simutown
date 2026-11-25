@@ -11,7 +11,7 @@
     <p>The player below is a canvas that draws each frame from the scene itself.</p>
     <div id="stage"></div>
     <script type="module">
-      import { mount } from '../src/player';
+      import { mount } from 'simutown/player';
       import scene from './good-morning';
 
       const player = mount(document.getElementById('stage'), scene, { autoplay: true, loop: true });

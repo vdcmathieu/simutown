@@ -109,7 +109,7 @@ This is the town of the worked example, a market square with two stalls:
 
 ```ts
 // examples/market.ts - a small market square, used by the worked example in docs/authoring.md.
-import { defineTown } from '../src';
+import { defineTown } from 'simutown';
 
 export const market = defineTown({
   name: 'Market Square',
@@ -215,7 +215,7 @@ The worked example lives in `examples/` only to keep it apart from the example s
 
 ```ts
 // examples/haggle.ts (excerpt)
-import { scene } from '../src';
+import { scene } from 'simutown';
 import { market } from './market';
 
 export default scene({ title: 'First offer', town: market, timeOfDay: 10 }, (s) => {

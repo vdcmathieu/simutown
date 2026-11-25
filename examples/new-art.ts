@@ -5,7 +5,7 @@ import './art/clinic';
 import './art/hay-bale';
 import './art/stone-lantern';
 import './art/gravel';
-import { defineTown, scene } from '../src';
+import { defineTown, scene } from 'simutown';
 
 const yard = defineTown({
   name: 'Clinic Yard',

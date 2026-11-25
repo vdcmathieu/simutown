@@ -8,7 +8,8 @@ import { awning, flowerBox, lantern, shutter, SHUTTER_W, step, STEP_H } from './
 import { OVERHANG, roof } from './roofs';
 import { bellTurret, chimney, CHIMNEY_RISE, clockFace, clockTurret, dormer, type RoofPiece } from './rooftop';
 import { sign } from './signs';
-import { type BuildingSpec, planBuilding } from './spec';
+import { planBuilding } from './plan';
+import type { BuildingSpec } from './spec';
 import { GROUND, isTimber, TIMBER, timberPosts, UPPER, wall, wallOutline, type WallSpec } from './walls';
 import { type WindowKind, windowPart } from './windows';
 

@@ -9,8 +9,13 @@ import type { Slot } from '../../core/palette';
 import { sprite, type Sprite } from '../../core/sprite';
 import { type Canvas, fill, INK, rect } from './canvas';
 
+/**
+ * Wall materials. `plaster` is cream, `yellow` pale yellow plaster, `timber` cream plaster in a
+ * wood frame; `brick`, `stone` and `planks` show a few joints of their material.
+ */
 export type WallKind = 'plaster' | 'yellow' | 'timber' | 'brick' | 'stone' | 'planks';
 
+/** Every wall kind, for menus and error messages. */
 export const WALL_KINDS: readonly WallKind[] = ['plaster', 'yellow', 'timber', 'brick', 'stone', 'planks'];
 
 /** Height of a ground storey, its 4-pixel plinth included, and of the storey above it. */
@@ -110,6 +115,7 @@ const plinth = sprite(`
   22222222
 `);
 
+/** Where a wall goes on the canvas, in pixels. */
 export interface WallSpec {
   kind: WallKind;
   /** Left edge of the wall and its width, in pixels, without the ink lines. */

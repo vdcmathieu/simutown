@@ -6,10 +6,12 @@ import type { Slot } from '../../core/palette';
 import { recolor, sprite, type Sprite } from '../../core/sprite';
 import { litFrom, type Part, WARM } from './canvas';
 
+/** `plain` is a plank door, `panelled` the approved door, `double` two leaves in one frame (32 wide), `shop` a door with glass. */
 export type DoorStyle = 'plain' | 'panelled' | 'double' | 'shop';
 /** Door paint. `wood` is varnished wood; the others are strong colours. */
 export type Paint = 'red' | 'wood' | 'blue' | 'teal' | 'plum' | 'green';
 
+/** Every door style and paint, for menus and error messages. */
 export const DOOR_STYLES: readonly DoorStyle[] = ['plain', 'panelled', 'double', 'shop'];
 export const PAINTS: readonly Paint[] = ['red', 'wood', 'blue', 'teal', 'plum', 'green'];
 

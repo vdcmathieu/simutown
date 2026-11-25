@@ -22,7 +22,8 @@ export { presetSpecs } from './presets';
 export { roof, ROOF_COLORS, ROOF_FORMS, type RoofColor, type RoofForm, type RoofSpec } from './roofs';
 export { bellTurret, chimney, clockFace, clockTurret, dormer, type RoofPiece } from './rooftop';
 export { sign, SIGN_ICONS, type SignIcon } from './signs';
-export { type At, type BuildingSpec, type DoorSpec, planBuilding, type Plan, type RoofChoice, type SignSpec, type WindowSpec } from './spec';
+export { type Plan, planBuilding } from './plan';
+export type { At, BuildingSpec, DoorSpec, RoofChoice, SignSpec, WindowSpec } from './spec';
 export { wall, WALL_KINDS, type WallKind, type WallSpec } from './walls';
 export { LIT_LOOKS, type LitLook, WINDOW_KINDS, type WindowKind, windowPart } from './windows';
 

@@ -20,6 +20,7 @@ export type WindowKind = 'four-pane' | 'tall' | 'shop' | 'round';
  */
 export type LitLook = 'warm' | 'curtains' | 'dark';
 
+/** Every window kind and lit look, for menus and error messages. */
 export const WINDOW_KINDS: readonly WindowKind[] = ['four-pane', 'tall', 'shop', 'round'];
 export const LIT_LOOKS: readonly LitLook[] = ['warm', 'curtains', 'dark'];
 
@@ -115,7 +116,7 @@ function curtains(art: string): Sprite {
     [...r]
       .map((ch, x) => {
         if (!glass(ch)) return '.';
-        // a pelmet across the top, and drapes two pixels wide that taper off below
+        // a pelmet across the top, and a drape two pixels wide down each side
         if (y === top) return 'p';
         if (x < first + 2 || x > last - 2) return 'p';
         return WARM[ch]!;

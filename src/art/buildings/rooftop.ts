@@ -117,17 +117,18 @@ export function clockTurret(color: RoofColor): RoofPiece {
   return piece(l, 7, [15, boxY + 11]);
 }
 
-// A dormer's own little roof, seen from the front: a lit lip, two rows of tile, a shade line.
+// A dormer's own little roof, seen from the front: a lit lip, one course of tile, a shade line.
 const dormerCap = sprite(`
   .00000000000000000.
   0zzzzzzzzzzzzzzzzz0
+  0zyyyyyyyyyyyyyyyx0
   0zyyyyyyyyyyyyyyyx0
   0zyyyyyyyyyyyyyyyx0
   0xxxxxxxxxxxxxxxxx0
   .00000000000000000.
 `);
 
-/** A dormer with a round attic window, 19x19. It sits on the slope, just above the eave. */
+/** A dormer with a round attic window, 19x20. It sits on the slope, just above the eave. */
 export function dormer(color: RoofColor, lit: LitLook = 'warm'): RoofPiece {
   const cap = tint({ w: dormerCap.w, h: dormerCap.h, px: new Uint8Array(dormerCap.px) }, color);
   const boxW = 15;

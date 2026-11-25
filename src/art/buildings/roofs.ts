@@ -13,6 +13,7 @@ export type RoofForm = 'gable' | 'hip';
 /** The three roof colours STYLE.md allows. Red is the default of the town. */
 export type RoofColor = 'red' | 'orange' | 'blue';
 
+/** Every roof form and colour, for menus and error messages. */
 export const ROOF_FORMS: readonly RoofForm[] = ['gable', 'hip'];
 export const ROOF_COLORS: readonly RoofColor[] = ['red', 'orange', 'blue'];
 
@@ -47,6 +48,7 @@ const eave = sprite(`
   0
 `);
 
+/** What `roof` needs: a size in pixels, a form and a colour. */
 export interface RoofSpec {
   /** Width in pixels, overhang included. */
   w: number;

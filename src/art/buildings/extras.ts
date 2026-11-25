@@ -6,9 +6,11 @@ import type { Slot } from '../../core/palette';
 import { recolor, sprite, type Sprite } from '../../core/sprite';
 import { type Canvas, canvas, done, glazed, INK, type Part, rect } from './canvas';
 
+/** Shutter paint, and the strong colour of an awning's stripes (the other stripe is white). */
 export type ShutterColor = 'teal' | 'plum';
 export type AwningColor = 'red' | 'teal' | 'plum' | 'blue';
 
+/** Every shutter and awning colour, for menus and error messages. */
 export const SHUTTER_COLORS: readonly ShutterColor[] = ['teal', 'plum'];
 export const AWNING_COLORS: readonly AwningColor[] = ['red', 'teal', 'plum', 'blue'];
 

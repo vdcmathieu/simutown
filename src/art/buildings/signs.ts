@@ -5,8 +5,10 @@
 import { sprite, type Sprite } from '../../core/sprite';
 import { canvas, done, paste } from './canvas';
 
+/** The pictures a sign can carry. */
 export type SignIcon = 'cup' | 'loaf' | 'book' | 'letter' | 'bell' | 'scissors' | 'basket' | 'key';
 
+/** Every icon, for menus and error messages. */
 export const SIGN_ICONS: readonly SignIcon[] = ['cup', 'loaf', 'book', 'letter', 'bell', 'scissors', 'basket', 'key'];
 
 /** A sign, bracket included, is this big. */

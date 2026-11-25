@@ -8,6 +8,7 @@
  */
 import type { BuildingSpec } from './spec';
 
+/** The spec of every built-in building, in the order of the contact sheet. */
 export const presetSpecs: BuildingSpec[] = [
   // --- houses ---
   // The reference cottage: timber frame, red gable roof, flower boxes.
@@ -49,9 +50,9 @@ export const presetSpecs: BuildingSpec[] = [
     width: 4,
     wall: 'plaster',
     roof: { form: 'gable', color: 'blue', height: 40 },
-    door: { at: 1.5, style: 'plain', paint: 'teal' },
+    door: { at: 1.5, style: 'plain', paint: 'teal', lantern: 'left' },
     windows: [{ at: 3, shutters: 'plum', box: true }],
-    chimney: 1.25,
+    chimney: 2.5,
   },
   // A long, low stone farmhouse. The roof is wider than the face, so the chimney stands on the join.
   {
@@ -156,6 +157,6 @@ export const presetSpecs: BuildingSpec[] = [
     door: { at: 2.5, style: 'panelled', paint: 'blue', lantern: 'right' },
     windows: [{ at: 4.25, box: true }],
     sign: { icon: 'letter', at: 1 },
-    chimney: 1.25,
+    chimney: 3,
   },
 ];

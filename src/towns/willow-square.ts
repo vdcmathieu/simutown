@@ -110,7 +110,7 @@ const square: PropSpec[] = [
   { kind: 'willow', at: [16, 14], id: 'willow' },
   { kind: 'bench', at: [16, 15], id: 'square.bench' },
   { kind: 'bench', at: [29, 15], id: 'market.bench' },
-  { kind: 'noticeboard', at: [20, 11], id: 'noticeboard' },
+  { kind: 'noticeboard', at: [20, 12], id: 'noticeboard' },
   { kind: 'clock', at: [26, 11], id: 'clock' },
   // the market
   { kind: 'stall', at: [27, 13], id: 'market.fruit' },

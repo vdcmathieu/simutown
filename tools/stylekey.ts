@@ -4,7 +4,7 @@
  *   pnpm tsx tools/stylekey.ts
  *
  * Writes three PNGs into docs/style/ (they are committed):
- *   stylekey.png    a sunny corner of Willow Square, hand-laid, at scale 4
+ *   stylekey.png    a corner of Willow Square at midday, hand-laid, at scale 4
  *   characters.png  every townsperson: rows are down, left, right, up; columns are the
  *                   two idle frames (on paving) and the four walk frames (on grass)
  *   palette.png     the palette, one row per ramp, dark to light
@@ -26,47 +26,59 @@ const col = (slot: Slot, a = 255) => [...lutRgb(lut, slot), a] as const;
 // stylekey.png: a sunny corner of Willow Square
 // ---------------------------------------------------------------------------------------
 
-// g grass, c cobble (paving), w water
+// g grass, c cobble (paving), d dirt, w water (natural pond), b basin (stone-rimmed water)
 const MAP = [
-  'gggggggggggggggggggg',
-  'ggggggggggggggwwwwwg',
-  'ggggggggggggggwwwwwg',
-  'ggggggggggggggwwwwwg',
-  'gggggggggggggggggggg',
-  'gggggggggggggggggggg',
-  'gggggcgggggggggggggg',
-  'gggggcgggggggggggggg',
-  'cccccccccccccccccccc',
-  'cccccccccccccccccccc',
-  'gggggggggggggggggggg',
-  'gggggggggggggggggggg',
-  'gggggggggggggggggggg',
+  'gggggggggggggggggggggggg',
+  'ggggggggggggggggggwwwggg',
+  'gggggggggggggggggwwwwwgg',
+  'gggggggggggggggggwwwwwwg',
+  'ggggggggggggggggggwwwwwg',
+  'gggggggggggggggggggwwwgg',
+  'gccccccccccccccggggggggg',
+  'gccccccccccccccggggggggg',
+  'gcccccbbbccccccggggggggg',
+  'gcccccbbbccccccccccccccc',
+  'gccccccccccccccccccccccc',
+  'gccccccccccccccggggggggg',
+  'gggggdgggggggggggggggggg',
+  'gggggddggggggggggggggggg',
+  'ggggggdggggggggggggggggg',
 ];
-const TERRAIN: Record<string, string> = { g: 'grass', c: 'cobble', w: 'water' };
+const TERRAIN: Record<string, string> = { g: 'grass', c: 'cobble', d: 'dirt', w: 'water', b: 'basin' };
 
 // Props sit on an origin tile: the bottom-left tile of their footprint.
 const PROPS: { kind: string; tx: number; ty: number }[] = [
-  { kind: 'house', tx: 3, ty: 5 },
-  { kind: 'tree', tx: 1, ty: 6 },
-  { kind: 'tree', tx: 10, ty: 3 },
-  { kind: 'tree', tx: 18, ty: 7 },
-  { kind: 'tree', tx: 16, ty: 12 },
-  { kind: 'lamp', tx: 7, ty: 7 },
-  { kind: 'bench', tx: 10, ty: 7 },
-  { kind: 'lily', tx: 15, ty: 2 },
-  { kind: 'lily', tx: 17, ty: 3 },
-  { kind: 'flowers', tx: 9, ty: 5 },
-  { kind: 'flowers', tx: 12, ty: 6 },
-  { kind: 'flowers', tx: 2, ty: 11 },
-  { kind: 'flowers', tx: 3, ty: 11 },
-  { kind: 'flowers', tx: 11, ty: 11 },
+  { kind: 'house', tx: 1, ty: 6 },
+  { kind: 'townhouse', tx: 9, ty: 6 },
+  { kind: 'tree', tx: 7, ty: 4 },
+  { kind: 'tree', tx: 15, ty: 4 },
+  { kind: 'tree', tx: 23, ty: 7 },
+  { kind: 'tree', tx: 1, ty: 13 },
+  { kind: 'tree', tx: 12, ty: 14 },
+  { kind: 'tree', tx: 21, ty: 13 },
+  { kind: 'lamp', tx: 7, ty: 6 },
+  { kind: 'lamp', tx: 14, ty: 11 },
+  { kind: 'bench', tx: 18, ty: 7 },
+  { kind: 'stepping-stones', tx: 21, ty: 8 },
+  { kind: 'stepping-stones', tx: 21, ty: 7 },
+  { kind: 'lily', tx: 19, ty: 2 },
+  { kind: 'lily', tx: 20, ty: 4 },
+  { kind: 'flowers', tx: 16, ty: 6 },
+  { kind: 'flowers', tx: 3, ty: 12 },
+  { kind: 'flowers-white', tx: 14, ty: 1 },
+  { kind: 'flowers-white', tx: 8, ty: 13 },
+  { kind: 'flowers-white', tx: 9, ty: 13 },
+  { kind: 'flowers-yellow', tx: 16, ty: 12 },
+  { kind: 'flowers-yellow', tx: 17, ty: 13 },
+  { kind: 'flowers-pink', tx: 23, ty: 12 },
+  { kind: 'flowers-pink', tx: 3, ty: 1 },
 ];
 
 // Actors stand on a feet position in world pixels.
 const ACTORS: { id: string; x: number; y: number; dir: Dir; pose: 'idle' | 'walk'; frame: number }[] = [
-  { id: 'ana', x: 5 * TILE + 8, y: 7 * TILE + 13, dir: 'down', pose: 'walk', frame: 0 },
-  { id: 'tomas', x: 14 * TILE + 8, y: 9 * TILE + 4, dir: 'left', pose: 'walk', frame: 0 },
-  { id: 'mira', x: 12 * TILE + 8, y: 11 * TILE + 2, dir: 'down', pose: 'idle', frame: 0 },
+  { id: 'ana', x: 3 * TILE + 8, y: 7 * TILE + 13, dir: 'down', pose: 'walk', frame: 0 },
+  { id: 'tomas', x: 17 * TILE + 8, y: 10 * TILE + 4, dir: 'left', pose: 'walk', frame: 0 },
+  { id: 'mira', x: 11 * TILE + 8, y: 10 * TILE + 6, dir: 'down', pose: 'idle', frame: 0 },
 ];
 
 const terrainAt = (tx: number, ty: number) => {
@@ -76,8 +88,9 @@ const terrainAt = (tx: number, ty: number) => {
 
 /** A small deterministic hash of a tile position, to pick a ground variant. */
 function hash(tx: number, ty: number): number {
-  let h = Math.imul(tx, 73856093) ^ Math.imul(ty, 19349663);
-  h = Math.imul(h ^ (h >>> 13), 0x5bd1e995);
+  let h = (Math.imul(tx + 11, 374761393) + Math.imul(ty + 7, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
   return (h ^ (h >>> 15)) >>> 0;
 }
 
@@ -104,8 +117,12 @@ function scene(): Surface {
       out.blit(looks[hash(tx, ty) % looks.length]!, tx * TILE, ty * TILE, lut);
     }
   }
+  // `fringe.n` is drawn on the tile north of the terrain, so a tile looks south for it.
   const edges: [FringeSide, number, number][] = [['n', 0, 1], ['s', 0, -1], ['w', 1, 0], ['e', -1, 0]];
   const corners: [FringeSide, number, number][] = [['nw', 1, 1], ['ne', -1, 1], ['sw', 1, -1], ['se', -1, -1]];
+  const inner: [FringeSide, FringeSide, FringeSide][] = [
+    ['in-ne', 'n', 'e'], ['in-nw', 'n', 'w'], ['in-se', 's', 'e'], ['in-sw', 's', 'w'],
+  ];
   for (let ty = 0; ty < h; ty++) {
     for (let tx = 0; tx < w; tx++) {
       const here = terrainAt(tx, ty);
@@ -113,15 +130,21 @@ function scene(): Surface {
         .filter((t) => t.priority > here.priority && t.fringe)
         .sort((a, b) => a.priority - b.priority);
       for (const t of over) {
+        const f = t.fringe!;
         const is = (dx: number, dy: number) => terrainAt(tx + dx, ty + dy) === t;
-        // `fringe.n` is drawn on the tile north of the terrain, so look south for it
-        for (const [side, dx, dy] of edges) {
-          if (is(dx, dy) && t.fringe![side]) out.blit(t.fringe![side]!, tx * TILE, ty * TILE, lut);
-        }
-        for (const [side, dx, dy] of corners) {
-          if (is(dx, dy) && !is(dx, 0) && !is(0, dy) && t.fringe![side]) {
-            out.blit(t.fringe![side]!, tx * TILE, ty * TILE, lut);
+        const put = (side: FringeSide) => f[side] && out.blit(f[side]!, tx * TILE, ty * TILE, lut);
+        const wanted = new Set(edges.filter(([, dx, dy]) => is(dx, dy)).map(([side]) => side));
+        // two adjacent edges become one inner-corner piece, when the terrain has one
+        const used = new Set<FringeSide>();
+        for (const [key, a, b] of inner) {
+          if (wanted.has(a) && wanted.has(b) && f[key]) {
+            put(key);
+            used.add(a).add(b);
           }
+        }
+        for (const side of wanted) if (!used.has(side)) put(side);
+        for (const [side, dx, dy] of corners) {
+          if (is(dx, dy) && !is(dx, 0) && !is(0, dy)) put(side);
         }
       }
     }
@@ -146,7 +169,8 @@ function scene(): Surface {
   for (const a of ACTORS) shadow(out, a.x, a.y - 1, 5, 2);
   // a building throws a thin strip along its base
   for (const p of PROPS) {
-    if (p.kind === 'house') out.rect(p.tx * TILE + 2, (p.ty + 1) * TILE, 78, 2, col('steel.0', 56));
+    const def = art.props[p.kind]!;
+    if ((def.footprint?.h ?? 0) >= 2) out.rect(p.tx * TILE + 2, (p.ty + 1) * TILE, def.sprite.w - 2, 2, col('steel.0', 56));
   }
 
   // standing things, sorted by their base line

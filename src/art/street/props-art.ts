@@ -1,24 +1,30 @@
 // Small street props as text grids. Sizes and anchors are listed in index.ts.
 import { sprite, type Sprite } from '../../core/sprite';
 
+// A park bench in three-quarter view: the backrest behind, the seat's top plane in the
+// lightest wood, stubby armrests, and the right end in shade.
 export const benchArt: Sprite = sprite(`
-  ................................
-  ................................
-  ...00000000000000000000000000...
-  ..0wuwwwwwwwwwwwwwwwwwwwwwwuw0..
-  ..0vuvvvvvvvvvvvvvvvvvvvvvvuv0..
-  ...0u0000000000000000000000u0...
-  ..0wuwwwwwwwwwwwwwwwwwwwwwwuw0..
-  ..0vuvvvvvvvvvvvvvvvvvvvvvvuv0..
-  .000u0000000000000000000000u000.
-  0wwwwwwwwwwwwwwwwwwwwwwwwwwwwww0
-  0wwwwwwwwwwwwwwwwwwwwwwwwwwwwww0
-  0vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv0
-  .032200000000000000000000003220.
-  .03220....................03220.
-  .03220....................03220.
-  ..000......................000..
-`, { anchor: [0, 16] });
+  ..0000000000000000000000000000..
+  .0wwwwwwwwwwwwwwwwwwwwwwwwwwwu0.
+  .0vvvvvvvvvvvvvvvvvvvvvvvvvvvu0.
+  .0vvvvvvvvvvvvvvvvvvvvvvvvvvvu0.
+  .0uuuuuuuuuuuuuuuuuuuuuuuuuuuu0.
+  .0wwwwwwwwwwwwwwwwwwwwwwwwwwwu0.
+  0000vvvvvvvvvvvvvvvvvvvvvvvv0000
+  0ww0vvvvvvvvvvvvvvvvvvvvvvvv0vu0
+  0wv00000000000000000000000000uu0
+  0vv0wwwwwwwwwwwwwwwwwwwwwwww0uu0
+  0000wwwwwwwwwwwwwwwwwwwwwwww0000
+  .0wwwwwwwwwwwwwwwwwwwwwwwwwwwv0.
+  .0wwwwwwwwwwwwwwwwwwwwwwwwwwwv0.
+  .0vvvvvvvvvvvvvvvvvvvvvvvvvvvu0.
+  .0uuuuuuuuuuuuuuuuuuuuuuuuuuuu0.
+  ..0000000000000000000000000000..
+  ..0320....................0210..
+  ..0320....................0210..
+  ..0320....................0210..
+  ..0000....................0000..
+`, { anchor: [0, 20] });
 
 export const signpostArt: Sprite = sprite(`
   ................

@@ -1,9 +1,11 @@
-import { sprite, type Sprite } from '../../core/sprite';
+import { recolor, sprite, type Sprite } from '../../core/sprite';
+import type { Slot } from '../../core/palette';
 import type { PropDef } from '../../core/types';
 
-// The reference house of the daylight look: a timber-framed cottage with a warm tiled
-// roof. It is assembled from a few small pieces (roof tiles, a window, a door), which is
-// how the building kit should work too: draw the pieces once, compose many houses.
+// The reference buildings of the daylight look: a timber-framed cottage with a red gable
+// roof, and a two-storey townhouse with a blue hip roof. Both are assembled from the same
+// few pieces (a roof face, a window, a door), which is how the building kit should work
+// too: draw the pieces once, compose many houses.
 
 // --- a tiny canvas to assemble pieces on -----------------------------------------------
 
@@ -16,7 +18,7 @@ interface Canvas {
 const canvas = (w: number, h: number): Canvas => ({ w, h, px: new Uint8Array(w * h) });
 
 /** Copy a piece onto the canvas with its top-left corner at (x, y). */
-function paste(c: Canvas, s: Sprite, x: number, y: number): void {
+function paste(c: Canvas, s: Sprite | Canvas, x: number, y: number): void {
   for (let sy = 0; sy < s.h; sy++) {
     for (let sx = 0; sx < s.w; sx++) {
       const v = s.px[sy * s.w + sx]!;
@@ -37,11 +39,6 @@ function fill(c: Canvas, s: Sprite, x: number, y: number, w: number, h: number):
   }
 }
 
-/** Erase single pixels (to round a corner). */
-function erase(c: Canvas, points: readonly (readonly [number, number])[]): void {
-  for (const [x, y] of points) c.px[y * c.w + x] = 0;
-}
-
 const done = (c: Canvas, anchor: readonly [number, number]): Sprite => ({
   w: c.w,
   h: c.h,
@@ -50,31 +47,72 @@ const done = (c: Canvas, anchor: readonly [number, number]): Sprite => ({
   ay: anchor[1],
 });
 
-// --- pieces ----------------------------------------------------------------------------
+// --- roof pieces -----------------------------------------------------------------------
 
-// Two courses of roof tiles in a running bond. Each tile is a flat face with a sunlit
-// lip; a scalloped shade line hangs under each course. No full grid of joints: the roof
-// must read as tiles, not as a brick wall.
-const roofTiles = sprite(`
-  yyyyyyyyyyyyyyyy
-  yzzyyyyyyzzyyyyy
-  yyyyyyyyyyyyyyyy
-  xyyyyyxxxyyyyyxx
-  yxxxxxyyyxxxxxyy
-  yyyyyyyyyyyyyyyy
-  yyyyyzzyyyyyyzzy
-  yyyyyyyyyyyyyyyy
-  yyxxxyyyyyxxxyyy
-  xxyyyxxxxxyyyxxx
+// The roof face: nine courses of tiles, 5 pixels each. Tiles are 6 to 9 pixels wide so
+// that no two courses line up, a scalloped brick.0 line hangs under every course, and
+// only some tiles catch the sun on their lip. A roof takes as much of this as it needs,
+// from the top-left corner. It must read as tiles, never as a brick wall.
+const roofFace = sprite(`
+  yyyyyyyyyyyyzzzzyyyyyyyyyyyyzzzyyyyzzzzyyyzzzyyyyyyyyyyyyyyyyyyyyyyzzzzyyyyzzyyy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yxxxyyyyyxxxyyyyyxxxyyyyyxxxyyyyxxxyyyyxxxyyyyyyxxxyyyyyxxxyyyyyxxxyyyyyxxxyyyxx
+  xyyyxxxxxyyyxxxxxyyyxxxxxyyyxxxxyyyxxxxyyyxxxxxxyyyxxxxxyyyxxxxxyyyxxxxxyyyxxxyy
+  zzyyyyyyyyyyyyzzzyyyyyzzyyyyyyyyyyyyyyyyyyyyyyzzyyyyyyyzzyyyyyyyyyyyyyyzzzyyyyyz
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yyyyxxxyyyyxxxyyyyyxxxyyyyyxxxyyyyyxxxyyyyyxxxyyyyyyxxxyyyyyxxxyyyyyxxxyyyyyxxxy
+  xxxxyyyxxxxyyyxxxxxyyyxxxxxyyyxxxxxyyyxxxxxyyyxxxxxxyyyxxxxxyyyxxxxxyyyxxxxxyyyx
+  yzzzzyyyyyyyyyyyyyyyyyyyyzzyyyyyyyzzzyyyyzzyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  xyyyyyxxxyyyyyxxxyyyyyxxxyyyyyyxxxyyyyxxxyyyyxxxyyyyyyxxxyyyyyxxxyyyyyyxxxyyyyyx
+  yxxxxxyyyxxxxxyyyxxxxxyyyxxxxxxyyyxxxxyyyxxxxyyyxxxxxxyyyxxxxxyyyxxxxxxyyyxxxxxy
+  yzzzzyyyyyyyyyzzzyyyyyyyyyyyzzzzyyyyyyyyyyyzzyyyyyyyyyyyyyyzzzzyyyyyyyyyyyyyyyyy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  xyyyxxxyyyyxxxyyyxxxyyyyyxxxyyyyyxxxyyyyxxxyyyyyxxxyyyyyxxxyyyyyxxxyyyyxxxyyyyyy
+  yxxxyyyxxxxyyyxxxyyyxxxxxyyyxxxxxyyyxxxxyyyxxxxxyyyxxxxxyyyxxxxxyyyxxxxyyyxxxxxx
+  yyyyyzzzzyyzzzzyyyzzzzyyyyzzyyyyyyzzzyyyyyyyyyyyyyyyyyyyzzyyyyyzzzyyyyyyyyyyyyyy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yyxxxyyyxxxyyyyxxxyyyyyxxxyyyyyxxxyyyxxxyyyyyxxxyyyyyxxxyyyyxxxyyyyyyxxxyyyyyxxx
+  xxyyyxxxyyyxxxxyyyxxxxxyyyxxxxxyyyxxxyyyxxxxxyyyxxxxxyyyxxxxyyyxxxxxxyyyxxxxxyyy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyzzyyyyyyyyyyyyyyyyyyyzzyyyyyyyzzzzyyzzzzyyyyyyyyyyy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yyxxxyyyyyyxxxyyyyxxxyyyyyxxxyyyyyyxxxyyyxxxyyyxxxyyyyyyxxxyyyxxxyyyyyyxxxyyyyyy
+  xxyyyxxxxxxyyyxxxxyyyxxxxxyyyxxxxxxyyyxxxyyyxxxyyyxxxxxxyyyxxxyyyxxxxxxyyyxxxxxx
+  yyyyyyyyyyyyyyyyzzyyyyyyzzzyyyyyyyyyyyyyyzzzzyyyyzzyyyyzzzzyyyyyyyyyyyyyyyyyyzzy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yyyyxxxyyyyyyxxxyyyyyxxxyyyyyyxxxyyyyyxxxyyyyyxxxyyyxxxyyyyyxxxyyyxxxyyyyyxxxyyy
+  xxxxyyyxxxxxxyyyxxxxxyyyxxxxxxyyyxxxxxyyyxxxxxyyyxxxyyyxxxxxyyyxxxyyyxxxxxyyyxxx
+  zzyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyzzzyyyyyzzzyyyyyyyyyyyyyyyyyy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yyxxxyyyyxxxyyyyxxxyyyyyxxxyyyyyxxxyyyyyyxxxyyyyxxxyyyyyxxxyyyyxxxyyyyxxxyyyxxxy
+  xxyyyxxxxyyyxxxxyyyxxxxxyyyxxxxxyyyxxxxxxyyyxxxxyyyxxxxxyyyxxxxyyyxxxxyyyxxxyyyx
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyzzzzyyyyzzyyyyyyyyyyyyyyyyyyyyzzyy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yyyyxxxyyyyyxxxyyyyxxxyyyyyxxxyyyyxxxyyyyyyxxxyyyyyxxxyyyyyxxxyyyyyxxxyyyxxxyyyy
+  xxxxyyyxxxxxyyyxxxxyyyxxxxxyyyxxxxyyyxxxxxxyyyxxxxxyyyxxxxxyyyxxxxxyyyxxxyyyxxxx
 `);
 
 // One-pixel-wide columns, repeated sideways into long strips.
+// The ridge is a cap of clearly lighter tiles; the eave ends in a lit lip and a shade line.
 const ridge = sprite(`
   0
   z
   z
-  y
+  z
   x
+`);
+const ridgeJoint = sprite(`
+  y
+  y
 `);
 const eave = sprite(`
   z
@@ -84,11 +122,71 @@ const eave = sprite(`
   0
 `);
 const ink = sprite('0');
-const lit = sprite('z');
-const shade = sprite('x');
+
+type RoofRamp = 'brick' | 'ochre' | 'sky';
+
+interface RoofSpec {
+  w: number;
+  h: number;
+  /**
+   * 0 for a gable roof: straight sides finished with bargeboards.
+   * For a hip roof, how many pixels each side leans in between the eave and the ridge.
+   */
+  hip: number;
+  ramp: RoofRamp;
+}
+
+/** Build a roof. The eave is its bottom 5 rows; the wall tucks 2 pixels under it. */
+function roof(spec: RoofSpec): Canvas {
+  const { w, h, hip } = spec;
+  const c = canvas(w, h);
+  fill(c, roofFace, 0, 5, w, h - 10);
+  fill(c, ridge, 0, 0, w, 5);
+  for (let x = 6; x < w; x += 7) fill(c, ridgeJoint, x, 2, 1, 2);
+  fill(c, eave, 0, h - 5, w, 5);
+
+  // Sides. Light comes from the upper left, so the left edge is lit and the right one
+  // shaded: cream bargeboards on a gable, a band of the roof's own tones on a hip.
+  const litEdge = sprite(hip ? 'z' : 'c');
+  const shadeEdge = sprite(hip ? 'x' : 'a');
+  const inset = (y: number) => (y >= h - 5 ? 0 : Math.round((hip * (h - 6 - y)) / (h - 6)));
+  for (let y = 0; y < h; y++) {
+    const i = inset(y);
+    const above = y > 0 ? inset(y - 1) : i;
+    for (let x = 0; x < w; x++) {
+      const d = Math.min(x, w - 1 - x); // distance from the nearer side
+      if (d < i) c.px[y * w + x] = 0;
+    }
+    // ink the edge, and the tread of each step where a hip leans in
+    for (let d = i; d <= Math.max(i, above); d++) {
+      paste(c, ink, d, y);
+      paste(c, ink, w - 1 - d, y);
+    }
+    if (y > 0 && y < h - 1) {
+      fill(c, litEdge, i + 1, y, 2, 1);
+      fill(c, shadeEdge, w - 3 - i, y, 2, 1);
+    }
+  }
+  fill(c, ink, inset(0), 0, w - 2 * inset(0), 1);
+  // round the four corners by one pixel
+  for (const [x, y] of [[inset(0), 0], [w - 1 - inset(0), 0], [0, h - 1], [w - 1, h - 1]] as const) {
+    c.px[y * w + x] = 0;
+  }
+  for (const [x, y] of [[inset(0) + 1, 1], [w - 2 - inset(0), 1], [1, h - 2], [w - 2, h - 2]] as const) {
+    paste(c, ink, x, y);
+  }
+
+  if (spec.ramp === 'brick') return c;
+  const to = (i: number) => `${spec.ramp}.${i}` as Slot;
+  const tinted = recolor(done(c, [0, 0]), { 'brick.0': to(0), 'brick.1': to(1), 'brick.2': to(2) });
+  return { w, h, px: new Uint8Array(tinted.px) };
+}
+
+// --- wall pieces -----------------------------------------------------------------------
 
 const plaster = sprite('c');
 const plasterShade = sprite('b');
+const paleYellow = sprite('r');
 const beam = sprite(`
   w
   v
@@ -96,6 +194,11 @@ const beam = sprite(`
   u
 `);
 const post = sprite('wvvu');
+// a string course between two storeys
+const course = sprite(`
+  c
+  a
+`);
 const plinth = sprite(`
   44444442
   33333332
@@ -124,6 +227,21 @@ const windowDay = sprite(WINDOW);
 const windowLit = sprite(
   WINDOW.replace(/[uw]/g, '.').replace(/8/g, 'q').replace(/9/g, 'q').replace(/f/g, 'r'),
 );
+
+// A louvred shutter, hung on each side of an upstairs window.
+const shutter = sprite(`
+  6666
+  6776
+  6776
+  6666
+  6776
+  6776
+  6666
+  6776
+  6776
+  6776
+  6666
+`);
 
 // A window box with geraniums.
 const flowerBox = sprite(`
@@ -161,6 +279,8 @@ const door = sprite(`
   uxxxxxxxxxxxxxxu
   4444444444444444
 `);
+// The same door in plain varnished wood.
+const woodDoor = recolor(door, { 'brick.0': 'wood.0', 'brick.1': 'wood.1', 'brick.2': 'wood.2' });
 
 // A stone chimney with a dark cap. It stands on the roof slope.
 const chimney = sprite(`
@@ -180,80 +300,130 @@ const chimney = sprite(`
   .0000000000.
 `);
 
-// --- the house -------------------------------------------------------------------------
+/** How far the roof overhangs the wall on each side. */
+const OVERHANG = 3;
+/** Height of a ground storey, plinth included, and of each storey above it. */
+const GROUND = 32;
+const UPPER = 26;
+/** Rows the chimney stands clear above the ridge. */
+const CHIMNEY_RISE = 6;
 
-const W = 80;
-const H = 80;
-const ROOF_TOP = 6;
-const ROOF_H = 44;
-const WALL_TOP = ROOF_TOP + ROOF_H - 2; // the eave overhangs the wall by two pixels
-const WALL_X = 2;
-const WALL_W = W - 4;
-const DOOR_X = 32;
-const WINDOW_XS = [9, 56];
-const WINDOW_Y = WALL_TOP + 8; // level with the top of the door
+interface Built {
+  day: Sprite;
+  glow: Sprite;
+}
 
-function buildHouse(): { day: Sprite; glow: Sprite } {
+// --- the cottage: one storey, timber frame, red gable roof -----------------------------
+
+function buildCottage(): Built {
+  const W = 80;
+  const ROOF_H = 44;
+  const top = CHIMNEY_RISE;
+  const wallTop = top + ROOF_H - 2;
+  const H = wallTop + GROUND + 1; // one more row for the ink base line
+  const wallX = OVERHANG;
+  const wallW = W - 2 * OVERHANG;
+  const base = H - 1;
+  const doorX = 32;
+  const windowXs = [9, 56];
+  const windowY = base - door.h + 1; // level with the top of the door
+
   const c = canvas(W, H);
-
-  // wall: plaster, a shadow under the eave, timber frame, stone plinth
-  fill(c, plaster, WALL_X, WALL_TOP, WALL_W, H - WALL_TOP);
-  fill(c, plasterShade, WALL_X, WALL_TOP, WALL_W, 4);
-  fill(c, beam, WALL_X, WALL_TOP + 4, WALL_W, 4);
-  fill(c, plinth, WALL_X, H - 5, WALL_W, 4);
-  for (const x of [WALL_X, DOOR_X - 6, DOOR_X + 18, WALL_X + WALL_W - 4]) {
-    fill(c, post, x, WALL_TOP + 4, 4, H - 5 - (WALL_TOP + 4));
+  fill(c, plaster, wallX, wallTop, wallW, GROUND);
+  fill(c, plasterShade, wallX, wallTop, wallW, 4);
+  fill(c, beam, wallX, wallTop + 4, wallW, 4);
+  fill(c, plinth, wallX, base - 4, wallW, 4);
+  for (const x of [wallX, doorX - 6, doorX + 18, wallX + wallW - 4]) {
+    fill(c, post, x, wallTop + 4, 4, base - 4 - (wallTop + 4));
   }
-  for (const x of WINDOW_XS) {
-    paste(c, windowDay, x, WINDOW_Y);
-    paste(c, flowerBox, x, WINDOW_Y + 11);
+  for (const x of windowXs) {
+    paste(c, windowDay, x, windowY);
+    paste(c, flowerBox, x, windowY + 11);
   }
-  paste(c, door, DOOR_X, H - 1 - door.h);
+  paste(c, door, doorX, base - door.h);
   // ink outline of the wall: both sides and the base line
-  fill(c, ink, WALL_X - 1, WALL_TOP, 1, H - 1 - WALL_TOP);
-  fill(c, ink, WALL_X + WALL_W, WALL_TOP, 1, H - 1 - WALL_TOP);
-  fill(c, ink, WALL_X, H - 1, WALL_W, 1);
+  fill(c, ink, wallX - 1, wallTop, 1, GROUND);
+  fill(c, ink, wallX + wallW, wallTop, 1, GROUND);
+  fill(c, ink, wallX, base, wallW, 1);
 
-  // roof: tile courses between a ridge cap and an eave, lit on the left, shaded on the right
-  fill(c, roofTiles, 0, ROOF_TOP + 5, W, ROOF_H - 10);
-  fill(c, ridge, 0, ROOF_TOP, W, 5);
-  fill(c, eave, 0, ROOF_TOP + ROOF_H - 5, W, 5);
-  fill(c, lit, 1, ROOF_TOP + 1, 2, ROOF_H - 2);
-  fill(c, shade, W - 3, ROOF_TOP + 1, 2, ROOF_H - 2);
-  fill(c, ink, 0, ROOF_TOP, 1, ROOF_H);
-  fill(c, ink, W - 1, ROOF_TOP, 1, ROOF_H);
-  // round the roof's corners by one pixel
-  erase(c, [
-    [0, ROOF_TOP],
-    [W - 1, ROOF_TOP],
-    [0, ROOF_TOP + ROOF_H - 1],
-    [W - 1, ROOF_TOP + ROOF_H - 1],
-  ]);
-  paste(c, ink, 1, ROOF_TOP + 1);
-  paste(c, ink, W - 2, ROOF_TOP + 1);
-  paste(c, ink, 1, ROOF_TOP + ROOF_H - 2);
-  paste(c, ink, W - 2, ROOF_TOP + ROOF_H - 2);
-
+  paste(c, roof({ w: W, h: ROOF_H, hip: 0, ramp: 'brick' }), 0, top);
   paste(c, chimney, 57, 0);
 
   const g = canvas(W, H);
-  for (const x of WINDOW_XS) paste(g, windowLit, x, WINDOW_Y);
-
+  for (const x of windowXs) paste(g, windowLit, x, windowY);
   return { day: done(c, [0, H]), glow: done(g, [0, H]) };
 }
 
-const house = buildHouse();
+// --- the townhouse: two storeys, pale yellow plaster, blue hip roof --------------------
+
+function buildTownhouse(): Built {
+  const W = 64;
+  const ROOF_H = 38;
+  const top = CHIMNEY_RISE;
+  const wallTop = top + ROOF_H - 2;
+  const wallH = UPPER + GROUND;
+  const H = wallTop + wallH + 1;
+  const wallX = OVERHANG;
+  const wallW = W - 2 * OVERHANG;
+  const base = H - 1;
+  const doorX = 9;
+  const upperY = wallTop + 8;
+  const groundY = base - door.h + 1;
+  const windows: [number, number][] = [
+    [9, upperY],
+    [40, upperY],
+    [40, groundY],
+  ];
+
+  const c = canvas(W, H);
+  fill(c, paleYellow, wallX, wallTop, wallW, wallH);
+  fill(c, plasterShade, wallX, wallTop, wallW, 4);
+  fill(c, course, wallX, wallTop + UPPER - 2, wallW, 2);
+  fill(c, plinth, wallX, base - 4, wallW, 4);
+  for (const [x, y] of windows) paste(c, windowDay, x, y);
+  for (const x of [9, 40]) {
+    paste(c, shutter, x - 3, upperY);
+    paste(c, shutter, x + 14, upperY);
+  }
+  paste(c, flowerBox, 40, groundY + 11);
+  paste(c, woodDoor, doorX, base - door.h);
+  fill(c, ink, wallX - 1, wallTop, 1, wallH);
+  fill(c, ink, wallX + wallW, wallTop, 1, wallH);
+  fill(c, ink, wallX, base, wallW, 1);
+
+  paste(c, roof({ w: W, h: ROOF_H, hip: 8, ramp: 'sky' }), 0, top);
+  paste(c, chimney, 40, 0);
+
+  const g = canvas(W, H);
+  for (const [x, y] of windows) paste(g, windowLit, x, y);
+  return { day: done(c, [0, H]), glow: done(g, [0, H]) };
+}
+
+const cottage = buildCottage();
+const townhouse = buildTownhouse();
 
 export const buildings: Record<string, PropDef> = {
   house: {
     id: 'house',
-    sprite: house.day,
-    emissive: house.glow,
+    sprite: cottage.day,
+    emissive: cottage.glow,
     footprint: { w: 5, h: 3 },
     lights: [
       { dx: 16, dy: -16, radius: 28, slot: 'ochre.2' },
       { dx: 63, dy: -16, radius: 28, slot: 'ochre.2' },
     ],
     places: { door: { dx: 2, dy: 1 } },
+  },
+  townhouse: {
+    id: 'townhouse',
+    sprite: townhouse.day,
+    emissive: townhouse.glow,
+    footprint: { w: 4, h: 3 },
+    lights: [
+      { dx: 47, dy: -16, radius: 28, slot: 'ochre.2' },
+      { dx: 16, dy: -48, radius: 24, slot: 'ochre.2' },
+      { dx: 47, dy: -48, radius: 24, slot: 'ochre.2' },
+    ],
+    places: { door: { dx: 1, dy: 1 } },
   },
 };

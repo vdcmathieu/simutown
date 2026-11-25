@@ -68,12 +68,12 @@ export const daylight: Theme = {
     'wood.1': '#AA6C40', // bark, beams, doors, brown hair
     'wood.2': '#DFAA6A', // planks, sunlit wood
     // skin: three tones, each a shade and a base
-    'skin.a.0': '#EFA57E',
-    'skin.a.1': '#FFD9B2',
+    'skin.a.0': '#EE9C86',
+    'skin.a.1': '#FFD0B8',
     'skin.b.0': '#C88355',
     'skin.b.1': '#EBB184',
-    'skin.c.0': '#7E4B3A',
-    'skin.c.1': '#AE7150',
+    'skin.c.0': '#7B4352',
+    'skin.c.1': '#A9655E',
     // plum and teal: clothing and paint
     'plum.0': '#6B4298',
     'plum.1': '#A97DD8',

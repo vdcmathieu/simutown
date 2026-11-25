@@ -71,14 +71,15 @@ const tomas = person({
   id: 'tomas',
   name: 'Tomas',
   legend: {
-    S: 'skin.c.1', K: 'skin.c.0', B: 'skin.c.1',
+    S: 'skin.c.1', K: 'skin.c.0', B: 'rose.0',
     H: 'steel.5', D: 'steel.4', L: 'steel.5',
-    T: 'brick.1', U: 'brick.0',
-    P: 'sky.0', Q: 'steel.1',
-    F: 'wood.0',
-    // straw hat: light, base, shade, band
-    Y: 'ochre.3', A: 'ochre.2', Z: 'ochre.1', R: 'brick.1',
+    T: 'sky.1', U: 'sky.0',
+    P: 'wood.1', Q: 'wood.0',
+    F: 'steel.1',
+    // straw hat: light, base, shade, and a plain brown band
+    Y: 'ochre.3', A: 'ochre.2', Z: 'ochre.1', R: 'wood.1',
   },
+  // His chin tuft hangs a row below the chin, so the head grids are 15 rows tall.
   head: {
     down: `
       ................
@@ -92,9 +93,10 @@ const tomas = person({
       ..0SSSSSSSSSS0..
       ..0SS0SSSS0SS0..
       ..0SS0SSSS0SS0..
-      ..0HHSSSSSSHH0..
-      ...0HHHHHHHH0...
-      ....00000000....
+      ..0SBSSSSSSBS0..
+      ...0SHHHHHHS0...
+      ....0HHHHHH0....
+      .....000000.....
     `,
     up: `
       ................
@@ -104,13 +106,14 @@ const tomas = person({
       .00YYAAAAAAAZ00.
       0YAAAAAAAAAAAAZ0
       .00000000000000.
-      ..0HHHHHHHHHD0..
-      ..0HHHHHHHHHD0..
-      ..0HHHHHHHHDD0..
-      ..0SDDDDDDDDS0..
+      ..0SHHHHHHHHS0..
+      ..0SHHHHHHHDS0..
+      ..0SSDDDDDDSS0..
       ..0SSSSSSSSSS0..
-      ...0SSSSSSSS0...
+      ..0SSSSSSSSSS0..
+      ...0KKKKKKKK0...
       ....00000000....
+      ................
     `,
     right: `
       ................
@@ -120,13 +123,14 @@ const tomas = person({
       .00YYAAAAAAAZ00.
       0YAAAAAAAAAAAAZ0
       .00000000000000.
-      ..0HHHSSSSSSS0..
-      ..0HHSSSSSSSS0..
-      ..0HHSSSSS0SS0..
+      ..0SHHSSSSSSS0..
+      ..0SHHSSSSSSS0..
+      ..0SSHSSSS0SS0..
       ..0SSSSSSS0SS0..
-      ..0SSSSSHHHHH0..
-      ...0SSSHHHHH0...
-      ....00000000....
+      ..0SSSSSSSSBS0..
+      ...0SSSSSHHH0...
+      ....00000HHH0...
+      .........000....
     `,
   },
 });

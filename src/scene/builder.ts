@@ -15,10 +15,11 @@ import * as T from './timing';
 import type { ActorHandle, ActorOpts, SceneBuilder, SceneOpts, Target } from './types';
 
 const DIRS: Dir[] = ['down', 'up', 'left', 'right'];
+/** Tiles beside an actor, in order of preference on ties: side by side reads best as a conversation. */
 const NEIGHBOURS: [number, number][] = [
-  [0, 1],
   [-1, 0],
   [1, 0],
+  [0, 1],
   [0, -1],
 ];
 

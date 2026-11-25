@@ -391,5 +391,10 @@ export const sunny: Theme = {
     'plum.1': '#B07CC0',
     'teal.0': '#2E8C8C',
     'teal.1': '#5CC4B8',
+    'sky.0': '#2F62C4',
+    'sky.1': '#4C9FEE',
+    'sky.2': '#9DDDF8',
+    'rose.0': '#DB4B78',
+    'rose.1': '#FFA1B6',
   },
 };

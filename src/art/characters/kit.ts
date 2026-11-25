@@ -9,7 +9,8 @@
  * to slots:
  *
  *   S skin        K skin shade     B blush
- *   H hair        D hair shade     L hair light
+ *   H hair        D hair shade     L hair light   (black hair has no D: never map a
+ *                                                   hair role to steel.0, ink is not a fill)
  *   T top         U top shade
  *   P trousers or skirt    Q their shade
  *   F shoes
@@ -41,8 +42,8 @@ const FRONT_STAND = `
   ....000..000....
 `;
 
-// A step: the viewer's left foot lands big and low, the right one is tucked up, and the
-// arms swing against the legs (one hand high, the other low). Mirror it for the other step.
+// A step: the viewer's left foot lands big and low, the right leg is a row shorter in its
+// own column, and the arms swing against the legs (one hand high, the other low). Mirror it for the other step.
 const FRONT_STEP = `
   ................
   ................
@@ -51,9 +52,9 @@ const FRONT_STEP = `
   ..00UTTTTTTUT0..
   ...0UTTTTTT0T0..
   ....0UUUUUU0S0..
-  ....0PPPPFF000..
-  ....0PP00000....
-  ...0FFF0........
+  ....0PPPPPP000..
+  ....0PP00FF0....
+  ...0FFF00000....
   ...00000........
 `;
 

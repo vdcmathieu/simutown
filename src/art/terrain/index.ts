@@ -1,6 +1,6 @@
 import { sprite, stack } from '../../core/sprite';
 import type { Sprite } from '../../core/sprite';
-import { TILE, type TerrainDef } from '../../core/types';
+import { type Anim, TILE, type TerrainDef } from '../../core/types';
 import { basinRim, pondBank } from './shores';
 
 // Reference ground for the daylight look. These tiles set the level of detail:
@@ -156,11 +156,13 @@ const dirtB = sprite(`
 `);
 
 // ---------------------------------------------------------------------------------------
-// Water: flat sky.1. Each variant carries two or three ripples of different lengths, on
-// rows and columns that no other variant uses, so a mixed pond shows no 16-pixel grid.
+// Water: flat sky.1. Each variant carries one or two ripples of different lengths, on rows
+// and columns that no other variant uses, so a mixed pond shows no 16-pixel grid. Ripples
+// keep 2 pixels clear of the tile's sides: the shimmer slides them sideways and back.
 // ---------------------------------------------------------------------------------------
 
 const waterA = sprite(`
+  9999999999999999
   9999999999999999
   9999999999999999
   999ffff999999999
@@ -170,11 +172,10 @@ const waterA = sprite(`
   9999999999999999
   9999999999999999
   9999999999999999
-  9999999999fff999
+  9999999999999999
+  999999999ff99999
   9999999999999999
   9999999999999999
-  9999999999999999
-  9ff9999999999999
   9999999999999999
   9999999999999999
 `);
@@ -184,14 +185,14 @@ const waterB = sprite(`
   9999999999999999
   9999999999999999
   9999999999999999
-  99999999fffff999
+  9999999999999999
+  9999999999999999
+  999999fffff99999
   9999999999999999
   9999999999999999
   9999999999999999
   9999999999999999
   9999999999999999
-  9999999999999999
-  9999ff9999999999
   9999999999999999
   9999999999999999
   9999999999999999
@@ -200,20 +201,20 @@ const waterB = sprite(`
 
 const waterC = sprite(`
   9999999999999999
-  999999999999ff99
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  99999ffff9999999
+  999999999fff9999
   9999999999999999
   9999999999999999
   9999999999999999
   9999999999999999
   9999999999999999
   9999999999999999
-  9fff999999999999
+  9999999999999999
+  99fff99999999999
+  9999999999999999
+  9999999999999999
+  9999999999999999
+  9999999999999999
+  9999999999999999
   9999999999999999
 `);
 
@@ -221,29 +222,42 @@ const waterD = sprite(`
   9999999999999999
   9999999999999999
   9999999999999999
-  9999999ff5999999
-  9999999999999999
-  9999999999999999
-  99ff999999999999
   9999999999999999
   9999999999999999
   9999999999999999
   9999999999999999
   9999999999999999
-  99999999999ffff9
   9999999999999999
+  9999999999999999
+  9999999999999999
+  9999999999999999
+  9999999999999999
+  99999fff59999999
   9999999999999999
   9999999999999999
 `);
 
 const waterLooks = [waterA, waterB, waterC, waterD];
 
+/** The same tile with every pixel moved `dx` to the right, wrapping at the sides. */
+function drift(s: Sprite, dx: number): Sprite {
+  const px = new Uint8Array(s.px.length);
+  for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) px[y * s.w + ((x + dx) % s.w)] = s.px[y * s.w + x]!;
+  return { ...s, px };
+}
+
+// A slow, gentle shimmer: each ripple slides 2 pixels to the right and back, 2 frames a
+// second. The renderer starts every tile at its own phase, so the pond never pulses.
+const waterShimmer: Anim[] = waterLooks.map((s) => ({ frames: [s, drift(s, 1), drift(s, 2), drift(s, 1)], fps: 2 }));
+
 // ---------------------------------------------------------------------------------------
 // The turf edge: grass creeping over paving or dirt. A fringe piece is drawn on the
 // NEIGHBOURING tile, so it is authored as a small strip and pinned to that tile's edge.
-// Lumps are 1, 2 and 3 pixels deep at uneven spacing, and every side has its own rhythm.
-// One line of darker green closes the edge: moss.1 where it faces the light (north and
-// west), moss.0 where it faces away (south and east).
+// Lumps are 1, 2 and 3 pixels deep in runs of uneven length. Every side has three
+// interchangeable strips (the renderer picks one per tile), and every strip starts and
+// ends 2 deep, so any strip joins any other and a long edge never repeats on a 16-pixel
+// beat. One line of darker green closes the edge: moss.1 where it faces the light (north
+// and west), moss.0 where it faces away (south and east).
 // ---------------------------------------------------------------------------------------
 
 type Corner = 'tl' | 'tr' | 'bl' | 'br';
@@ -267,29 +281,77 @@ function upright(s: Sprite): Sprite {
 }
 
 // on the tile north of the grass: its bottom rows
-const turfN = pin(sprite(`
-  ..........hhhh..
-  .hhhh..hhhiiiih.
-  hiiiihhiiiiiiihh
-`), 'bl');
+const turfN = [
+  pin(sprite(`
+    .....hhhh.....h.
+    hh..hiiiih..hhih
+    iihhiiiiiihhiiii
+  `), 'bl'),
+  pin(sprite(`
+    .hh......hhh....
+    hiih....hiiih..h
+    iiiihhhhiiiiihhi
+  `), 'bl'),
+  pin(sprite(`
+    .....hh.....hhh.
+    h..hhiih...hiiih
+    ihhiiiiihhhiiiii
+  `), 'bl'),
+];
 // on the tile south of the grass: its top rows
-const turfS = pin(sprite(`
-  iiiggiiiiiigggii
-  ggg.giiiigg...gg
-  .....gggg.......
-`), 'tl');
+const turfS = [
+  pin(sprite(`
+    iggiiiiiggggiiii
+    g..giiig....giig
+    ....ggg......gg.
+  `), 'tl'),
+  pin(sprite(`
+    iggiiiiigggiiiii
+    g..ggiig...giiig
+    .....gg.....ggg.
+  `), 'tl'),
+  pin(sprite(`
+    iiiiggiiiiiiggii
+    gigg..giiiig..gg
+    .g.....gggg.....
+  `), 'tl'),
+];
 // on the tile west of the grass: its right columns
-const turfW = pin(upright(sprite(`
-  ...hhh......hh..
-  hhhiiih..hhhiihh
-  iihiiihhhiiiiiii
-`)), 'tr');
+const turfW = [
+  pin(upright(sprite(`
+    .....hh.....hhh.
+    h..hhiih...hiiih
+    ihhiiiiihhhiiiii
+  `)), 'tr'),
+  pin(upright(sprite(`
+    .h.....hhhh.....
+    hihh..hiiiih..hh
+    iiiihhiiiiiihhii
+  `)), 'tr'),
+  pin(upright(sprite(`
+    .hh......hhh....
+    hiih....hiiih..h
+    iiiihhhhiiiiihhi
+  `)), 'tr'),
+];
 // on the tile east of the grass: its left columns
-const turfE = pin(upright(sprite(`
-  giiiiiiigggiiiig
-  .gggiigg...gggg.
-  ....gg..........
-`)), 'tl');
+const turfE = [
+  pin(upright(sprite(`
+    iiiiigggiiiiiggi
+    giiig...giigg..g
+    .ggg.....gg.....
+  `)), 'tl'),
+  pin(upright(sprite(`
+    iiggiiiiiiggiiii
+    gg..giiiig..ggig
+    .....gggg.....g.
+  `)), 'tl'),
+  pin(upright(sprite(`
+    iggiiiiiggggiiii
+    g..giiig....giig
+    ....ggg......gg.
+  `)), 'tl'),
+];
 
 const turf: TerrainDef['fringe'] = {
   n: turfN,
@@ -314,7 +376,7 @@ const turf: TerrainDef['fringe'] = {
     .g
   `), 'tr'),
   // inner corners: the two strips, plus a wedge of grass that rounds the bend
-  'in-ne': stack(turfN, turfE, pin(sprite(`
+  'in-ne': stack(turfN[0]!, turfE[0]!, pin(sprite(`
     gg....
     iig...
     iiig..
@@ -322,7 +384,7 @@ const turf: TerrainDef['fringe'] = {
     iiiiig
     iiiiig
   `), 'bl')),
-  'in-nw': stack(turfN, turfW, pin(sprite(`
+  'in-nw': stack(turfN[0]!, turfW[0]!, pin(sprite(`
     ....hh
     ...hii
     ..hiii
@@ -330,7 +392,7 @@ const turf: TerrainDef['fringe'] = {
     hiiiii
     hiiiii
   `), 'br')),
-  'in-se': stack(turfS, turfE, pin(sprite(`
+  'in-se': stack(turfS[0]!, turfE[0]!, pin(sprite(`
     iiiiig
     iiiiig
     iiiig.
@@ -338,7 +400,7 @@ const turf: TerrainDef['fringe'] = {
     iig...
     gg....
   `), 'tl')),
-  'in-sw': stack(turfS, turfW, pin(sprite(`
+  'in-sw': stack(turfS[0]!, turfW[0]!, pin(sprite(`
     hiiiii
     hiiiii
     .giiii
@@ -353,7 +415,7 @@ export const terrain: Record<string, TerrainDef> = {
   cobble: { id: 'cobble', variants: [cobbleA, cobbleB], priority: 1 },
   grass: { id: 'grass', variants: [grassA, grassB, grassC], priority: 2, fringe: turf },
   // A natural pond: a grass bank that curves. See shores.ts.
-  water: { id: 'water', variants: waterLooks, solid: true, priority: 3, fringe: pondBank },
+  water: { id: 'water', variants: waterLooks, anims: waterShimmer, solid: true, priority: 3, fringe: pondBank },
   // The same water in a stone rim, for squares and gardens.
-  basin: { id: 'basin', variants: waterLooks, solid: true, priority: 3, fringe: basinRim },
+  basin: { id: 'basin', variants: waterLooks, anims: waterShimmer, solid: true, priority: 3, fringe: basinRim },
 };

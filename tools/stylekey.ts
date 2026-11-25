@@ -3,32 +3,65 @@
  *
  *   pnpm tsx tools/stylekey.ts
  *
- * Writes three PNGs into docs/style/ (they are committed):
+ * Writes four PNGs into docs/style/ (they are committed):
  *   stylekey.png    a corner of Willow Square at midday, hand-laid, at scale 4
  *   characters.png  every townsperson: rows are down, left, right, up; columns are the
  *                   two idle frames (on paving) and the four walk frames (on grass)
+ *   pieces.png      the approved repeat pieces at scale 8: copy these pixels
  *   palette.png     the palette, one row per ramp, dark to light, each swatch labelled
  *                   with its slot name and its sprite-grid letter (in red)
  *
- * The scene is composed here, by hand, without the renderer: the style key must not
- * change when the renderer does.
+ * The ground (tile variants, fringes, inner corners) is composed by the renderer's own
+ * ground pass, so the key shows edges exactly as the engine draws them. Props, people
+ * and contact shadows are laid on top here, in raw palette colours.
  */
 import { art } from '../src/art';
 import { compileTheme, daylight, lutRgb, SLOTS, type Slot } from '../src/core/palette';
 import { LEGEND, type Sprite } from '../src/core/sprite';
 import { Surface } from '../src/core/surface';
-import { type Dir, type FringeSide, TILE } from '../src/core/types';
+import { type Dir, TILE, type Town } from '../src/core/types';
 import { writePNG } from '../src/node/png';
-import { drawText } from '../src/ui';
+import { buildGround } from '../src/render/ground';
+import { drawText, measureText } from '../src/ui';
 
 const lut = compileTheme(daylight);
 const col = (slot: Slot, a = 255) => [...lutRgb(lut, slot), a] as const;
 
+// g grass, c cobble (paving), d dirt, w water (natural pond), b basin (stone-rimmed water)
+const TERRAIN: Record<string, string> = { g: 'grass', c: 'cobble', d: 'dirt', w: 'water', b: 'basin' };
+
+/** Compose the ground of a hand-laid map with the renderer's ground pass. */
+function ground(map: string[]): Surface {
+  const w = map[0]!.length;
+  const h = map.length;
+  const town: Town = {
+    name: 'stylekey',
+    w,
+    h,
+    terrain: map.flatMap((row) => [...row].map((ch) => TERRAIN[ch]!)),
+    props: [],
+    places: {},
+    solid: new Uint8Array(w * h),
+  };
+  const out = new Surface(w * TILE, h * TILE);
+  out.draw(buildGround(town, art, lut, () => {}).surface);
+  return out;
+}
+
+/** A flat ink ellipse at 22% alpha: the contact shadow the renderer draws at midday. */
+function shadow(out: Surface, cx: number, cy: number, rx: number, ry: number): void {
+  for (let y = -ry; y <= ry; y++) {
+    for (let x = -rx; x <= rx; x++) {
+      const inside = (x * x) / ((rx + 0.5) * (rx + 0.5)) + (y * y) / ((ry + 0.5) * (ry + 0.5)) <= 1;
+      if (inside) out.rect(cx + x, cy + y, 1, 1, col('steel.0', 56));
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------------------
-// stylekey.png: a sunny corner of Willow Square
+// stylekey.png: a corner of Willow Square
 // ---------------------------------------------------------------------------------------
 
-// g grass, c cobble (paving), d dirt, w water (natural pond), b basin (stone-rimmed water)
 const MAP = [
   'gggggggggggggggggggggggg',
   'ggggggggggggggggggwwwggg',
@@ -46,7 +79,6 @@ const MAP = [
   'gggggddggggggggggggggggg',
   'ggggggdggggggggggggggggg',
 ];
-const TERRAIN: Record<string, string> = { g: 'grass', c: 'cobble', d: 'dirt', w: 'water', b: 'basin' };
 
 // Props sit on an origin tile: the bottom-left tile of their footprint.
 const PROPS: { kind: string; tx: number; ty: number }[] = [
@@ -83,74 +115,8 @@ const ACTORS: { id: string; x: number; y: number; dir: Dir; pose: 'idle' | 'walk
   { id: 'mira', x: 11 * TILE + 8, y: 10 * TILE + 6, dir: 'down', pose: 'idle', frame: 0 },
 ];
 
-const terrainAt = (tx: number, ty: number) => {
-  const row = MAP[Math.max(0, Math.min(MAP.length - 1, ty))]!;
-  return art.terrain[TERRAIN[row[Math.max(0, Math.min(row.length - 1, tx))]!]!]!;
-};
-
-/** A small deterministic hash of a tile position, to pick a ground variant. */
-function hash(tx: number, ty: number): number {
-  let h = (Math.imul(tx + 11, 374761393) + Math.imul(ty + 7, 668265263)) | 0;
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
-  return (h ^ (h >>> 15)) >>> 0;
-}
-
-/** A flat ink ellipse at 22% alpha: the contact shadow the renderer will draw at midday. */
-function shadow(out: Surface, cx: number, cy: number, rx: number, ry: number): void {
-  for (let y = -ry; y <= ry; y++) {
-    for (let x = -rx; x <= rx; x++) {
-      const inside = (x * x) / ((rx + 0.5) * (rx + 0.5)) + (y * y) / ((ry + 0.5) * (ry + 0.5)) <= 1;
-      if (inside) out.rect(cx + x, cy + y, 1, 1, col('steel.0', 56));
-    }
-  }
-}
-
 function scene(): Surface {
-  const w = MAP[0]!.length;
-  const h = MAP.length;
-  const out = new Surface(w * TILE, h * TILE).clear(col('moss.2'));
-
-  // ground, then the fringes of higher-priority neighbours on top of it
-  for (let ty = 0; ty < h; ty++) {
-    for (let tx = 0; tx < w; tx++) {
-      const def = terrainAt(tx, ty);
-      const looks = def.anim ? [def.anim.frames[0]!] : def.variants;
-      out.blit(looks[hash(tx, ty) % looks.length]!, tx * TILE, ty * TILE, lut);
-    }
-  }
-  // `fringe.n` is drawn on the tile north of the terrain, so a tile looks south for it.
-  const edges: [FringeSide, number, number][] = [['n', 0, 1], ['s', 0, -1], ['w', 1, 0], ['e', -1, 0]];
-  const corners: [FringeSide, number, number][] = [['nw', 1, 1], ['ne', -1, 1], ['sw', 1, -1], ['se', -1, -1]];
-  const inner: [FringeSide, FringeSide, FringeSide][] = [
-    ['in-ne', 'n', 'e'], ['in-nw', 'n', 'w'], ['in-se', 's', 'e'], ['in-sw', 's', 'w'],
-  ];
-  for (let ty = 0; ty < h; ty++) {
-    for (let tx = 0; tx < w; tx++) {
-      const here = terrainAt(tx, ty);
-      const over = Object.values(art.terrain)
-        .filter((t) => t.priority > here.priority && t.fringe)
-        .sort((a, b) => a.priority - b.priority);
-      for (const t of over) {
-        const f = t.fringe!;
-        const is = (dx: number, dy: number) => terrainAt(tx + dx, ty + dy) === t;
-        const put = (side: FringeSide) => f[side] && out.blit(f[side]!, tx * TILE, ty * TILE, lut);
-        const wanted = new Set(edges.filter(([, dx, dy]) => is(dx, dy)).map(([side]) => side));
-        // two adjacent edges become one inner-corner piece, when the terrain has one
-        const used = new Set<FringeSide>();
-        for (const [key, a, b] of inner) {
-          if (wanted.has(a) && wanted.has(b) && f[key]) {
-            put(key);
-            used.add(a).add(b);
-          }
-        }
-        for (const side of wanted) if (!used.has(side)) put(side);
-        for (const [side, dx, dy] of corners) {
-          if (is(dx, dy) && !is(dx, 0) && !is(0, dy)) put(side);
-        }
-      }
-    }
-  }
+  const out = ground(MAP);
 
   // flat props lie on the ground under everything
   for (const p of PROPS) {
@@ -158,22 +124,21 @@ function scene(): Surface {
     if (def.flat) out.blit(def.sprite, p.tx * TILE, (p.ty + 1) * TILE, lut);
   }
 
-  // contact shadows
+  // contact shadows: an ellipse under small things, a thin strip along a building's base
   const SHADOWS: Record<string, [number, number, number, number]> = {
     tree: [8, -2, 11, 3],
     lamp: [8, -1, 5, 2],
     bench: [16, -1, 15, 2],
   };
   for (const p of PROPS) {
+    const def = art.props[p.kind]!;
     const s = SHADOWS[p.kind];
     if (s) shadow(out, p.tx * TILE + s[0], (p.ty + 1) * TILE + s[1], s[2], s[3]);
+    if ((def.footprint?.h ?? 0) >= 2) {
+      out.rect(p.tx * TILE + 2, (p.ty + 1) * TILE, def.sprite.w - 2, 2, col('steel.0', 56));
+    }
   }
   for (const a of ACTORS) shadow(out, a.x, a.y - 1, 5, 2);
-  // a building throws a thin strip along its base
-  for (const p of PROPS) {
-    const def = art.props[p.kind]!;
-    if ((def.footprint?.h ?? 0) >= 2) out.rect(p.tx * TILE + 2, (p.ty + 1) * TILE, def.sprite.w - 2, 2, col('steel.0', 56));
-  }
 
   // standing things, sorted by their base line
   const drawables: { y: number; draw: () => void }[] = [];
@@ -224,6 +189,73 @@ function characters(): Surface {
 }
 
 // ---------------------------------------------------------------------------------------
+// pieces.png: the parts that are meant to repeat across the town, big enough to copy
+// ---------------------------------------------------------------------------------------
+
+/** A rectangle cut out of a surface. */
+function crop(src: Surface, x: number, y: number, w: number, h: number): Surface {
+  const out = new Surface(w, h);
+  out.draw(src, -x, -y);
+  return out;
+}
+
+/** A sprite on a flat backdrop, with a 2-pixel margin. */
+function onGround(s: Sprite, slot: Slot): Surface {
+  const out = new Surface(s.w + 4, s.h + 4).clear(col(slot));
+  out.blit(s, 2 + s.ax, 2 + s.ay, lut);
+  return out;
+}
+
+function pieces(): Surface {
+  const cottage = onGround(art.props.house!.sprite, 'moss.2');
+  const townhouse = onGround(art.props.townhouse!.sprite, 'moss.2');
+  const ana = art.characters.ana!;
+  // cottage geometry: see buildCottage in src/art/buildings/index.ts (+2 for the margin)
+  const cells: [string, Surface][] = [
+    ['window', crop(cottage, 9, 57, 19, 20)],
+    ['door', crop(cottage, 32, 56, 20, 27)],
+    ['gable roof', crop(cottage, 0, 6, 34, 26)],
+    ['eave and wall', crop(cottage, 0, 38, 34, 22)],
+    ['hip roof', crop(townhouse, 0, 6, 34, 26)],
+    ['turf edge', crop(ground(['ggggg', 'gcccc', 'gcccc', 'ggccc']), 4, 4, 56, 56)],
+    ['pond shore', crop(ground(['ggggg', 'ggwww', 'gwwww', 'gwwww']), 4, 4, 60, 56)],
+    ['basin rim', crop(ground(['cccc', 'cbbb', 'cbbb']), 4, 4, 44, 40)],
+    ['tree', onGround(art.props.tree!.sprite, 'moss.2')],
+    ['front', onGround(ana.idle.down[0]!, 'cream.1')],
+    ['side', onGround(ana.idle.right[0]!, 'cream.1')],
+    ['step', onGround(ana.walk.down[0]!, 'moss.2')],
+    ['stride', onGround(ana.walk.right[0]!, 'moss.2')],
+  ];
+  const GAP = 6;
+  const LABEL = 9;
+  const MAX_W = 232;
+  // flow the cells into rows
+  const placed: { x: number; y: number; w: number; label: string; s: Surface }[] = [];
+  let x = GAP;
+  let y = GAP;
+  let rowH = 0;
+  let width = 0;
+  for (const [label, s] of cells) {
+    const w = Math.max(s.w, measureText(label).w);
+    if (x > GAP && x + w + GAP > MAX_W) {
+      x = GAP;
+      y += rowH + LABEL + GAP;
+      rowH = 0;
+    }
+    placed.push({ x, y, w, label, s });
+    x += w + GAP;
+    rowH = Math.max(rowH, s.h);
+    width = Math.max(width, x);
+  }
+  const out = new Surface(width, y + rowH + LABEL + GAP).clear(col('cream.2'));
+  for (const p of placed) {
+    out.draw(p.s, p.x, p.y);
+    drawText(out, lut, p.label, p.x, p.y + p.s.h + 1);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------------------
 // palette.png
 // ---------------------------------------------------------------------------------------
 
@@ -258,6 +290,7 @@ function palette(): Surface {
 const outputs: [string, Surface][] = [
   ['docs/style/stylekey.png', scene().scaled(4)],
   ['docs/style/characters.png', characters().scaled(5)],
+  ['docs/style/pieces.png', pieces().scaled(8)],
   ['docs/style/palette.png', palette().scaled(4)],
 ];
 for (const [path, surface] of outputs) {

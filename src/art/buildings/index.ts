@@ -1,5 +1,5 @@
 import { recolor, sprite, type Sprite } from '../../core/sprite';
-import type { Slot } from '../../core/palette';
+import { type Slot, slotIndex } from '../../core/palette';
 import type { PropDef } from '../../core/types';
 
 // The reference buildings of the daylight look: a timber-framed cottage with a red gable
@@ -50,55 +50,56 @@ const done = (c: Canvas, anchor: readonly [number, number]): Sprite => ({
 // --- roof pieces -----------------------------------------------------------------------
 
 // The roof face: nine courses of tiles, 5 pixels each. Tiles are 6 to 9 pixels wide so
-// that no two courses line up, a scalloped brick.0 line hangs under every course, and
-// only some tiles catch the sun on their lip. A roof takes as much of this as it needs,
-// from the top-left corner. It must read as tiles, never as a brick wall.
+// that no two courses line up. Some hang with a rounded bottom and some with a straight
+// one, so the brick.0 shade lines never settle into a regular wave, and about one tile in
+// three catches the sun along its own top lip. A roof takes as much of this as it needs,
+// from the top-left corner. It must read as tiles, never as a brick wall or as stripes.
 const roofFace = sprite(`
-  yyyyyyyyyyyyzzzzyyyyyyyyyyyyzzzyyyyzzzzyyyzzzyyyyyyyyyyyyyyyyyyyyyyzzzzyyyyzzyyy
+  yyyyzzzzzyyyyyyyyyyyyyyyyyyzzzzyyyyyyyyyyyyyyyyyyyyyyyyzzzzzyyyyyyyyyyyyyyyyyyyy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
-  yxxxyyyyyxxxyyyyyxxxyyyyyxxxyyyyxxxyyyyxxxyyyyyyxxxyyyyyxxxyyyyyxxxyyyyyxxxyyyxx
-  xyyyxxxxxyyyxxxxxyyyxxxxxyyyxxxxyyyxxxxyyyxxxxxxyyyxxxxxyyyxxxxxyyyxxxxxyyyxxxyy
-  zzyyyyyyyyyyyyzzzyyyyyzzyyyyyyyyyyyyyyyyyyyyyyzzyyyyyyyzzyyyyyyyyyyyyyyzzzyyyyyz
+  yxxxyyyyyxxxyyyyyxxyyyyyyxxyyyyxxyyyyyyxxyyyyyxxxyyyxxxyyyyyxxyyyyyyyyxxyyyyyxxx
+  xyyyxxxxxyyyxxxxxyyxxxxxxxyxxxxyyxxxxxxxyxxxxxyyyxxxyyyxxxxxyyxxxxxxxxxyxxxxxyyy
+  yyyyyyyyyyyyyyyyyyyyyyzzzzyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyzzzzyyyyyyyyyyyyyyy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
-  yyyyxxxyyyyxxxyyyyyxxxyyyyyxxxyyyyyxxxyyyyyxxxyyyyyyxxxyyyyyxxxyyyyyxxxyyyyyxxxy
-  xxxxyyyxxxxyyyxxxxxyyyxxxxxyyyxxxxxyyyxxxxxyyyxxxxxxyyyxxxxxyyyxxxxxyyyxxxxxyyyx
-  yzzzzyyyyyyyyyyyyyyyyyyyyzzyyyyyyyzzzyyyyzzyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+  yyyyxxxyyyyyxxyyyyyyxxyyyyxxyyyyyyxxyyyyyxxxyyyyyyxxyyyyyyyxxyyyyxxyyyyyyyyxxyyy
+  xxxxyyyxxxxxyyxxxxxxxyxxxxyyxxxxxxxyxxxxxyyyxxxxxxyyxxxxxxxxyxxxxyyxxxxxxxxxyxxx
+  yyyyyyyyyyyyyyyyyzzzzyyyyyyyyyyyyyyyyyyzzzzzyyyyyyyyyyyyyyyyyyyyzzzzyyyyyyyyyyyy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
-  xyyyyyxxxyyyyyxxxyyyyyxxxyyyyyyxxxyyyyxxxyyyyxxxyyyyyyxxxyyyyyxxxyyyyyyxxxyyyyyx
-  yxxxxxyyyxxxxxyyyxxxxxyyyxxxxxxyyyxxxxyyyxxxxyyyxxxxxxyyyxxxxxyyyxxxxxxyyyxxxxxy
-  yzzzzyyyyyyyyyzzzyyyyyyyyyyyzzzzyyyyyyyyyyyzzyyyyyyyyyyyyyyzzzzyyyyyyyyyyyyyyyyy
+  xyyyyyxxxyyyyyxxyyyyyyxxyyyyxxxyyyyyxxyyyyyyyxxyyyyyxxxyyyyyyxxxyyyyxxyyyyyyyyxx
+  yxxxxxyyyxxxxxyyxxxxxxxyxxxxyyyxxxxxyyxxxxxxxxyxxxxxyyyxxxxxxyyyxxxxyyxxxxxxxxxy
+  yyyyyyyzzzyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyzzzzzyyyyyyyyyyyyyyyyyyyyyyyyyyyyyzzzzy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
-  xyyyxxxyyyyxxxyyyxxxyyyyyxxxyyyyyxxxyyyyxxxyyyyyxxxyyyyyxxxyyyyyxxxyyyyxxxyyyyyy
-  yxxxyyyxxxxyyyxxxyyyxxxxxyyyxxxxxyyyxxxxyyyxxxxxyyyxxxxxyyyxxxxxyyyxxxxyyyxxxxxx
-  yyyyyzzzzyyzzzzyyyzzzzyyyyzzyyyyyyzzzyyyyyyyyyyyyyyyyyyyzzyyyyyzzzyyyyyyyyyyyyyy
+  yyyyxxyyyyyxxyyyxxyyyyyyxxyyyyxxxyyyyyxxxyyyyyxxyyyyyyyxxyyyyyyxxyyyyyyyyxxyyyyx
+  xxxxyyxxxxxxyxxxyyxxxxxxxyxxxxyyyxxxxxyyyxxxxxyyxxxxxxxxyxxxxxxyyxxxxxxxxxyxxxxy
+  yyyyyyyyyyyzzzyyyyyyyyyyyyyyyyyyyyyyyzzzzzyyyyyyyyyyyyyyyyyyyzzzzyyyyyyyyyyyyyyy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
-  yyxxxyyyxxxyyyyxxxyyyyyxxxyyyyyxxxyyyxxxyyyyyxxxyyyyyxxxyyyyxxxyyyyyyxxxyyyyyxxx
-  xxyyyxxxyyyxxxxyyyxxxxxyyyxxxxxyyyxxxyyyxxxxxyyyxxxxxyyyxxxxyyyxxxxxxyyyxxxxxyyy
-  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyzzyyyyyyyyyyyyyyyyyyyzzyyyyyyyzzzzyyzzzzyyyyyyyyyyy
+  yyxxyyyyyxxyyyxxxyyyyxxxyyyyxxxyyyxxxyyyyyxxxyyyyyxxyyyyyyyxxyyyyxxxyyyyyyxxyyyy
+  xxyyxxxxxxyxxxyyyxxxxyyyxxxxyyyxxxyyyxxxxxyyyxxxxxyyxxxxxxxxyxxxxyyyxxxxxxyyxxxx
+  yyyyyyyyyyyyyyyyyyyyyyzzzzyyyyyyyyyyyyyyyyyyyyyyyzzzzzyyyyyyyyyyyyyyyyyzzzzzyyyy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
-  yyxxxyyyyyyxxxyyyyxxxyyyyyxxxyyyyyyxxxyyyxxxyyyxxxyyyyyyxxxyyyxxxyyyyyyxxxyyyyyy
-  xxyyyxxxxxxyyyxxxxyyyxxxxxyyyxxxxxxyyyxxxyyyxxxyyyxxxxxxyyyxxxyyyxxxxxxyyyxxxxxx
-  yyyyyyyyyyyyyyyyzzyyyyyyzzzyyyyyyyyyyyyyyzzzzyyyyzzyyyyzzzzyyyyyyyyyyyyyyyyyyzzy
+  yyyyyyxxyyyxxyyyyyyyxxyyyyxxxyyyxxxyyyxxxyyyyyxxxyyyyyxxxyyyyxxxyyyyxxxyyyyyxxxy
+  xxxxxxxyxxxyyxxxxxxxxyxxxxyyyxxxyyyxxxyyyxxxxxyyyxxxxxyyyxxxxyyyxxxxyyyxxxxxyyyx
+  yyyyyyzzzyyyyyyyyyyyyyyyyyyzzzyyyyyyyyyyyyyyyyyzzzyyyyyyyyyyyyyyyyyzzzzzyyyyyyyy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
-  yyyyxxxyyyyyyxxxyyyyyxxxyyyyyyxxxyyyyyxxxyyyyyxxxyyyxxxyyyyyxxxyyyxxxyyyyyxxxyyy
-  xxxxyyyxxxxxxyyyxxxxxyyyxxxxxxyyyxxxxxyyyxxxxxyyyxxxyyyxxxxxyyyxxxyyyxxxxxyyyxxx
-  zzyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyzzzyyyyyzzzyyyyyyyyyyyyyyyyyy
+  yyyxxxyyyxxxyyyyxxxyyyyyxxyyyyyxxyyyxxxyyyyyxxxyyyxxxyyyxxyyyyyyyxxyyyyyxxxyyyxx
+  xxxyyyxxxyyyxxxxyyyxxxxxyyxxxxxxyxxxyyyxxxxxyyyxxxyyyxxxyyxxxxxxxxyxxxxxyyyxxxyy
+  yyyyyyyyyyyyyyyyyyyyyyyzzzzzyyyyyyyyyyyyyyyyyyyyyyyyyyyyyzzzzzyyyyyyyyyyyyyyyyyy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
-  yyxxxyyyyxxxyyyyxxxyyyyyxxxyyyyyxxxyyyyyyxxxyyyyxxxyyyyyxxxyyyyxxxyyyyxxxyyyxxxy
-  xxyyyxxxxyyyxxxxyyyxxxxxyyyxxxxxyyyxxxxxxyyyxxxxyyyxxxxxyyyxxxxyyyxxxxyyyxxxyyyx
-  yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyzzzzyyyyzzyyyyyyyyyyyyyyyyyyyyzzyy
+  yyyyyyxxyyyyyxxxyyyyxxxyyyyyxxyyyyyxxyyyyxxyyyyyyxxyyyxxxyyyyyxxxyyyyxxxyyyxxxyy
+  xxxxxxxyxxxxxyyyxxxxyyyxxxxxyyxxxxxxyxxxxyyxxxxxxxyxxxyyyxxxxxyyyxxxxyyyxxxyyyxx
+  yyyyyyyyyyyyyyyyyyyyyzzzzzyyyyyyyyyyyyyyyyzzzzyyyyyyyyyyyyyyyyyyyyyyyyzzzyyyyyyy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
-  yyyyxxxyyyyyxxxyyyyxxxyyyyyxxxyyyyxxxyyyyyyxxxyyyyyxxxyyyyyxxxyyyyyxxxyyyxxxyyyy
-  xxxxyyyxxxxxyyyxxxxyyyxxxxxyyyxxxxyyyxxxxxxyyyxxxxxyyyxxxxxyyyxxxxxyyyxxxyyyxxxx
+  yyyxxyyyyyyyxxyyyyxxyyyyyyyxxyyyxxyyyyyyxxyyyyxxxyyyxxyyyyyyxxyyyyyxxyyyyyxxyyyy
+  xxxyyxxxxxxxxyxxxxyyxxxxxxxxyxxxyyxxxxxxxyxxxxyyyxxxyyxxxxxxxyxxxxxyyxxxxxxyxxxx
 `);
 
 // One-pixel-wide columns, repeated sideways into long strips.
@@ -134,6 +135,8 @@ interface RoofSpec {
    */
   hip: number;
   ramp: RoofRamp;
+  /** Keep the lit lips on one course in three only: for blue roofs, which must not sparkle like water. */
+  calm?: boolean;
 }
 
 /** Build a roof. The eave is its bottom 5 rows; the wall tucks 2 pixels under it. */
@@ -141,6 +144,14 @@ function roof(spec: RoofSpec): Canvas {
   const { w, h, hip } = spec;
   const c = canvas(w, h);
   fill(c, roofFace, 0, 5, w, h - 10);
+  if (spec.calm) {
+    const lip = slotIndex('brick.2');
+    for (let y = 5; y < h - 5; y++) {
+      const course = Math.floor((y - 5) / 5);
+      if (course % 3 === 1) continue;
+      for (let x = 0; x < w; x++) if (c.px[y * w + x] === lip) c.px[y * w + x] = slotIndex('brick.1');
+    }
+  }
   fill(c, ridge, 0, 0, w, 5);
   for (let x = 6; x < w; x += 7) fill(c, ridgeJoint, x, 2, 1, 2);
   fill(c, eave, 0, h - 5, w, 5);
@@ -391,7 +402,7 @@ function buildTownhouse(): Built {
   fill(c, ink, wallX + wallW, wallTop, 1, wallH);
   fill(c, ink, wallX, base, wallW, 1);
 
-  paste(c, roof({ w: W, h: ROOF_H, hip: 8, ramp: 'sky' }), 0, top);
+  paste(c, roof({ w: W, h: ROOF_H, hip: 8, ramp: 'sky', calm: true }), 0, top);
   paste(c, chimney, 40, 0);
 
   const g = canvas(W, H);

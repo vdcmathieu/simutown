@@ -80,6 +80,7 @@ const tomas = person({
     Y: 'ochre.3', A: 'ochre.2', Z: 'ochre.1', R: 'wood.1',
   },
   // His chin tuft hangs a row below the chin, so the head grids are 15 rows tall.
+  // It is 4 pixels wide with skin on both sides: any wider and it reads as a grin.
   head: {
     down: `
       ................
@@ -94,9 +95,9 @@ const tomas = person({
       ..0SS0SSSS0SS0..
       ..0SS0SSSS0SS0..
       ..0SBSSSSSSBS0..
-      ...0SHHHHHHS0...
-      ....0HHHHHH0....
-      .....000000.....
+      ...0SSHHHHSS0...
+      ....00HHHH00....
+      ......0000......
     `,
     up: `
       ................
@@ -123,14 +124,14 @@ const tomas = person({
       .00YYAAAAAAAZ00.
       0YAAAAAAAAAAAAZ0
       .00000000000000.
-      ..0SHHSSSSSSS0..
-      ..0SHHSSSSSSS0..
-      ..0SSHSSSS0SS0..
+      ..0SHSSSSSSSS0..
+      ..0SHSSSSSSSS0..
+      ..0SSSSSSS0SS0..
       ..0SSSSSSS0SS0..
       ..0SSSSSSSSBS0..
-      ...0SSSSSHHH0...
-      ....00000HHH0...
-      .........000....
+      ...0SSSSSSHH0...
+      ....000000HH0...
+      ..........00....
     `,
   },
 });
@@ -141,7 +142,7 @@ const mira = person({
   body: 'dress',
   legend: {
     S: 'skin.b.1', K: 'skin.b.0', B: 'rose.1',
-    H: 'steel.1', D: 'steel.0', L: 'steel.2',
+    H: 'steel.1', L: 'steel.2', // black hair is base and light only
     T: 'steel.5', U: 'steel.4',
     P: 'rose.1', Q: 'rose.0',
     F: 'brick.0',
@@ -179,9 +180,9 @@ const mira = person({
       .0HHHHHHHHHHHH0.
       .0HHHHHHHHHHHH0.
       .0HHHHHHHHHHHH0.
-      .0HHLHHHHHHHHH0.
-      .0HHLHHHHHHDHH0.
-      .0HHHLHHHHHDHH0.
+      .0HHHHHHHHHHHH0.
+      .0HHHHHHHHHHHH0.
+      .0HHHHHHHHHHHH0.
       ..0HHHHHHHHHH0..
       ...0000000000...
     `,

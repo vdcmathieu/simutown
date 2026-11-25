@@ -1,8 +1,8 @@
 // Small street props as text grids. Sizes and anchors are listed in index.ts.
 import { sprite, type Sprite } from '../../core/sprite';
 
-// A park bench in three-quarter view: the backrest behind, the seat's top plane in the
-// lightest wood, stubby armrests, and the right end in shade.
+// A park bench in three-quarter view: the backrest behind with a wood.0 underside, the
+// seat's top plane in the lightest wood, stubby armrests, and the right end in shade.
 export const benchArt: Sprite = sprite(`
   ..0000000000000000000000000000..
   .0wwwwwwwwwwwwwwwwwwwwwwwwwwwu0.
@@ -11,7 +11,7 @@ export const benchArt: Sprite = sprite(`
   .0uuuuuuuuuuuuuuuuuuuuuuuuuuuu0.
   .0wwwwwwwwwwwwwwwwwwwwwwwwwwwu0.
   0000vvvvvvvvvvvvvvvvvvvvvvvv0000
-  0ww0vvvvvvvvvvvvvvvvvvvvvvvv0vu0
+  0ww0uuuuuuuuuuuuuuuuuuuuuuuu0vu0
   0wv00000000000000000000000000uu0
   0vv0wwwwwwwwwwwwwwwwwwwwwwww0uu0
   0000wwwwwwwwwwwwwwwwwwwwwwww0000

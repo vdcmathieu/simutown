@@ -14,7 +14,7 @@ Your job: turn the request into a short, clear film, check it by looking at stil
 - `docs/authoring.md`: the guide, with a worked example, pacing rules, common errors and a checklist. Read it once.
 - `docs/scene-api.md`: the reference for every call and its timing.
 - The cast: the table in `docs/authoring.md` (section 3), or `townsfolk` in `src/art/characters/index.ts`.
-- The built-in town: `willowSquare` in `src/towns/willow-square.ts`.
+- The built-in town: `willowSquare` (`src/towns/willow-square.ts`), imported from `simutown`.
 - `scenes/`: the example scenes to copy from, such as `hello.ts`; `pnpm simutown list` lists them.
 - `examples/haggle.ts`: the worked example of the guide, in a town of its own (`examples/market.ts`).
 
@@ -26,7 +26,7 @@ Your job: turn the request into a short, clear film, check it by looking at stil
 2. **List the places** of the town you will use:
 
    ```bash
-   pnpm tsx -e "import { describeTown } from './src'; import { willowSquare } from './src/towns/willow-square'; console.log(describeTown(willowSquare))"
+   pnpm tsx -e "import { describeTown, willowSquare } from 'simutown'; console.log(describeTown(willowSquare))"
    ```
 
    Use the place names it prints: to reach the bakery, walk to `bakery.door`.
@@ -50,6 +50,8 @@ Your job: turn the request into a short, clear film, check it by looking at stil
    ```
 
    Replace `some.place` with a place from step 2.
+   `pnpm simutown new <kebab-name>` writes a commented starter of this shape to begin from.
+   Scenes import the library as `simutown` (and the towns as `simutown/towns`); in this repository that name points at `src/`.
 5. **Build it**: `pnpm simutown info <name>` prints the duration, places and cast, or the error.
    Errors name the problem and list the valid choices: fix and rerun.
 6. **Look at stills**, one per beat, and open each PNG with your image-reading tool:
@@ -58,7 +60,7 @@ Your job: turn the request into a short, clear film, check it by looking at stil
    pnpm simutown still <name> -t 3 -o out/<name>-3.png
    ```
 
-   To find when a beat starts, put `console.log('beat 3 at', s.now.toFixed(1));` at that point of the script: `info` prints it. Take these lines out when done.
+   To find when each beat starts, run `pnpm simutown info <name> --beats`: it lists every walk, line, caption and camera move with its start time.
    Check that the people who matter are in frame and not behind a roof or a tree, that bubbles and labels do not cover each other, that each caption is up when its beat needs it, and that dialogue is shot at zoom 2.
    Fix the script and look again until every beat reads.
 7. **Render**: `pnpm simutown render <name>` writes `out/<name>.mp4` (add `-o out/<name>.gif` for a GIF).

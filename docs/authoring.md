@@ -36,17 +36,17 @@ Two or three people carry the idea; anyone else is background, wandering, and sh
 
 ## 2. Pick or build the town
 
-**Willow Square** is the built-in town (`src/towns/willow-square.ts`, exported as `willowSquare`), with a square, shops, houses, a pond and a park.
+**Willow Square** is the built-in town (`willowSquare`, exported by `simutown` and `simutown/towns`), with a square, shops, houses, a pond and a park.
 Use it when the story fits a town square, which is most of the time.
 
 Whatever town you use, list its places before you script.
 `describeTown` prints the map, the props and every place name, so you can plan without seeing the picture:
 
 ```bash
-pnpm tsx -e "import { describeTown } from './src'; import { market } from './examples/market'; console.log(describeTown(market))"
+pnpm tsx -e "import { describeTown } from 'simutown'; import { market } from './examples/market'; console.log(describeTown(market))"
 ```
 
-For Willow Square, import `willowSquare` from `./src/towns/willow-square` instead.
+For Willow Square, import `willowSquare` from `simutown` instead.
 Any scene file works too, because every scene carries its town: `import scene from './scenes/hello'` and print `describeTown(scene.town)`.
 
 The market square of the worked example below prints this:
@@ -183,7 +183,7 @@ Cast by role and look; the id is what you pass to `s.actor()`.
 The same list lives in code as `townsfolk` (`src/art/characters/index.ts`), and this prints it:
 
 ```bash
-pnpm tsx -e "import { townsfolk } from './src'; console.table(townsfolk)"
+pnpm tsx -e "import { townsfolk } from 'simutown'; console.table(townsfolk)"
 ```
 
 Every townsperson has the poses `sit`, `wave`, `talk` and `carry`, and every scene can use the emotes `anger`, `dots`, `happy`, `heart`, `idea`, `note`, `question`, `sad`, `surprise` and `zzz`.
@@ -211,7 +211,11 @@ Here it is built up beat by beat.
 
 A scene is a `.ts` file whose default export is `scene(options, script)`.
 Put your own scenes in `scenes/`: the CLI finds them by name and the gallery lists them.
+`pnpm simutown new <name>` writes a short, commented starter scene there to begin from.
 The worked example lives in `examples/` only to keep it apart from the example scenes.
+
+A scene imports the library as `simutown`, the way a project that installed it does (see "Install" in the [README](../README.md#install-in-your-own-project)).
+In this repository the name points at `src/`, so scenes, examples and your own files read the same everywhere.
 
 ```ts
 // examples/haggle.ts (excerpt)
@@ -356,7 +360,7 @@ pnpm dev
 
 Open the address it prints (http://localhost:5173 by default).
 It reloads when you save a scene.
-A file you add to `scenes/` appears after you stop `pnpm dev` and start it again.
+A file you add to `scenes/` appears at once too.
 
 ## 6. Render
 
@@ -406,17 +410,27 @@ Lamps and lit windows read best from 19.5 on.
 
 ## Finding the times of your beats
 
-`pnpm simutown info` prints the total length.
-To know when a beat starts, print the script clock `s.now` at that point in the script:
+`pnpm simutown info` prints the total length, and with `--beats` a timeline of the scene: when each call starts and ends, who it is about, and what happens.
 
-```ts
-  // Beat 3: Zara names a number first.
-  console.log('beat 3 at', s.now.toFixed(1));
-  s.caption('Zara speaks first.');
+```bash
+pnpm simutown info examples/haggle.ts --beats
 ```
 
-`pnpm simutown info <scene>` builds the scene and prints the line, here `beat 3 at 7.8`; render your still for that beat a second or two later.
-Take the line out when you are done.
+```text
+Beats
+    0.00s            zara   appears at fruit-stall.vendor
+    0.00s            idris  appears at south
+    ...
+    3.10s                   caption "Idris wants a basket of apples."
+    3.10s -   6.30s  idris  walks to fruit-stall.front
+    6.30s -   7.80s         camera pans to fruit-stall.front at zoom 2
+    7.80s                   caption "Zara speaks first."
+    7.80s -  10.30s  zara   says "Ten coins for the basket."
+   10.30s                   label "anchor: 10" on zara
+```
+
+Beat 3, Zara naming her price, starts at 7.8 seconds: render the still for it a second or two later, once her bubble is up.
+Calls that take no time, such as a caption or a cut, show only their start.
 To hit a target length, add or trim `s.wait(...)` near the end and check the duration that `info` prints.
 
 ## Common mistakes

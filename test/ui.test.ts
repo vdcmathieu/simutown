@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { emotes, font } from '../src/art/ui';
-import { compileTheme, dusk, lutRgb } from '../src/core/palette';
+import { compileTheme, daylight, lutRgb } from '../src/core/palette';
 import { Surface } from '../src/core/surface';
 import { FRAME_H, FRAME_W } from '../src/core/types';
 import {
@@ -21,7 +21,7 @@ import {
 import { sprite } from '../src/core/sprite';
 import type { BitmapFont } from '../src/core/types';
 
-const lut = compileTheme(dusk);
+const lut = compileTheme(daylight);
 const frame = () => new Surface(FRAME_W, FRAME_H);
 
 /** Bounding box of the drawn (non-transparent) pixels. */

@@ -15,7 +15,7 @@
  * the renderer, so create one per town and reuse it for every frame.
  */
 import { art as builtinArt } from '../art';
-import { compileTheme, dusk, type Theme } from '../core/palette';
+import { compileTheme, daylight, type Theme } from '../core/palette';
 import type { Surface } from '../core/surface';
 import { type ActorState, type ArtRegistry, type FrameState, type Renderer, TILE, type Town } from '../core/types';
 import { dimUnfocused, drawAnnotations } from './annotations';
@@ -45,7 +45,7 @@ export interface RendererOpts {
 /** Create the renderer for a town. Unknown ids in the town or in a frame are reported once and skipped. */
 export function createRenderer(town: Town, opts: RendererOpts = {}): Renderer {
   const art = opts.art ?? builtinArt;
-  const lut = compileTheme(opts.theme ?? dusk);
+  const lut = compileTheme(opts.theme ?? daylight);
   const lighting = opts.lighting !== false;
   const warn = createWarner(opts.warn ?? ((m) => console.warn(m)));
 

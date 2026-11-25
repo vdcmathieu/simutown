@@ -89,13 +89,6 @@ export const daylight: Theme = {
   },
 };
 
-/**
- * The old name of the default theme, kept so existing imports keep working.
- * It is the same object as `daylight`: there is no dark theme any more. Dusk and
- * night are moods the renderer derives from `daylight` at draw time.
- */
-export const dusk: Theme = daylight;
-
 const INDEX = new Map<string, number>(SLOTS.map((s, i) => [s, i + 1]));
 
 /** 1-based palette index of a slot. Index 0 is always transparent. */

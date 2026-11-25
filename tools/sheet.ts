@@ -7,13 +7,13 @@
  * Props with an emissive layer are shown twice: by day, and lit on a dark backdrop.
  */
 import { art, buildings, natureProps, streetProps } from '../src/art';
-import { compileTheme, dusk, lutRgb, type Slot } from '../src/core/palette';
+import { compileTheme, daylight, lutRgb, type Slot } from '../src/core/palette';
 import type { Sprite } from '../src/core/sprite';
 import { Surface } from '../src/core/surface';
 import type { Dir, PropDef } from '../src/core/types';
 import { writePNG } from '../src/node/png';
 
-const lut = compileTheme(dusk);
+const lut = compileTheme(daylight);
 const col = (slot: Slot, a = 255) => [...lutRgb(lut, slot), a] as const;
 
 interface Cell {

@@ -3,12 +3,12 @@
  * Every sprite is a flat block of one palette slot, so a test can say exactly which colour
  * a pixel must have.
  */
-import { compileTheme, dusk, lutRgb, type Slot, slotIndex } from '../src/core/palette';
+import { compileTheme, daylight, lutRgb, type Slot, slotIndex } from '../src/core/palette';
 import type { Sprite } from '../src/core/sprite';
 import { Surface } from '../src/core/surface';
 import type { ActorState, ArtRegistry, CharacterDef, Dir, FrameState, PlacedProp, Town } from '../src/core/types';
 
-export const lut = compileTheme(dusk);
+export const lut = compileTheme(daylight);
 
 /** RGB of a slot in the default theme. */
 export function colorOf(slot: Slot): number[] {

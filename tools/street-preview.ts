@@ -9,7 +9,7 @@
  * out/street-plaza-debug.png (raw, with solid tiles tinted and every place marked).
  */
 import { streetProps } from '../src/art';
-import { compileTheme, dusk, lutRgb } from '../src/core/palette';
+import { compileTheme, daylight, lutRgb } from '../src/core/palette';
 import { Surface } from '../src/core/surface';
 import { type ActorState, FRAME_H, FRAME_W, type PlacedProp, TILE, type Town } from '../src/core/types';
 import { writePNG } from '../src/node/png';
@@ -91,7 +91,7 @@ const actors = [
   actor('vendor', 4, 3), actor('bench', 10, 11),
 ];
 
-const lut = compileTheme(dusk);
+const lut = compileTheme(daylight);
 const state = (hour: number) => ({
   t: opt('t', 0),
   camera: { x: (W * TILE) / 2, y: (H * TILE) / 2, zoom: 1 },

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { compileTheme, dusk, flipX, recolor, slotIndex, sprite, stack, Surface } from '../src/core';
+import { compileTheme, daylight, flipX, recolor, slotIndex, sprite, stack, Surface } from '../src/core';
 
-const lut = compileTheme(dusk);
+const lut = compileTheme(daylight);
 
 describe('sprite', () => {
   it('parses a text grid and ignores indentation', () => {

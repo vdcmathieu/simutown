@@ -1,58 +1,112 @@
 /**
  * The renderer: FrameState -> pixels.
  *
- * This file is a stub from the pin: flat terrain, props and actors, no lighting, no zoom,
- * no overlays. The signature of `createRenderer` is the contract; the body is not.
+ * A frame is drawn in six passes, each in its own file:
+ *
+ *   1. ground.ts       terrain, fringes, animated tiles, flat props
+ *   2. shadows.ts      sun and moon shadows from sprite silhouettes
+ *   3. sprites.ts      props and actors, sorted by base line
+ *   4. grade.ts        time-of-day grade and lamp glow (lights.ts measures the light)
+ *   5. annotations.ts  focus dimming, rings, links
+ *   6. camera.ts       integer zoom onto the frame, then overlays.ts for text and the fade
+ *
+ * Passes 1 to 5 draw the visible slice of the world at native size into a View. Everything
+ * that is static for a town (the composed ground, prop shadows, the lights) is cached in
+ * the renderer, so create one per town and reuse it for every frame.
  */
 import { art as builtinArt } from '../art';
-import { compileTheme, dusk, lutRgb, type Theme } from '../core/palette';
+import { compileTheme, dusk, type Theme } from '../core/palette';
 import type { Surface } from '../core/surface';
-import { type ArtRegistry, type FrameState, type Renderer, TILE, type Town } from '../core/types';
+import { type ActorState, type ArtRegistry, type FrameState, type Renderer, TILE, type Town } from '../core/types';
+import { dimUnfocused, drawAnnotations } from './annotations';
+import { cameraFor, present } from './camera';
+import { conditionAt, flatCondition } from './conditions';
+import { type FlatLight, gradePass } from './grade';
+import { buildGround, paintGround } from './ground';
+import { accumulateGlow, actorGlow, castActorOcclusion, collectLights, createTownOcclusion, drawEmissive } from './lights';
+import { drawOverlays } from './overlays';
+import { castActorShadows, copyTownMask, createTownShadows } from './shadows';
+import { collectDrawables, drawFlatProps, drawSprites, resolveProps } from './sprites';
+import { createView, type View } from './view';
+import { createWarner } from './warn';
 
 export interface RendererOpts {
   theme?: Theme;
   art?: ArtRegistry;
+  /**
+   * Set to false to skip shadows, the time-of-day grade and lamps: the art's own colours,
+   * whatever the hour. Useful for reviewing art and for tests. Default true.
+   */
+  lighting?: boolean;
+  /** Where warnings about unknown terrain, props, characters and actors go. Default `console.warn`. */
+  warn?: (message: string) => void;
 }
 
+/** Create the renderer for a town. Unknown ids in the town or in a frame are reported once and skipped. */
 export function createRenderer(town: Town, opts: RendererOpts = {}): Renderer {
   const art = opts.art ?? builtinArt;
   const lut = compileTheme(opts.theme ?? dusk);
+  const lighting = opts.lighting !== false;
+  const warn = createWarner(opts.warn ?? ((m) => console.warn(m)));
+
+  const mapW = Math.max(0, town.w * TILE);
+  const mapH = Math.max(0, town.h * TILE);
+  const ground = buildGround(town, art, lut, warn);
+  const { flat, standing } = resolveProps(town, art, warn);
+  const lights = collectLights([...flat, ...standing], lut);
+  const townShadows = createTownShadows(mapW, mapH, standing);
+  const townOcclusion = createTownOcclusion(mapW, mapH, lights, standing);
+  // flat props that glow do so wherever the ground shows (owner id 0)
+  const flatGlow = flat.filter((p) => p.def.emissive).map((prop) => ({ prop, x: prop.x, y: prop.y, id: 0 }));
+  // one set of buffers per view size, so cutting between zoom levels allocates nothing
+  const views = new Map<string, View>();
+
   return {
     render(state: FrameState, out: Surface): void {
-      out.clear([...lutRgb(lut, 'steel.1'), 255]);
-      const ox = Math.round(out.w / 2 - state.camera.x);
-      const oy = Math.round(out.h / 2 - state.camera.y);
-      for (let ty = 0; ty < town.h; ty++) {
-        for (let tx = 0; tx < town.w; tx++) {
-          const def = art.terrain[town.terrain[ty * town.w + tx]!];
-          const tile = def?.variants[0];
-          if (tile) out.blit(tile, ox + tx * TILE, oy + ty * TILE, lut);
+      const cam = cameraFor(state.camera, out.w, out.h);
+      const size = `${cam.w}x${cam.h}`;
+      let v = views.get(size);
+      if (!v) views.set(size, (v = createView(cam.w, cam.h)));
+      v.x0 = cam.x0;
+      v.y0 = cam.y0;
+      const t = Number.isFinite(state.t) ? state.t : 0;
+      const c = lighting ? conditionAt(state.timeOfDay, lut) : flatCondition();
+
+      paintGround(v, ground, lut, t);
+      drawFlatProps(v, flat, lut, t);
+      const list = collectDrawables(v, standing, art, state.actors, t, warn);
+      if (c.shadowAlpha > 0) {
+        copyTownMask(v.shade, v, townShadows(c.shadowKx, c.shadowKy), mapW, mapH);
+        castActorShadows(v, list, c.shadowKx, c.shadowKy);
+      }
+      drawSprites(v, list, lut);
+
+      let flatLight: FlatLight | undefined;
+      if (c.glow > 0 && lights.length > 0) {
+        accumulateGlow(v, lights, t, c.glow);
+        copyTownMask(v.occlusion, v, townOcclusion(), mapW, mapH);
+        castActorOcclusion(v, lights, list);
+        flatLight = new Float32Array((list.length + 1) * 4);
+        for (const d of list) {
+          if (!d.actor) continue;
+          flatLight.set(actorGlow(lights, d.x, d.y, t, c.glow), d.id * 4);
+          flatLight[d.id * 4 + 3] = 1;
         }
       }
-      const drawables: { y: number; draw: () => void }[] = [];
-      for (const p of town.props) {
-        const def = art.props[p.kind];
-        if (!def) continue;
-        const x = ox + p.tx * TILE;
-        const y = oy + (p.ty + 1) * TILE;
-        drawables.push({
-          y,
-          draw: () => {
-            out.blit(def.sprite, x, y, lut);
-            if (def.emissive) out.blit(def.emissive, x, y, lut);
-          },
-        });
+      gradePass(v, c, mapW, mapH, flatLight);
+      if (c.lamps > 0) {
+        drawEmissive(v, flatGlow, lut, c.lamps);
+        drawEmissive(v, list, lut, c.lamps);
       }
-      for (const a of state.actors) {
-        const def = art.characters[a.character];
-        if (!def) continue;
-        const frames = (a.pose === 'walk' ? def.walk : def.idle)[a.dir];
-        const frame = frames[Math.floor(a.animTime * 6) % frames.length]!;
-        const y = oy + a.y;
-        drawables.push({ y, draw: () => out.blit(frame, ox + a.x, y, lut, { alpha: a.opacity ?? 1 }) });
-      }
-      drawables.sort((p, q) => p.y - q.y);
-      for (const d of drawables) d.draw();
+
+      // overlays may point at any actor that has a real position, drawn or not
+      const actors = new Map<string, ActorState>();
+      for (const a of state.actors) if (Number.isFinite(a.x + a.y)) actors.set(a.id, a);
+      if (state.focus) dimUnfocused(v, list, state.focus, lut);
+      if (state.annotations) drawAnnotations(v, state.annotations, actors, lut, t, warn);
+
+      present(v, out, cam.zoom);
+      drawOverlays(out, lut, art, state, cam, actors, warn);
     },
   };
 }

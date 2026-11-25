@@ -44,6 +44,12 @@ export interface TerrainDef {
   variants: Sprite[];
   /** Optional animation (water). When present it replaces `variants`. */
   anim?: Anim;
+  /**
+   * Optional animated variants: several interchangeable animations. When present they
+   * replace `variants` and `anim`; the renderer picks one per tile from the same hash and
+   * starts each tile at its own phase, so a pond shimmers without a visible grid.
+   */
+  anims?: Anim[];
   /** Blocks walking (water, hedges). Default false. */
   solid?: boolean;
   /** Higher-priority terrain draws its fringe over lower-priority neighbours. */
@@ -58,8 +64,11 @@ export interface TerrainDef {
    * it), gets the single `in-ne` sprite instead of that pair when one is defined. This is
    * what lets a pond or a path corner look round instead of square. Without the inner
    * key the renderer falls back to drawing the two edges.
+   *
+   * Any side may be an array of interchangeable sprites; the renderer picks one per tile
+   * from a hash of (tx, ty), which hides the 16-pixel repeat along a long edge.
    */
-  fringe?: Partial<Record<FringeSide, Sprite>>;
+  fringe?: Partial<Record<FringeSide, Sprite | Sprite[]>>;
 }
 
 /** A light source attached to a prop. Offsets are pixels from the prop's anchor point. */

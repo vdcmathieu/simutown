@@ -44,7 +44,7 @@ function spriteCell(label: string, s: Sprite, bg: Slot, overlay?: Sprite, br?: b
 function terrainCells(): Cell[] {
   const cells: Cell[] = [];
   for (const def of Object.values(art.terrain)) {
-    const looks = def.anim ? def.anim.frames : def.variants;
+    const looks = def.anims?.length ? def.anims.flatMap((a) => a.frames) : def.anim ? def.anim.frames : def.variants;
     looks.forEach((s, i) => {
       cells.push({
         label: `${def.id}${def.anim ? '~' : '#'}${i} (3x3)`,
@@ -72,8 +72,8 @@ function terrainCells(): Cell[] {
         },
       });
     }
-    for (const [side, s] of Object.entries(def.fringe ?? {})) {
-      cells.push(spriteCell(`${def.id}.fringe.${side}`, s, 'steel.3'));
+    for (const [side, entry] of Object.entries(def.fringe ?? {})) {
+      [entry].flat().forEach((s, i) => cells.push(spriteCell(`${def.id}.fringe.${side}#${i}`, s, 'steel.3')));
     }
   }
   return cells;

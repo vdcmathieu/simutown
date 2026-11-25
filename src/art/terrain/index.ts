@@ -69,21 +69,21 @@ const grassC = sprite(`
 
 // ---------------------------------------------------------------------------------------
 // Cobble: pale sand-cream paving, the light ground of the square. Rounded 8x8 stones in
-// a running bond, joints one step darker, one small glint per stone.
+// a running bond, joints one step darker, a small glint on every other stone.
 // ---------------------------------------------------------------------------------------
 
 const cobble = sprite(`
   abbbbbaaabbbbbaa
-  bccbbbbabccbbbba
-  bcbbbbbabcbbbbba
+  bccbbbbabbbbbbba
+  bcbbbbbabbbbbbba
   bbbbbbbabbbbbbba
   bbbbbbbabbbbbbba
   bbbbbbbabbbbbbba
   abbbbbaaabbbbbaa
   aaaaaaaaaaaaaaaa
   bbaaabbbbbaaabbb
-  bbbabccbbbbabccb
-  bbbabcbbbbbabcbb
+  bbbabbbbbbbabccb
+  bbbabbbbbbbabcbb
   bbbabbbbbbbabbbb
   bbbabbbbbbbabbbb
   bbbabbbbbbbabbbb

@@ -56,13 +56,13 @@ const done = (c: Canvas, anchor: readonly [number, number]): Sprite => ({
 // lip; a scalloped shade line hangs under each course. No full grid of joints: the roof
 // must read as tiles, not as a brick wall.
 const roofTiles = sprite(`
-  yzzzzyyyyzzzzyyy
   yyyyyyyyyyyyyyyy
+  yzzyyyyyyzzyyyyy
   yyyyyyyyyyyyyyyy
   xyyyyyxxxyyyyyxx
   yxxxxxyyyxxxxxyy
-  zyyyyzzzzyyyyzzz
   yyyyyyyyyyyyyyyy
+  yyyyyzzyyyyyyzzy
   yyyyyyyyyyyyyyyy
   yyxxxyyyyyxxxyyy
   xxyyyxxxxxyyyxxx

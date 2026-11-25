@@ -40,6 +40,11 @@ function standing(id: string, sprite: Sprite, w = 1): PropDef {
   return { id, sprite, footprint: { w, h: 1 } };
 }
 
+/** A hedge piece. It rises 10 pixels whatever its sprite shows of its top, and casts its shadow from there. */
+function hedgePiece(id: string, sprite: Sprite): PropDef {
+  return { ...standing(id, sprite), castHeight: 10 };
+}
+
 /** A flat patch: part of the ground, walked over. */
 function patch(id: string, sprite: Sprite): PropDef {
   return { id, sprite, flat: true };
@@ -57,13 +62,13 @@ const defs: PropDef[] = [
   // bushes and hedges
   standing('bush', bush),
   standing('bush-large', bushLarge, 2),
-  standing('hedge', hedge),
-  standing('hedge-h', hedgeH),
-  standing('hedge-h-l', hedgeHL),
-  standing('hedge-h-r', hedgeHR),
-  standing('hedge-v', hedgeV),
-  standing('hedge-sw', hedgeSW),
-  standing('hedge-se', hedgeSE),
+  hedgePiece('hedge', hedge),
+  hedgePiece('hedge-h', hedgeH),
+  hedgePiece('hedge-h-l', hedgeHL),
+  hedgePiece('hedge-h-r', hedgeHR),
+  hedgePiece('hedge-v', hedgeV),
+  hedgePiece('hedge-sw', hedgeSW),
+  hedgePiece('hedge-se', hedgeSE),
   // stone and dead wood
   standing('rock', rock),
   standing('rock-large', rockLarge, 2),

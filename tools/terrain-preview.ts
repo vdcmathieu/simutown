@@ -3,14 +3,17 @@
  *
  *   pnpm tsx tools/terrain-preview.ts [board] [--scale 3] [--crop tx,ty,w,h] [--t 0] [--out name]
  *
- * Boards (see tools/terrain-boards.ts): `town` (default) is a small town with a park, a
- * riverside and gardens; `pairs` lays every terrain against every neighbour it may touch;
- * `lawn` is one big field per ground material, to check that large areas stay calm;
- * `props` lines up every nature prop next to a person. `all` renders every board.
+ * Boards (see tools/terrain-boards.ts): `town` (default) is a small town with a wood, a
+ * square, a road and a bridge, a hedged garden, a park with a willow, a lake and a beach;
+ * `pairs` lays every terrain against every neighbour it may touch; `fields` is one big
+ * block of every ground material and `lawn` a whole frame of grass, to check that large
+ * areas stay calm; `props` lines up every nature prop next to a person; `evening` is the
+ * town at five o'clock with shadows on. `all` renders every board.
  *
  * Each board is built with `defineTown`, rendered whole with lighting off (the art's own
  * colours) and written to out/terrain-<board>.png. `--crop` keeps a rectangle of tiles,
- * for a closer look at a higher scale.
+ * for a closer look at a higher scale, and `--t` picks the moment (water shimmers, the
+ * willow sways).
  */
 import { Surface } from '../src/core/surface';
 import { TILE } from '../src/core/types';

@@ -91,7 +91,7 @@ function pairs(): Board {
     grrrsssrrrrbbbbrrrraaarrrrppprrrrrrrrrrrrrrg
     grrrsssrrrrbbbbrrrraaaarrrppprrrrrrrrrrrrrrg
     grrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrg
-    ggggggdggg~~gggggggggggggggggggggggggggggggg
+    ggggggdggggggggggggggggggggggggggggggggggggg
     ggggggdggg~~gggggggsssgsssggggggaaaaaaaggggg
     gddddddddPPPPdddddddddddddddddaaaapppaaagggg
     ggggggggg~~ggggggggsssgsssggggggaaapaaaagggg
@@ -304,4 +304,9 @@ function town(): Board {
 /** Props that live on the water. */
 const WATER_PLANTS = /^(lily|reeds|lotus|water)/;
 
-export const boards: Record<string, () => Board> = { town, pairs, fields, lawn, props };
+/** The town at five in the afternoon, with shadows and the grade: do the props cast well? */
+function evening(): Board {
+  return { ...town(), lighting: true, hour: 17 };
+}
+
+export const boards: Record<string, () => Board> = { town, pairs, fields, lawn, props, evening };

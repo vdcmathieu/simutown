@@ -15,7 +15,7 @@ import { waterLooks, waterShimmer } from './water';
 //   1  cobble       the pale paving of the square; no edge of its own
 //   2  road         grey flagstones; a kerb line on cobble and dirt
 //   3  soil         a garden bed; a crumbling dark border on road, cobble and dirt
-//   4  grass        the lawn; the turf edge on everything above
+//   4  grass        the lawn; the turf edge on the four grounds listed above it
 //   4  meadow       the lawn with wild flowers; the turf edge too, and no edge against grass
 //   5  tall-grass   stands above the lawn; a turf edge in deeper green
 //   6  water        a natural pond or stream; its bank curves into the land
@@ -23,6 +23,22 @@ import { waterLooks, waterShimmer } from './water';
 //   7  sand         a beach or a sandpit; drifts over the land and into the water
 //   8  plank        a deck; a straight wooden edge with a front face, over anything
 //   8  plank-v      the same deck with its boards running north-south
+//
+// Which grounds may touch. A pair that is not listed meets in a hard seam: keep a tile of
+// grass between the two.
+//
+//   grass, meadow   everything. They meet each other without an edge.
+//   tall-grass      grass, meadow, dirt, cobble, road, soil, water, sand, plank
+//   dirt            grass kinds, soil, sand, plank; cobble and road end-on only (a path
+//                   may run into paving across its width, never alongside it)
+//   cobble          grass kinds, road (kerb), soil, basin (the stone rim), sand, plank
+//   road            grass kinds, cobble, soil, basin, sand, plank
+//   soil            grass kinds, dirt, cobble, road, plank
+//   water           grass kinds (the bank), sand (a beach), plank
+//   basin           cobble, road, grass kinds
+//   sand            grass kinds, water, dirt, cobble, road, plank
+//   plank, plank-v  everything but basin. A deck that reaches over water starts one tile
+//                   inland on each bank, so the bank runs under it.
 
 // Sand spills over its neighbours in shallow tongues, closed by a line of darker, wet sand.
 const sandDrift = driftEdge('ochre.3', 'cream.0');

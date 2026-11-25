@@ -143,6 +143,7 @@ A tile is solid when its terrain is solid or a prop's footprint covers it; a foo
 Each prop's own places are exposed as `<id>.<place>`, for example `cafe.door`.
 A prop's `id` defaults to its kind; several unnamed props of one kind become `lamp-1`, `lamp-2`, and so on.
 Unknown terrain characters and ids, unknown prop kinds, props outside the map or overlapping each other, duplicate names, and places on solid tiles are errors, and the message lists what is valid.
+Prop and place coordinates must be whole tiles: `[1.5, 1]` is an error.
 
 Helpers, all from `src/world`:
 

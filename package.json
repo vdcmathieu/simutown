@@ -60,7 +60,7 @@
     "test": "vitest run",
     "check": "pnpm typecheck && pnpm test",
     "build": "tsx tools/build.ts",
-    "prepack": "tsx tools/build.ts",
+    "prepare": "tsx tools/build.ts",
     "test:package": "tsx tools/test-package.ts",
     "sheet": "tsx tools/sheet.ts",
     "still": "tsx tools/still.ts",

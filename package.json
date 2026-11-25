@@ -11,7 +11,7 @@
     "check": "pnpm typecheck && pnpm test",
     "sheet": "tsx tools/sheet.ts",
     "still": "tsx tools/still.ts",
-    "simutown": "tsx src/cli/main.ts",
+    "simutown": "tsx src/cli/bin.ts",
     "dev": "vite",
     "build:web": "vite build",
     "preview": "vite preview"

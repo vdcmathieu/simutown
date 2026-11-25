@@ -284,7 +284,25 @@ export interface Scene {
   cast?: string[];
   /** The art the scene was built with. Renderers draw the scene with it; default: the built-in art. */
   art?: ArtRegistry;
+  /**
+   * What the script does and when, one entry per call, sorted by start time. Read-only:
+   * a description for timelines such as `simutown info --beats`, never used to draw.
+   * Set by `scene()`; a hand-built Scene may leave it out.
+   */
+  beats?: readonly SceneBeat[];
   frame(t: number): FrameState;
+}
+
+/** One call of a scene script, as listed by `simutown info --beats`. */
+export interface SceneBeat {
+  /** Seconds from the start of the scene. */
+  start: number;
+  /** When the call's own time ends; equal to `start` for calls that take no time. */
+  end: number;
+  /** The actor id, for calls on an actor. */
+  actor?: string;
+  /** What happens, in a few words: `walks to bakery.door`, `says "Fresh bread today."`. */
+  what: string;
 }
 
 /** Turns FrameStates into pixels. Create one per town with `createRenderer` (src/render). */

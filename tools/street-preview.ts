@@ -4,8 +4,9 @@
  *
  *   pnpm tsx tools/street-preview.ts [--scale 3] [--hour 12] [--frame 0]
  *
- * Writes out/street-plaza.png (the scene) and out/street-plaza-debug.png (the same, with
- * solid footprint tiles tinted and every place marked with a dot).
+ * Writes out/street-plaza.png (lit, at --hour, default 14), out/street-plaza-night.png,
+ * out/street-plaza-raw.png (lighting off: the art's own colours) and
+ * out/street-plaza-debug.png (raw, with solid tiles tinted and every place marked).
  */
 import { streetProps } from '../src/art';
 import { compileTheme, dusk, lutRgb } from '../src/core/palette';
@@ -20,6 +21,7 @@ const opt = (name: string, dflt: number) => {
   return i >= 0 ? Number(args[i + 1]) : dflt;
 };
 const scale = opt('scale', 3);
+// --t picks the animation time, to step through the fountain's frames.
 const W = 30;
 const H = 17;
 
@@ -42,12 +44,15 @@ const props: PlacedProp[] = [
   { kind: 'planter', tx: 12, ty: 11 },
   { kind: 'planter', tx: 17, ty: 11 },
   { kind: 'bin', tx: 20, ty: 6 },
-  { kind: 'bicycle', tx: 21, ty: 7 },
+  { kind: 'cart', tx: 21, ty: 7 },
 ];
-// A fenced garden in the bottom right: a horizontal run, a corner, and a vertical run.
-for (let tx = 23; tx <= 28; tx++) props.push({ kind: 'fence-h', tx, ty: 11 });
-for (let ty = 12; ty <= 15; ty++) props.push({ kind: 'fence-v', tx: 23, ty });
-for (let ty = 12; ty <= 15; ty++) props.push({ kind: 'fence-v', tx: 28, ty });
+// A fenced garden in the bottom right: a run with two corners and two vertical runs, and a
+// lone run with both ends, so every fence piece is shown joined to its neighbours.
+props.push({ kind: 'fence-h-left', tx: 23, ty: 11 }, { kind: 'fence-h-right', tx: 28, ty: 11 });
+for (let tx = 24; tx <= 27; tx++) props.push({ kind: 'fence-h', tx, ty: 11 });
+for (let ty = 12; ty <= 15; ty++) props.push({ kind: 'fence-v', tx: 23, ty }, { kind: 'fence-v', tx: 28, ty });
+props.push({ kind: 'fence-h-left', tx: 1, ty: 15 }, { kind: 'fence-h', tx: 2, ty: 15 }, { kind: 'fence-h-right', tx: 3, ty: 15 });
+props.push({ kind: 'fence-v-top', tx: 0, ty: 8 }, { kind: 'fence-v', tx: 0, ty: 9 }, { kind: 'fence-v', tx: 0, ty: 10 });
 
 function buildTown(): Town {
   const terrain: string[] = [];
@@ -69,9 +74,11 @@ function buildTown(): Town {
 }
 
 const town = buildTown();
+const cast = ['ana', 'tomas', 'mira'];
+let n = 0;
 const actor = (id: string, tx: number, ty: number): ActorState => ({
   id,
-  character: 'ana',
+  character: cast[n++ % cast.length]!,
   x: tx * TILE + 8,
   y: ty * TILE + 12,
   dir: 'down',
@@ -85,12 +92,21 @@ const actors = [
 ];
 
 const lut = compileTheme(dusk);
+const state = (hour: number) => ({
+  t: opt('t', 0),
+  camera: { x: (W * TILE) / 2, y: (H * TILE) / 2, zoom: 1 },
+  timeOfDay: hour,
+  actors,
+  bubbles: [],
+});
+// Lit at the chosen hour (shadows, grade, lamps), and once more in the art's raw colours.
 const frame = new Surface(FRAME_W, FRAME_H);
-createRenderer(town).render(
-  { t: 0, camera: { x: (W * TILE) / 2, y: (H * TILE) / 2, zoom: 1 }, timeOfDay: opt('hour', 12), actors, bubbles: [] },
-  frame,
-);
+createRenderer(town).render(state(opt('hour', 14)), frame);
 writePNG('out/street-plaza.png', frame.scaled(scale));
+createRenderer(town).render(state(20.5), frame);
+writePNG('out/street-plaza-night.png', frame.scaled(scale));
+createRenderer(town, { lighting: false }).render(state(12), frame);
+writePNG('out/street-plaza-raw.png', frame.scaled(scale));
 
 // Debug overlay: solid tiles tinted brick, places as teal dots, every solid place flagged.
 const ox = Math.round(FRAME_W / 2 - (W * TILE) / 2);

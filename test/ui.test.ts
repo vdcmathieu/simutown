@@ -14,8 +14,12 @@ import {
   glyphFor,
   lineWidth,
   measureBalanced,
+  measureEmote,
+  measureLabel,
   measureText,
 } from '../src/ui';
+import { sprite } from '../src/core/sprite';
+import type { BitmapFont } from '../src/core/types';
 
 const lut = compileTheme(dusk);
 const frame = () => new Surface(FRAME_W, FRAME_H);
@@ -199,5 +203,78 @@ describe('drawing', () => {
     expect(() => drawCaption(tiny, lut, 'caption', 1)).not.toThrow();
     expect(() => drawTitle(tiny, lut, 'Title', 'sub', 1)).not.toThrow();
     expect(() => drawLabel(tiny, lut, 'label', 2, 2, 1)).not.toThrow();
+  });
+});
+
+describe('overlay sizes', () => {
+  it('measureLabel gives the exact space a label takes above its point', () => {
+    for (const text of ['Ana', 'lamp-west', 'Zoé', 'gyp']) {
+      const s = frame();
+      drawLabel(s, lut, text, 240, 150, 1);
+      const b = inked(s);
+      const m = measureLabel(text);
+      expect([b.x1 - b.x0 + 1, 150 - b.y0], text).toEqual([m.w, m.h]);
+      expect(b.y1, text).toBe(149);
+    }
+    expect(measureLabel('Ana').h).toBe(18);
+    expect(measureLabel('gyp').h).toBe(19);
+    expect(measureLabel('')).toEqual({ w: 0, h: 0 });
+  });
+
+  it('measureEmote gives the space an emote takes above its point', () => {
+    for (const name of Object.keys(emotes)) {
+      const s = frame();
+      drawEmote(s, lut, name, 240, 150);
+      const b = inked(s);
+      const m = measureEmote(name);
+      expect(m).toEqual({ w: 11, h: 12 });
+      expect(b.y0, name).toBeGreaterThanOrEqual(150 - m.h);
+      expect(b.y1, name).toBe(148); // every emote sits on the same row, one free row above the point
+    }
+    expect(measureEmote('nope')).toEqual({ w: 0, h: 0 });
+  });
+});
+
+describe('custom art', () => {
+  // A two-glyph font: a 3x5 block for "A" and a 2x5 block for "?", in a 7-row line box.
+  const block = (w: number) => sprite(['.'.repeat(w), ...Array.from({ length: 5 }, () => '0'.repeat(w)), '.'.repeat(w)].join('\n'));
+  const tiny: BitmapFont = { height: 7, glyphs: { A: { sprite: block(3), advance: 4 }, '?': { sprite: block(2), advance: 3 } } };
+  const star = sprite('.q.\nqqq\n.q.', { anchor: [1, 3] });
+
+  it('measures and draws with a custom font, falling back to its own ?', () => {
+    expect(measureText('AA', undefined, { font: tiny })).toEqual({ w: 7, h: 7, lines: ['AA'] });
+    expect(lineWidth('A漢', tiny)).toBe(6);
+    const s = new Surface(20, 10);
+    drawText(s, lut, 'AA', 0, 0, {}, { font: tiny });
+    const b = inked(s);
+    expect([b.x0, b.y0, b.x1, b.y1, b.n]).toEqual([0, 1, 6, 5, 30]);
+  });
+
+  it('uses the custom font in bubbles, captions, titles and labels', () => {
+    const custom = (draw: (s: Surface) => void) => {
+      const s = frame();
+      draw(s);
+      return [...s.data].join(',');
+    };
+    const draws: ((s: Surface, art?: { font: BitmapFont }) => void)[] = [
+      (s, art) => drawBubble(s, lut, { x: 240, y: 150, text: 'AAA AAA', kind: 'say', reveal: 1 }, art),
+      (s, art) => drawCaption(s, lut, 'AAA AAA', 1, art),
+      (s, art) => drawTitle(s, lut, 'AAA', 'AA', 1, art),
+      (s, art) => drawLabel(s, lut, 'AAA', 240, 150, 1, art),
+    ];
+    for (const draw of draws) {
+      expect(custom((s) => draw(s, { font: tiny }))).not.toBe(custom((s) => draw(s)));
+    }
+    expect(measureLabel('AAA', { font: tiny }).w).toBe(lineWidth('AAA', tiny) + 10);
+  });
+
+  it('draws a custom emote and ignores the built-ins it does not have', () => {
+    const s = new Surface(20, 20);
+    drawEmote(s, lut, 'star', 10, 10, { emotes: { star } });
+    expect(inked(s).n).toBe(5);
+    const t = new Surface(20, 20);
+    drawEmote(t, lut, 'heart', 10, 10, { emotes: { star } });
+    expect(inked(t).n).toBe(0);
+    expect(measureEmote('star', { emotes: { star } })).toEqual({ w: 3, h: 4 });
   });
 });

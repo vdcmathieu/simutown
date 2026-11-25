@@ -1,16 +1,16 @@
 /**
  * Review sheets for the character kit, closer to the work than `pnpm sheet characters`.
  *
- *   pnpm tsx tools/characters-parts.ts cast   [--ids ana,bo] [--poses idle,walk] [--dirs down,right] [--scale 4]
+ *   pnpm tsx tools/characters-parts.ts cast   [--ids ana,bo] [--poses idle,walk] [--dirs down,right] [--scale 4] [--cols 3] [--first]
  *   pnpm tsx tools/characters-parts.ts heads  [--only bun] [--scale 5]     every head and hat, three views
  *   pnpm tsx tools/characters-parts.ts outfits [--scale 4]                 every top on every bottom and shape
  *   pnpm tsx tools/characters-parts.ts lint                                open outlines in the whole kit
  *   pnpm tsx tools/characters-parts.ts ascii <id> <pose> <dir> [frame]     one frame as text
  *
- * Sheets go to out/characters/<name>.png. One character per row; each pose shows its
- * distinct frames once, for the directions asked (default down, left, right, up).
- * The backdrop is the grass colour, with a strip of paving on the left, because those
- * are the two grounds people stand on.
+ * Sheets go to out/characters/<name>.png: one block per character, `--cols` blocks per
+ * row. Each pose shows its distinct frames once (or only its first with `--first`), for
+ * the directions asked (default down, left, right, up). The first frame of a block stands
+ * on paving and the rest on grass, because those are the two grounds people stand on.
  */
 import { characters } from '../src/art/characters';
 import { openOutline, silhouette } from '../src/art/characters/lint';
@@ -39,32 +39,34 @@ function sets(def: CharacterDef): Record<string, Record<Dir, Sprite[]>> {
   return { idle: def.idle, walk: def.walk, ...(def.poses ?? {}) };
 }
 
-/** One row per character, frames side by side. Returns the labels of each row. */
-function sheet(path: string, defs: CharacterDef[], poses: string[] | undefined, dirs: Dir[], scale: number): void {
+/**
+ * One block per character, frames side by side; `cols` blocks per sheet row. With `first`
+ * only the first frame of each pose and direction is drawn. The first frame of every
+ * block stands on paving, the rest on grass.
+ */
+function sheet(path: string, defs: CharacterDef[], poses: string[] | undefined, dirs: Dir[], scale: number, cols: number, first: boolean): void {
   const CELL_W = 18;
   const CELL_H = 27;
-  const rows = defs.map((def) => {
-    const cells: { s: Sprite; gap: boolean }[] = [];
+  const blocks = defs.map((def) => {
+    const cells: Sprite[] = [];
     for (const [pose, set] of Object.entries(sets(def))) {
       if (poses && !poses.includes(pose)) continue;
-      for (const dir of dirs) distinct(set[dir]).forEach((s, i) => cells.push({ s, gap: i === 0 }));
+      for (const dir of dirs) cells.push(...(first ? [set[dir][0]!] : distinct(set[dir])));
     }
     return { def, cells };
   });
-  const width = Math.max(...rows.map((r) => r.cells.length * CELL_W + r.cells.filter((c) => c.gap).length * 3)) + 4;
-  const out = new Surface(width, rows.length * CELL_H + 2).clear(col('moss.2'));
-  out.rect(0, 0, CELL_W * 2 + 5, out.h, col('cream.1'));
-  rows.forEach((row, j) => {
-    let x = 2;
-    for (const c of row.cells) {
-      if (c.gap) x += 3;
-      out.blit(c.s, x + 1 + c.s.ax, j * CELL_H + 2 + c.s.ay, lut);
-      x += CELL_W;
-    }
+  const blockW = Math.max(...blocks.map((b) => b.cells.length)) * CELL_W + 6;
+  const rows = Math.ceil(blocks.length / cols);
+  const out = new Surface(Math.min(cols, blocks.length) * blockW + 2, rows * CELL_H + 2).clear(col('moss.2'));
+  blocks.forEach((block, i) => {
+    const x0 = (i % cols) * blockW + 2;
+    const y0 = Math.floor(i / cols) * CELL_H + 2;
+    out.rect(x0, y0 - 2, CELL_W, CELL_H, col('cream.1'));
+    block.cells.forEach((s, k) => out.blit(s, x0 + 1 + k * CELL_W + s.ax, y0 + s.ay, lut));
   });
   writePNG(path, out.scaled(scale));
   console.log(`${path} (${out.w * scale}x${out.h * scale})`);
-  rows.forEach((r, j) => console.log(`  row ${j + 1}: ${r.def.id}`));
+  for (let r = 0; r < rows; r++) console.log(`  row ${r + 1}: ${blocks.slice(r * cols, (r + 1) * cols).map((b) => b.def.id).join(' | ')}`);
 }
 
 function lint(defs: CharacterDef[]): number {
@@ -89,20 +91,22 @@ function lint(defs: CharacterDef[]): number {
 
 const mode = args.shift() ?? 'cast';
 const scale = Number(option('scale') ?? 4);
+const cols = Number(option('cols') ?? 1);
+const first = args.includes('--first') ? (args.splice(args.indexOf('--first'), 1), true) : false;
 if (mode === 'cast') {
   const ids = list('ids');
   const unknown = (ids ?? []).filter((id) => !characters[id]);
   if (unknown.length) throw new Error(`unknown character ${unknown.join(', ')}. Valid: ${Object.keys(characters).join(', ')}`);
   const defs = ids ? ids.map((id) => characters[id]!) : Object.values(characters);
-  sheet(`out/characters/${option('name') ?? 'cast'}.png`, defs, list('poses'), (list('dirs') as Dir[] | undefined) ?? ALL_DIRS, scale);
+  sheet(`out/characters/${option('name') ?? 'cast'}.png`, defs, list('poses'), (list('dirs') as Dir[] | undefined) ?? ALL_DIRS, scale, cols, first);
 } else if (mode === 'heads') {
   const only = option('only');
   const defs = reviewHeads().filter((d) => !only || d.id.includes(only));
-  sheet('out/characters/heads.png', defs, list('poses') ?? ['idle'], (list('dirs') as Dir[] | undefined) ?? ALL_DIRS, scale);
+  sheet('out/characters/heads.png', defs, list('poses') ?? ['idle'], (list('dirs') as Dir[] | undefined) ?? ALL_DIRS, scale, cols, first);
 } else if (mode === 'outfits') {
   const only = option('only');
   const defs = reviewOutfits().filter((d) => !only || d.id.includes(only));
-  sheet('out/characters/outfits.png', defs, list('poses') ?? ['idle', 'walk'], (list('dirs') as Dir[] | undefined) ?? ['down', 'right', 'up'], scale);
+  sheet('out/characters/outfits.png', defs, list('poses') ?? ['idle', 'walk'], (list('dirs') as Dir[] | undefined) ?? ['down', 'right', 'up'], scale, cols, first);
 } else if (mode === 'lint') {
   const bad = lint([...Object.values(characters), ...reviewHeads(), ...reviewOutfits()]);
   console.log(bad === 0 ? 'every outline is closed' : `${bad} frame(s) with an open outline`);

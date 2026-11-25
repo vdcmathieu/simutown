@@ -18,8 +18,10 @@ export interface BodyLayer {
   side?: Grid;
   /** Follows the body down in a step and onto a seat. False for a cane: it stays on the ground. */
   follows?: boolean;
-  /** Skipped in these poses (a cane is put away to carry a crate). */
-  notIn?: readonly PoseName[];
+  /** The arms stop swinging while this is shown (a hand is busy holding it). */
+  steadies?: boolean;
+  /** Poses in which it is put away, per view. */
+  notIn?: Partial<Record<View, readonly string[]>>;
 }
 
 /** The extra poses every kit character has, by key of `CharacterDef.poses`. */
@@ -84,8 +86,14 @@ const SIDE: typeof FRONT = {
   ],
 };
 
-// From behind the crate is hidden by the body: the arms simply hang.
-const BACK: typeof FRONT = { ...FRONT, carry: [...rep(3, STAND), ...rep(3, SETTLED)] };
+// From behind the crate is hidden by the body: the arms simply hang. The hand that waves
+// and talks is the same hand, so from behind it is on the other side of the picture.
+const BACK: typeof FRONT = {
+  ...FRONT,
+  wave: [...rep(2, { upper: 'armless', lower: 'stand', wave: 0, flip: true } as Recipe), ...rep(2, { upper: 'armless', lower: 'stand', wave: 1, flip: true } as Recipe)],
+  talk: [...rep(3, { upper: 'talk', lower: 'stand', flip: true } as Recipe), ...rep(3, SETTLED)],
+  carry: [...rep(3, STAND), ...rep(3, SETTLED)],
+};
 
 function drawFrame(parts: Parts, view: View, pose: string, r: Recipe): Sprite {
   const shape = SHAPES[parts.shape];
@@ -95,15 +103,17 @@ function drawFrame(parts: Parts, view: View, pose: string, r: Recipe): Sprite {
   const headDrop = (r.sink === 'step' ? 1 : bodyDrop) + (r.nod ?? 0);
   const zones = parts.zones[view];
 
-  const upper = grids.upper[r.upper];
-  let body = over(grids[parts.lower][r.lower], r.sink === 'sit' ? shift(upper, 0, set.sitDrop) : upper);
+  const layers = (parts.layers ?? []).filter((l) => l[view] && !l.notIn?.[view]?.includes(pose));
+  // a hand that holds a cane does not swing: the torso stands still and only sinks
+  const steady = layers.some((l) => l.steadies);
+  const swings = r.upper === 'swingA' || r.upper === 'swingB';
+  const rest = view === 'side' ? 'armless' : 'stand';
+  let upper = grids.upper[steady && (swings || r.upper === 'stand') ? rest : r.upper];
+  if (r.sink === 'sit' || (steady && swings)) upper = shift(upper, 0, bodyDrop);
+  let body = over(grids[parts.lower][r.lower], upper);
   if (r.flip) body = mirror(body);
   body = mapChars(body, zones);
-  for (const layer of parts.layers ?? []) {
-    const g = layer[view];
-    if (!g || layer.notIn?.includes(pose as PoseName)) continue;
-    body = over(body, g, 0, layer.follows === false ? 0 : bodyDrop);
-  }
+  for (const layer of layers) body = over(body, mapChars(layer[view]!, zones), 0, layer.follows === false ? 0 : bodyDrop);
 
   const stoop = view === 'side' ? -shape.stoop : 0;
   let box = over(emptyGrid(CHAR_H), body, stoop, CHAR_H - BODY_H);
@@ -111,7 +121,7 @@ function drawFrame(parts: Parts, view: View, pose: string, r: Recipe): Sprite {
   box = over(box, head, 0, shape.headDy + headDrop);
   if (r.wave !== undefined) {
     const arm = view === 'side' ? set.wave.side[r.wave] : set.wave.front[r.wave];
-    box = over(box, mapChars(arm, zones), stoop, bodyDrop);
+    box = over(box, mapChars(r.flip ? mirror(arm) : arm, zones), stoop, bodyDrop);
   }
   try {
     return sprite(box.join('\n'), { legend: parts.legend, anchor: [CHAR_W / 2, CHAR_H] });

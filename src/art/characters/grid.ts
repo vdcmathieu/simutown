@@ -90,3 +90,9 @@ export function widen(g: Grid, columns: readonly number[], cut: number): Grid {
 export function shift(g: Grid, dx: number, dy = 0): Grid {
   return over(emptyGrid(g.length), g, dx, dy);
 }
+
+/** Lay `layer` over `base` like `over`, but grow the base downwards first so nothing of the layer is lost. */
+export function overTall(base: Grid, layer: Grid): Grid {
+  const tall = layer.length > base.length ? [...base, ...emptyGrid(layer.length - base.length)] : base;
+  return over(tall, layer);
+}

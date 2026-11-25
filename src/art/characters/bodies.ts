@@ -535,9 +535,26 @@ function mapView(v: ViewSet, fn: (g: Grid) => Grid): ViewSet {
 const broadFront = (g: Grid) => widen(g, [5, 10], 1);
 const broadSide = (g: Grid) => widen(g, [9], 1);
 
+/**
+ * The widened shoulders stick out past the chin, so their two outer pixels become ink:
+ * a rounded corner instead of colour against the sky.
+ */
+function roundShoulders(g: Grid): Grid {
+  const top = g.findIndex((row) => /[A-Za-z]/.test(row));
+  if (top < 0) return g;
+  const row = g[top]!.split('');
+  const first = row.findIndex((ch) => /[A-Za-z]/.test(ch));
+  const last = row.length - 1 - [...row].reverse().findIndex((ch) => /[A-Za-z]/.test(ch));
+  row[first] = '0';
+  row[last] = '0';
+  return g.map((r, i) => (i === top ? row.join('') : r));
+}
+
+const BROAD_FRONT = mapView(ADULT.front, broadFront);
+
 const BROAD: BodySet = {
   ...ADULT,
-  front: mapView(ADULT.front, broadFront),
+  front: { ...BROAD_FRONT, upper: mapSet(BROAD_FRONT.upper, roundShoulders) },
   side: mapView(ADULT.side, broadSide),
 };
 

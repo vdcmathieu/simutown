@@ -1,29 +1,42 @@
 /**
- * Time of day -> light condition: the ambient grade, the sun or moon shadow, and whether
- * the lamps are lit. Every colour here is derived from palette slots through the Lut, so a
- * re-themed town is graded with its own colours.
+ * Time of day -> light condition: the ambient grade, the shadows, and whether the lamps
+ * are lit. Every colour here is derived from palette slots through the Lut, so a re-themed
+ * town is graded with its own colours.
  *
- * The moods, in order: a deep but readable night, a pale dawn, daylight that leaves the art
- * exactly as drawn (09:00 to 16:00), a golden late afternoon, a blue dusk.
+ * The art is drawn for bright daylight, and from 09:00 to 16:00 the grade leaves it exactly
+ * as drawn. The other moods tint it: a pale morning, a golden late afternoon, a pink
+ * sunset, a blue evening, a deep but readable night. Tints keep the art's saturation: a
+ * cheerful town at dusk is blue and violet, never grey.
  */
 import { type Lut, lutRgb, type RGB, type Slot } from '../core/palette';
 
-export interface Condition {
-  /** Per-channel multiplier applied to every world pixel. */
-  mul: [number, number, number];
-  /** Saturation, 1 = unchanged. Night is a little greyer than day. */
+/** A colour transform: saturate, multiply, then add. */
+export interface Grade {
+  /** Saturation, 1 = unchanged. */
   sat: number;
-  /** Added after the multiply (0..255), so the darkest tones do not crush to black at night. */
+  /** Per-channel multiplier. */
+  mul: [number, number, number];
+  /** Added after the multiply (0..255): the sky's own colour filling the darks. */
   lift: [number, number, number];
+}
+
+export interface Condition extends Grade {
   /** True when the grade changes nothing: plain daylight. */
   identity: boolean;
-  /** Shadow shear: a point `h` pixels above the ground casts onto (x + h * kx, y + h * ky). */
-  shadowKx: number;
-  shadowKy: number;
-  /** Flat opacity of the shadow, 0..1. */
+  /**
+   * The grade for people. It is the same darkness with half the tint, so that faces stay
+   * skin-coloured and characters stay readable against a blue town.
+   */
+  actor: Grade;
+  /** Flat opacity of shadows, 0..1. Contact shadows always show at this opacity. */
   shadowAlpha: number;
   /** The colour shadows blend toward. */
   shadowRgb: [number, number, number];
+  /** Cast-shadow shear: a point `h` pixels above the ground casts onto (x + h * kx, y + h * ky). */
+  shadowKx: number;
+  shadowKy: number;
+  /** 0..1 strength of the cast shadow relative to the contact shadow. 0 at midday and at night. */
+  cast: number;
   /** 0..1: how lit the lamps and windows are. 0 by day. */
   lamps: number;
   /**
@@ -33,39 +46,60 @@ export interface Condition {
   glow: number;
 }
 
-/** hour, tint slot, tint amount, brightness, saturation, lift */
-type GradeKey = readonly [number, Slot, number, number, number, number];
+interface Mood {
+  hour: number;
+  /** The light's hue: the average of these slots, brightness removed. */
+  tint: Slot[];
+  /** How far the multiplier moves from white toward the tint. */
+  amount: number;
+  bright: number;
+  sat: number;
+  /** How much of the `LIFT` colour is added, as a share of full brightness. */
+  lift: number;
+  /** Shadow opacity. */
+  shadow: number;
+}
 
-const GRADE: readonly GradeKey[] = [
-  [0, 'steel.2', 1.5, 0.56, 0.45, 0.05],
-  [4.75, 'steel.2', 1.5, 0.56, 0.45, 0.05],
-  [5.75, 'steel.3', 1.3, 0.8, 0.6, 0.03],
-  [6.75, 'ochre.3', 0.4, 0.98, 1, 0],
-  [9, 'cream.2', 0, 1, 1, 0],
-  [16, 'cream.2', 0, 1, 1, 0],
-  [18, 'ochre.2', 0.32, 1.04, 1.08, 0],
-  [19, 'plum.1', 0.25, 0.97, 0.9, 0],
-  [19.5, 'steel.3', 1.5, 0.86, 0.55, 0.02],
-  [21.5, 'steel.2', 1.5, 0.56, 0.45, 0.05],
-  [24, 'steel.2', 1.5, 0.56, 0.45, 0.05],
+const DAY: Omit<Mood, 'hour'> = { tint: ['cream.2'], amount: 0, bright: 1, sat: 1, lift: 0, shadow: 0.22 };
+const NIGHT: Omit<Mood, 'hour'> = { tint: ['sky.0', 'plum.0'], amount: 0.78, bright: 0.74, sat: 1, lift: 0.07, shadow: 0.24 };
+
+const MOODS: readonly Mood[] = [
+  { hour: 0, ...NIGHT },
+  { hour: 4.75, ...NIGHT },
+  { hour: 5.75, tint: ['sky.0', 'plum.1'], amount: 0.5, bright: 0.86, sat: 1, lift: 0.04, shadow: 0.22 },
+  { hour: 6.75, tint: ['ochre.3'], amount: 0.5, bright: 0.98, sat: 1, lift: 0, shadow: 0.22 },
+  { hour: 9, ...DAY },
+  { hour: 16, ...DAY },
+  { hour: 18, tint: ['ochre.2'], amount: 0.3, bright: 1.03, sat: 1.05, lift: 0, shadow: 0.26 },
+  { hour: 19, tint: ['rose.1', 'ochre.1'], amount: 0.4, bright: 0.97, sat: 1.05, lift: 0, shadow: 0.24 },
+  { hour: 19.5, tint: ['sky.0', 'plum.1'], amount: 0.7, bright: 0.93, sat: 1.1, lift: 0.07, shadow: 0.22 },
+  { hour: 21.5, ...NIGHT },
+  { hour: 24, ...NIGHT },
 ];
 
-/** hour, kx, ky, alpha. The sun sets (alpha 0) before the short moon shadow fades in. */
-const SHADOW: readonly (readonly [number, number, number, number])[] = [
-  [0, -0.3, 0.28, 0.16],
-  [5.4, -0.3, 0.28, 0.16],
-  [5.8, -0.3, 0.28, 0],
+/** The colour of the lift: sky blue fills the darks in the evening. */
+const LIFT: Slot = 'sky.0';
+/** How much of the tint people keep, relative to the town around them. */
+const ACTOR_TINT = 0.5;
+
+/**
+ * hour, kx, ky, strength of the cast shadow. At midday and at night there is only the
+ * contact shadow; morning and evening shadows grow out of it, long and to the side.
+ */
+const SUN: readonly (readonly [number, number, number, number])[] = [
+  [0, 0, 0, 0],
+  [5.8, 0, 0, 0],
   [5.81, -1.7, 0.4, 0],
-  [6.6, -1.4, 0.4, 0.2],
-  [9, -0.45, 0.38, 0.24],
-  [12, 0.2, 0.4, 0.24],
-  [16, 0.5, 0.38, 0.24],
-  [18, 1.2, 0.42, 0.3],
-  [19, 1.7, 0.4, 0.2],
+  [6.6, -1.4, 0.4, 1],
+  [9, -0.35, 0.18, 1],
+  [11, 0, 0, 1],
+  [14, 0, 0, 1],
+  [16, 0.4, 0.2, 1],
+  [18, 1.2, 0.42, 1],
+  [19, 1.7, 0.4, 0.6],
   [19.25, 1.8, 0.4, 0],
-  [19.26, -0.3, 0.28, 0],
-  [19.75, -0.3, 0.28, 0.16],
-  [24, -0.3, 0.28, 0.16],
+  [19.26, 0, 0, 0],
+  [24, 0, 0, 0],
 ];
 
 /** Lamps come on around 17:30 and go off around 06:30, each over a quarter of an hour. */
@@ -75,8 +109,10 @@ const LAMPS_RAMP = 0.25;
 /** The glow reaches full strength once the ambient light has dropped by this share. */
 const GLOW_DARKNESS = 0.3;
 
+type Vec = [number, number, number];
+
 /** A colour scaled so that its largest channel is 1: its hue without its brightness. */
-export function normalized(c: RGB): [number, number, number] {
+export function normalized(c: RGB): Vec {
   const m = Math.max(c[0], c[1], c[2], 1);
   return [c[0] / m, c[1] / m, c[2] / m];
 }
@@ -85,32 +121,45 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
+function mix(a: Vec, b: Vec, t: number): Vec {
+  return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+}
+
 /** Bring any number into [0, 24). Bad input reads as noon. */
 function wrapHour(h: number): number {
   if (!Number.isFinite(h)) return 12;
   return ((h % 24) + 24) % 24;
 }
 
-/** Find the two keys around `hour` in a table sorted by its first column, and the blend between them. */
-function bracket<T extends readonly [number, ...unknown[]]>(keys: readonly T[], hour: number): [T, T, number] {
-  for (let i = 1; i < keys.length; i++) {
-    const b = keys[i]!;
-    if (hour <= b[0]) {
-      const a = keys[i - 1]!;
-      return [a, b, b[0] === a[0] ? 0 : (hour - a[0]) / (b[0] - a[0])];
+/** The two rows around `hour` in a table sorted by hour, and the blend between them. */
+function bracket<T>(rows: readonly T[], hourOf: (row: T) => number, hour: number): [T, T, number] {
+  for (let i = 1; i < rows.length; i++) {
+    const b = rows[i]!;
+    if (hour <= hourOf(b)) {
+      const a = rows[i - 1]!;
+      const span = hourOf(b) - hourOf(a);
+      return [a, b, span === 0 ? 0 : (hour - hourOf(a)) / span];
     }
   }
-  const last = keys[keys.length - 1]!;
+  const last = rows[rows.length - 1]!;
   return [last, last, 0];
 }
 
-function gradeOf(lut: Lut, key: GradeKey): { mul: number[]; sat: number; lift: number[] } {
-  const tint = normalized(lutRgb(lut, key[1]));
-  return {
-    mul: tint.map((c) => key[3] * lerp(1, c, key[2])),
-    sat: key[4],
-    lift: tint.map((c) => c * 255 * key[5]),
-  };
+/** The town's grade and the gentler one for people, for one mood. */
+function gradesOf(lut: Lut, m: Mood): { town: Grade; actor: Grade } {
+  const hues = m.tint.map((slot) => normalized(lutRgb(lut, slot)));
+  const hue = [0, 1, 2].map((i) => hues.reduce((sum, h) => sum + h[i]!, 0) / hues.length) as Vec;
+  const sky = normalized(lutRgb(lut, LIFT));
+  const grade = (amount: number, lift: number): Grade => ({
+    sat: m.sat,
+    mul: hue.map((c) => m.bright * lerp(1, c, amount)) as Vec,
+    lift: sky.map((c) => c * 255 * lift) as Vec,
+  });
+  return { town: grade(m.amount, m.lift), actor: grade(m.amount * ACTOR_TINT, m.lift * ACTOR_TINT) };
+}
+
+function blend(a: Grade, b: Grade, t: number): Grade {
+  return { sat: lerp(a.sat, b.sat, t), mul: mix(a.mul, b.mul, t), lift: mix(a.lift, b.lift, t) };
 }
 
 /** 0..1: how lit the lamps are at `hour`. */
@@ -124,26 +173,24 @@ export function lampsAt(hour: number): number {
 /** The light condition at an hour of the day (0..24, wraps). */
 export function conditionAt(hour: number, lut: Lut): Condition {
   const h = wrapHour(hour);
-  const [ga, gb, gt] = bracket(GRADE, h);
-  const a = gradeOf(lut, ga);
-  const b = gradeOf(lut, gb);
-  const mul = [0, 1, 2].map((i) => lerp(a.mul[i]!, b.mul[i]!, gt)) as [number, number, number];
-  const lift = [0, 1, 2].map((i) => lerp(a.lift[i]!, b.lift[i]!, gt)) as [number, number, number];
-  const sat = lerp(a.sat, b.sat, gt);
-  const [sa, sb, st] = bracket(SHADOW, h);
+  const [ma, mb, mt] = bracket(MOODS, (m) => m.hour, h);
+  const a = gradesOf(lut, ma);
+  const b = gradesOf(lut, mb);
+  const town = blend(a.town, b.town, mt);
+  const [sa, sb, st] = bracket(SUN, (row) => row[0], h);
   const ink = lutRgb(lut, 'steel.0');
   const lamps = lampsAt(h);
-  const ambient = (mul[0] * 77 + mul[1] * 150 + mul[2] * 29) / 256;
+  const ambient = (town.mul[0] * 77 + town.mul[1] * 150 + town.mul[2] * 29) / 256;
   return {
-    mul,
-    sat,
-    lift,
-    identity: sat === 1 && mul.every((m) => m === 1) && lift.every((l) => l === 0),
-    // sixteenths of a pixel per pixel of height: fine enough to look continuous, coarse enough to cache
+    ...town,
+    identity: town.sat === 1 && town.mul.every((m) => m === 1) && town.lift.every((l) => l === 0),
+    actor: blend(a.actor, b.actor, mt),
+    shadowAlpha: lerp(ma.shadow, mb.shadow, mt),
+    shadowRgb: ink.map((c, i) => c * Math.min(1, town.mul[i]!)) as Vec,
+    // sixteenths: fine enough to look continuous, coarse enough for the town's shadows to be cached
     shadowKx: Math.round(lerp(sa[1], sb[1], st) * 16) / 16,
     shadowKy: Math.round(lerp(sa[2], sb[2], st) * 16) / 16,
-    shadowAlpha: lerp(sa[3], sb[3], st),
-    shadowRgb: [0, 1, 2].map((i) => ink[i]! * Math.min(1, mul[i]!)) as [number, number, number],
+    cast: Math.round(lerp(sa[3], sb[3], st) * 16) / 16,
     lamps,
     glow: lamps * Math.max(0, Math.min(1, (1 - ambient) / GLOW_DARKNESS)),
   };
@@ -151,16 +198,6 @@ export function conditionAt(hour: number, lut: Lut): Condition {
 
 /** Plain daylight with no shadow and no lamps: what `lighting: false` renders with. */
 export function flatCondition(): Condition {
-  return {
-    mul: [1, 1, 1],
-    sat: 1,
-    lift: [0, 0, 0],
-    identity: true,
-    shadowKx: 0,
-    shadowKy: 0,
-    shadowAlpha: 0,
-    shadowRgb: [0, 0, 0],
-    lamps: 0,
-    glow: 0,
-  };
+  const none: Grade = { sat: 1, mul: [1, 1, 1], lift: [0, 0, 0] };
+  return { ...none, identity: true, actor: none, shadowAlpha: 0, shadowRgb: [0, 0, 0], shadowKx: 0, shadowKy: 0, cast: 0, lamps: 0, glow: 0 };
 }

@@ -78,37 +78,65 @@ describe('time of day', () => {
 describe('shadows', () => {
   // the post covers x 32..47, y 0..31 and stands on the line y = 32
   const town = kitTown(8, 6, 'stone', {}, [{ kind: 'post', tx: 2, ty: 1 }]);
+  /** The test art with extra fields on the post. */
+  const postArt = (extra: object): ReturnType<typeof kitArt> => {
+    const art = kitArt();
+    art.props.post = { ...art.props.post!, ...extra };
+    return art;
+  };
+  /** How far right of the post (which ends at x = 47) its shadow reaches on the ground. */
+  const reach = (timeOfDay: number, extra: object = {}): number => {
+    const [a, b] = [render(town, { timeOfDay }, { art: postArt(extra) }), render(plain, { timeOfDay })];
+    let x = W - 1;
+    while (x > 47 && [...Array(H - 32).keys()].every((y) => pixel(a, x, 32 + y).join() === pixel(b, x, 32 + y).join())) x--;
+    return x - 47;
+  };
 
-  it('fall on the ground beside props and actors, in one flat tone', () => {
+  it('ground props and people at midday with a small contact shadow, in one flat tone', () => {
     const out = render(town, { actors: [actor('a', 'red', 76, 30)] });
-    expect(luma(pixel(out, 42, 36))).toBeLessThan(luma(colorOf('steel.3')));
-    expect(luma(pixel(out, 78, 32))).toBeLessThan(luma(colorOf('steel.3')));
-    expect(pixel(out, 78, 32)).toEqual(pixel(out, 42, 36));
-    expect(pixel(out, 10, 60)).toEqual(colorOf('steel.3'));
+    expect(luma(pixel(out, 40, 32))).toBeLessThan(luma(colorOf('steel.3'))); // under the post
+    expect(luma(pixel(out, 78, 30))).toBeLessThan(luma(colorOf('steel.3'))); // under the feet
+    expect(pixel(out, 78, 30)).toEqual(pixel(out, 40, 32));
+    expect(pixel(out, 40, 36)).toEqual(colorOf('steel.3')); // it does not stretch away at noon
+    expect(pixel(out, 84, 30)).toEqual(colorOf('steel.3'));
     expect(colours(out, 0, 32, 96, 64).size).toBe(2);
+    expect(conditionAt(12, lut).shadowAlpha).toBeCloseTo(0.22);
+  });
+
+  it('draw a thin strip along the base of a building', () => {
+    const art = kitArt();
+    art.props.hall = { id: 'hall', sprite: block('cream.1', 48, 40, [0, 40]), footprint: { w: 3, h: 2 } }; // x 16..63, base y = 48
+    const out = render(kitTown(8, 6, 'stone', {}, [{ kind: 'hall', tx: 1, ty: 2 }]), {}, { art });
+    for (const y of [48, 49]) expect(luma(pixel(out, 40, y))).toBeLessThan(luma(colorOf('steel.3')));
+    expect(pixel(out, 40, 50)).toEqual(colorOf('steel.3'));
+    expect(pixel(out, 16, 48)).toEqual(colorOf('steel.3')); // the strip starts in from the lit corner
   });
 
   it('never darken a sprite', () => {
-    const out = render(town, { actors: [actor('a', 'red', 44, 44)] }); // standing in the post's shadow
-    expect(colours(out, 36, 20, 52, 44)).toEqual(new Set([colorOf('brick.1').join()]));
+    const out = render(town, { timeOfDay: 18, actors: [actor('a', 'red', 60, 44)] }); // standing in the post's evening shadow
+    expect(colours(out, 52, 20, 68, 44).size).toBe(1);
   });
 
-  it('are long at golden hour and short at noon', () => {
-    // how far right of the post (which ends at x = 47) its shadow reaches on the ground
-    const reach = (timeOfDay: number): number => {
-      const [a, b] = [render(town, { timeOfDay }), render(plain, { timeOfDay })];
-      let x = W - 1;
-      while (x > 47 && [...Array(H - 32).keys()].every((y) => pixel(a, x, 32 + y).join() === pixel(b, x, 32 + y).join())) x--;
-      return x - 47;
-    };
-    expect(reach(12)).toBeGreaterThan(2);
-    expect(reach(18)).toBeGreaterThan(reach(12) * 3);
-    expect(conditionAt(18, lut).shadowKx).toBeGreaterThan(conditionAt(12, lut).shadowKx * 2);
+  it('stay under things at noon and grow long and sideways at golden hour', () => {
+    expect(reach(12)).toBeLessThanOrEqual(2);
+    expect(reach(18)).toBeGreaterThan(20);
+    expect(conditionAt(12, lut).shadowKx).toBe(0);
+    expect(conditionAt(18, lut).shadowKx).toBeGreaterThan(1);
     expect(conditionAt(9, lut).shadowKx).toBeLessThan(0); // the morning sun is on the other side
   });
 
+  it('honour castHeight: a shorter caster, or none at all', () => {
+    expect(reach(18, { castHeight: 8 })).toBeLessThan(reach(18) / 2);
+    expect(reach(18, { castHeight: 8 })).toBeGreaterThan(0);
+    for (const timeOfDay of [12, 18, 23]) {
+      const [a, b] = [render(town, { timeOfDay }, { art: postArt({ castHeight: 0 }) }), render(plain, { timeOfDay })];
+      // no contact shadow, no cast shadow: the ground below the post is as if nothing stood there
+      for (let y = 32; y < H; y++) for (let x = 0; x < W; x++) expect(pixel(a, x, y)).toEqual(pixel(b, x, y));
+    }
+  });
+
   it('fade with the actor', () => {
-    const shade = (opacity: number): number => luma(pixel(render(plain, { actors: [actor('a', 'red', 40, 30, { opacity })] }), 42, 32));
+    const shade = (opacity: number): number => luma(pixel(render(plain, { actors: [actor('a', 'red', 40, 30, { opacity })] }), 42, 30));
     expect(shade(1)).toBeLessThan(shade(0.5));
     expect(shade(0.5)).toBeLessThan(shade(0));
   });
@@ -147,6 +175,37 @@ describe('lamps', () => {
     const [a, b] = [pixel(near, 60, 30), pixel(far, 88, 14)];
     expect(luma(a)).toBeGreaterThan(luma(b));
     expect(a[0]! - a[2]!).toBeGreaterThan(b[0]! - b[2]!);
+  });
+
+  it('keep a light off the ground when the art says `ground: false`', () => {
+    const upstairs = kitArt();
+    upstairs.props.lamp = { ...upstairs.props.lamp!, lights: [{ dx: 8, dy: -28, radius: 40, ground: false }] };
+    const dark = render(kitTown(8, 6), { timeOfDay: 23 });
+    const out = render(lit, { timeOfDay: 23 }, { art: upstairs });
+    expect(pixel(out, 44, 50)).toEqual(pixel(dark, 44, 50)); // where the pool would be
+    expect(luma(pixel(out, 46, 6))).toBeGreaterThan(luma(pixel(dark, 46, 6))); // the halo is still there
+    expect(luma(pixel(render(lit, { timeOfDay: 23 }), 44, 50))).toBeGreaterThan(luma(pixel(dark, 44, 50)));
+  });
+
+  it('do not let a prop with castHeight 0 block lamp light', () => {
+    const scene = (castHeight?: number): Surface => {
+      const art = kitArt();
+      art.props.post = { ...art.props.post!, ...(castHeight === undefined ? {} : { castHeight }) };
+      return render(kitTown(8, 6, 'stone', {}, [{ kind: 'lamp', tx: 2, ty: 1 }, { kind: 'post', tx: 3, ty: 2 }]), { timeOfDay: 23 }, { art });
+    };
+    // the post covers x 48..63 and stands on y = 48, to the lower right of the lamp
+    expect(diff(scene(), scene(0))).toBeGreaterThan(0);
+    const [a, b] = [scene(0), render(lit, { timeOfDay: 23 })];
+    for (let y = 48; y < H; y++) for (let x = 0; x < W; x++) expect(pixel(a, x, y)).toEqual(pixel(b, x, y));
+  });
+
+  it('tint people less than the town, so faces stay readable at night', () => {
+    const art = kitArt();
+    art.props.crate = { id: 'crate', sprite: block('brick.1', 16, 24, [0, 24]) };
+    const town = kitTown(8, 6, 'stone', {}, [{ kind: 'crate', tx: 1, ty: 2 }]); // covers x 16..31, y 24..47
+    const out = render(town, { timeOfDay: 23, actors: [actor('a', 'red', 70, 48)] }, { art });
+    const [prop, person] = [pixel(out, 24, 30), pixel(out, 70, 30)];
+    expect(person[0]! - person[2]!).toBeGreaterThan(prop[0]! - prop[2]!); // same paint, the person keeps more red
   });
 
   it('let people cast shadows away from the lamp', () => {

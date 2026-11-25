@@ -41,22 +41,26 @@ function bandWeight(scaled: number): number {
 }
 
 /**
- * Per-drawable flat light, four floats per owner id: r, g, b and a flag (non-zero means
- * "use this instead of the dithered glow"). Index 0, the ground, is never flat.
+ * The lamp light on each person, three floats per owner id: r, g, b. People take this one
+ * flat value instead of the dithered glow.
  */
 export type FlatLight = Float32Array;
 
 /**
  * Grade and light the view in place. `mapW` x `mapH` is the town in pixels: ground pixels
  * outside it are left untouched, so the void around the map stays `steel.0`.
+ * `people[id]` is 1 for owner ids that are actors: they get the gentler grade and flat light.
  * Pass `flat` only when the lamps are lit and the view's glow buffer has been filled.
  */
-export function gradePass(v: View, c: Condition, mapW: number, mapH: number, flat: FlatLight | undefined): void {
+export function gradePass(v: View, c: Condition, mapW: number, mapH: number, people: Uint8Array, flat: FlatLight | undefined): void {
   const { color: d, owner, shade, occlusion, glow, w, h } = v;
   const [mr, mg, mb] = c.mul;
   const [lr, lg, lb] = c.lift;
+  const [pmr, pmg, pmb] = c.actor.mul;
+  const [plr, plg, plb] = c.actor.lift;
   const [sr, sg, sb] = c.shadowRgb;
   const sat = c.sat;
+  const psat = c.actor.sat;
   const identity = c.identity;
   const shadowA = c.shadowAlpha / 255;
   const shadows = shadowA > 0;
@@ -80,11 +84,18 @@ export function gradePass(v: View, c: Condition, mapW: number, mapH: number, fla
       let r = ar;
       let g = ag;
       let b = ab;
+      const person = o !== 0 && people[o] === 1;
       if (!identity) {
         const lum = (ar * 77 + ag * 150 + ab * 29) >> 8;
-        r = (lum + (ar - lum) * sat) * mr + lr;
-        g = (lum + (ag - lum) * sat) * mg + lg;
-        b = (lum + (ab - lum) * sat) * mb + lb;
+        if (person) {
+          r = (lum + (ar - lum) * psat) * pmr + plr;
+          g = (lum + (ag - lum) * psat) * pmg + plg;
+          b = (lum + (ab - lum) * psat) * pmb + plb;
+        } else {
+          r = (lum + (ar - lum) * sat) * mr + lr;
+          g = (lum + (ag - lum) * sat) * mg + lg;
+          b = (lum + (ab - lum) * sat) * mb + lb;
+        }
       }
       if (shadows && o === 0) {
         const s = shade[i]!;
@@ -101,12 +112,12 @@ export function gradePass(v: View, c: Condition, mapW: number, mapH: number, fla
         let kb: number;
         let k: number;
         let weight: number;
-        if (o !== 0 && flat[o * 4 + 3] !== 0) {
-          kr = flat[o * 4]!;
-          kg = flat[o * 4 + 1]!;
-          kb = flat[o * 4 + 2]!;
+        if (person) {
+          kr = flat[o * 3]!;
+          kg = flat[o * 3 + 1]!;
+          kb = flat[o * 3 + 2]!;
           k = kr > kg ? (kr > kb ? kr : kb) : kg > kb ? kg : kb;
-          weight = bandWeight((k > 1 ? 1 : k) * LEVELS);
+          weight = k > 0 ? bandWeight((k > 1 ? 1 : k) * LEVELS) : 0;
         } else {
           kr = glow[i * 3]!;
           kg = glow[i * 3 + 1]!;

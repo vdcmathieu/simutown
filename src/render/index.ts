@@ -76,24 +76,22 @@ export function createRenderer(town: Town, opts: RendererOpts = {}): Renderer {
       drawFlatProps(v, flat, lut, t);
       const list = collectDrawables(v, standing, art, state.actors, t, warn);
       if (c.shadowAlpha > 0) {
-        copyTownMask(v.shade, v, townShadows(c.shadowKx, c.shadowKy), mapW, mapH);
-        castActorShadows(v, list, c.shadowKx, c.shadowKy);
+        copyTownMask(v.shade, v, townShadows(c.shadowKx, c.shadowKy, c.cast), mapW, mapH);
+        castActorShadows(v, list, c.shadowKx, c.shadowKy, c.cast);
       }
       drawSprites(v, list, lut);
 
+      const people = new Uint8Array(list.length + 1);
+      for (const d of list) if (d.actor) people[d.id] = 1;
       let flatLight: FlatLight | undefined;
       if (c.glow > 0 && lights.length > 0) {
         accumulateGlow(v, lights, t, c.glow);
         copyTownMask(v.occlusion, v, townOcclusion(), mapW, mapH);
         castActorOcclusion(v, lights, list);
-        flatLight = new Float32Array((list.length + 1) * 4);
-        for (const d of list) {
-          if (!d.actor) continue;
-          flatLight.set(actorGlow(lights, d.x, d.y, t, c.glow), d.id * 4);
-          flatLight[d.id * 4 + 3] = 1;
-        }
+        flatLight = new Float32Array((list.length + 1) * 3);
+        for (const d of list) if (d.actor) flatLight.set(actorGlow(lights, d.x, d.y, t, c.glow), d.id * 3);
       }
-      gradePass(v, c, mapW, mapH, flatLight);
+      gradePass(v, c, mapW, mapH, people, flatLight);
       if (c.lamps > 0) {
         drawEmissive(v, flatGlow, lut, c.lamps);
         drawEmissive(v, list, lut, c.lamps);

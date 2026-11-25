@@ -20,6 +20,8 @@ const WIDE: [number, number] = [20, 9];
 const PARKWARDS: [number, number] = [20, 19];
 /** The front of the cafe, close. */
 const CAFE: [number, number] = [15, 8];
+/** The bench under the willow, close, with the west side of the square above it and Mill Lane below. */
+const BENCH: [number, number] = [16, 15];
 /** The north shore of the pond, close. */
 const POND: [number, number] = [27, 22];
 /** The south side of the fountain, close. */
@@ -100,8 +102,8 @@ export default scene({ title: 'Word of mouth', town: willowSquare, timeOfDay: 10
   });
   s.caption('Ten neighbours. One piece of news.');
   s.wait(1.2);
-  s.camera.pan(PARKWARDS, { duration: 1.8 });
-  s.wait(1.2);
+  s.camera.pan(PARKWARDS, { duration: 1.5 });
+  s.wait(1.5);
 
   // --- Ana has an idea: 1 of 10 ------------------------------------------------------------------
   s.camera.cut(CAFE, { zoom: 2 });
@@ -172,18 +174,22 @@ export default scene({ title: 'Word of mouth', town: willowSquare, timeOfDay: 10
       otto.face(raj);
       tell(raj, [otto], `Otto! ${NEWS}`);
     });
-    // the camera goes with him
-    after(0.75, () =>
-      cutAway([ana, bo, mira, zara, tomas], () => {
-        s.camera.cut(raj, { zoom: 2 });
-        s.camera.follow(raj);
-      }),
-    );
+    // cut ahead of him, to the bench: he walks into the shot from the top
+    after(1.05, () => cutAway([ana, bo, mira, zara, tomas], () => s.camera.cut(BENCH, { zoom: 2 })));
   });
   s.wait(0.5);
 
   // --- ...all the way to the park: 10 of 10 ----------------------------------------------------------
   s.together(() => {
+    // the children stop their game a little apart, so the three can be counted when the shot opens
+    after(0.4, () => {
+      kofi.walkTo([24, 22], { speed: 2 });
+      kofi.face('down');
+    });
+    after(0.4, () => {
+      lin.walkTo([24, 24], { speed: 2 });
+      lin.face('up');
+    });
     s.sequence(() => {
       raj.walkTo('square.gate', { speed: 3.4 });
       show([raj]);
@@ -244,7 +250,7 @@ export default scene({ title: 'Word of mouth', town: willowSquare, timeOfDay: 10
     // behind the title card: evening falls and everyone takes their place
     after(1.0, () => {
       hide(knows);
-      s.timeOfDay(19);
+      s.timeOfDay(19.2);
       s.camera.cut(WIDE, { zoom: 1 });
       for (const [who, tile, dir] of party) {
         who.teleport(tile);
@@ -255,7 +261,7 @@ export default scene({ title: 'Word of mouth', town: willowSquare, timeOfDay: 10
     });
   });
   s.together(() => {
-    s.timeOfDay(19.35, { duration: 7.5 });
+    s.wait(7.5); // the length of the party: the light holds still, at sunset
     // the children come running, last as always
     after(0.4, () => {
       kofi.walkTo([24, 16], { speed: 3.5 });

@@ -57,3 +57,8 @@ export function reviewOutfits(): CharacterDef[] {
   }
   return out;
 }
+
+/** Every hat over every hair style, hats in rows: the sheet that shows what a hat leaves visible. */
+export function reviewHats(): CharacterDef[] {
+  return O.hat.flatMap((kind, i) => O.head.map((head, j) => base(`${kind}-on-${head}`, { head, hair: HAIRS[(i + j) % HAIRS.length], skin: O.skin[j % O.skin.length], hat: { kind }, accent: 'blue' })));
+}

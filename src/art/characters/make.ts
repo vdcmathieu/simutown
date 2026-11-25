@@ -18,7 +18,7 @@
  *
  * Every choice is checked: a wrong name throws an error that lists the valid ones.
  */
-import type { Slot } from '../../core/palette';
+import { isSlot, type Slot } from '../../core/palette';
 import type { Legend } from '../../core/sprite';
 import type { CharacterDef } from '../../core/types';
 import { BAG, CANE } from './accessories';
@@ -73,7 +73,7 @@ export interface CharacterSpec {
    * it out: a dress brings its own skirt.
    */
   bottom?: { kind: BottomKind; color: ClothColor };
-  /** Shoe colour. Default 'brown'. Shoes take the dark tone of the colour. */
+  /** Shoe colour. Default 'brown'. Shoes take the dark tone of a named colour; a palette slot is used as given. */
   shoes?: ClothColor;
   /**
    * The one small accent of the outfit: a bun's ribbon, the ties of braids, a hat band or
@@ -166,7 +166,9 @@ export function makeCharacter(spec: CharacterSpec): CharacterDef {
     bottomKind = 'skirt';
     bottom = top;
   }
-  const shoes = color('shoes', spec.shoes ?? 'brown');
+  const shoeTones = color('shoes', spec.shoes ?? 'brown');
+  // shoes are small and dark: a named colour gives its dark tone, a slot is used as given
+  const shoes: Slot = isSlot(spec.shoes ?? '') ? shoeTones.base : shoeTones.shade === 'steel.1' ? shoeTones.base : shoeTones.shade;
   const accent = spec.accent === undefined ? undefined : color('accent', spec.accent);
 
   if (spec.hat !== undefined && (typeof spec.hat !== 'object' || spec.hat === null)) {
@@ -185,13 +187,12 @@ export function makeCharacter(spec: CharacterSpec): CharacterDef {
   const bag = acc.bag === undefined ? undefined : color('accessories.bag', acc.bag);
 
   // Roles to slots. See kit.ts for the letters.
-  const dark = (t: { base: Slot; shade: Slot }): Slot => (t.shade === 'steel.1' || t.shade === t.base ? t.base : t.shade);
   const legend: Legend = {
     S: skin.skin, K: skin.shade, B: skin.blush,
     H: hair.base, D: hair.shade, L: hair.light,
     T: top.base, U: top.shade,
     P: bottom.base, Q: bottom.shade,
-    F: dark(shoes),
+    F: shoes,
     E: apron.base, G: apron.shade,
     X: 'wood.2', O: 'wood.1', I: 'wood.0',
     C: 'steel.1', J: 'sky.2',

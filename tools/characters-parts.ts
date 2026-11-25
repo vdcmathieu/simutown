@@ -3,6 +3,7 @@
  *
  *   pnpm tsx tools/characters-parts.ts cast   [--ids ana,bo] [--poses idle,walk] [--dirs down,right] [--scale 4] [--cols 3] [--first]
  *   pnpm tsx tools/characters-parts.ts heads  [--only bun] [--scale 5]     every head and hat, three views
+ *   pnpm tsx tools/characters-parts.ts hats   [--dirs down] [--scale 3]    every hat (rows) over every hair style (columns)
  *   pnpm tsx tools/characters-parts.ts outfits [--scale 4]                 every top on every bottom and shape
  *   pnpm tsx tools/characters-parts.ts lint                                open outlines in the whole kit
  *   pnpm tsx tools/characters-parts.ts ascii <id> <pose> <dir> [frame]     one frame as text
@@ -14,7 +15,7 @@
  */
 import { characters } from '../src/art/characters';
 import { openOutline, silhouette } from '../src/art/characters/lint';
-import { reviewHeads, reviewOutfits } from '../src/art/characters/review';
+import { reviewHats, reviewHeads, reviewOutfits } from '../src/art/characters/review';
 import { compileTheme, daylight, lutRgb, type Slot } from '../src/core/palette';
 import type { Sprite } from '../src/core/sprite';
 import { Surface } from '../src/core/surface';
@@ -103,6 +104,8 @@ if (mode === 'cast') {
   const only = option('only');
   const defs = reviewHeads().filter((d) => !only || d.id.includes(only));
   sheet('out/characters/heads.png', defs, list('poses') ?? ['idle'], (list('dirs') as Dir[] | undefined) ?? ALL_DIRS, scale, cols, first);
+} else if (mode === 'hats') {
+  sheet('out/characters/hats.png', reviewHats(), ['idle'], (list('dirs') as Dir[] | undefined) ?? ['down', 'right', 'up'], scale, cols === 1 ? 13 : cols, true);
 } else if (mode === 'outfits') {
   const only = option('only');
   const defs = reviewOutfits().filter((d) => !only || d.id.includes(only));
@@ -119,5 +122,5 @@ if (mode === 'cast') {
   if (!s) throw new Error(`no frame ${pose}.${dir}#${frame} for "${id}"`);
   console.log(silhouette(s));
 } else {
-  throw new Error(`unknown mode "${mode}". Try: cast, heads, outfits, lint, ascii`);
+  throw new Error(`unknown mode "${mode}". Try: cast, heads, hats, outfits, lint, ascii`);
 }

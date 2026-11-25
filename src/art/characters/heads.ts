@@ -754,12 +754,15 @@ const strawHat: HeadViews = (() => {
   return { down: g, up: g, right: g };
 })();
 
-/** A peaked cap with a small badge in the accent colour. The peak shows best from the side. */
+/**
+ * A peaked cap with a button on top and a small badge in the accent colour. The peak
+ * shows best from the side.
+ */
 const cap = views(
   `
     ${ERASED}
-    ${ERASED}
-    ____00000000____
+    _______00_______
+    ____000AA000____
     ___0YYAAAAAA0___
     __0YAAARRAAAA0__
     _0AAAAAAAAAAAZ0_
@@ -768,8 +771,8 @@ const cap = views(
   `,
   `
     ${ERASED}
-    ${ERASED}
-    ____00000000____
+    _______00_______
+    ____000AA000____
     ___0YYAAAAAA0___
     __0YAAAAAAAAA0__
     _0AAAAAAAAAAAZ0_
@@ -778,8 +781,8 @@ const cap = views(
   `,
   `
     ${ERASED}
-    ${ERASED}
-    ____00000000____
+    _______00_______
+    ____000AA000____
     ___0YYAAAAAA0___
     __0YAAAAAAAAA0__
     _0AAAAAAAAAAAA00
@@ -822,7 +825,10 @@ const beret = views(
   `,
 );
 
-/** A headscarf knotted under the chin; a strip of hair shows at the brow. */
+/**
+ * A headscarf that covers the hair and wraps under the chin, so the head does not taper
+ * to the neck. A strip of hair shows at the brow.
+ */
 const headscarf = views(
   `
     ${ERASED}
@@ -836,11 +842,11 @@ const headscarf = views(
     _0AASSSSSSSSAZ0_
     _0ASS0SSSS0SSZ0_
     _0ASS0SSSS0SSZ0_
-    __0ABSSSSSSBZ0__
-    ___0AASSSSZZ0___
-    ____00AAZZ00____
-    ______0AZ0______
-    _______00_______
+    _0ASBSSSSSSBSZ0_
+    _0AAASSSSSSZZZ0_
+    _0AAAAAAZZZZZZ0_
+    __000000000000__
+    ${ERASED}
     ${ERASED}
     ${ERASED}
   `,
@@ -856,11 +862,11 @@ const headscarf = views(
     _0AAAAAAAAAAZZ0_
     _0AAAAAAAAAAZZ0_
     _0AAAAAAAAAZZZ0_
-    __0ZAAAAAAZZZ0__
-    ___0ZZAAAZZZ0___
-    ____00ZAAZ00____
-    ______0ZZ0______
-    _______00_______
+    _0AAAAAAAAAZZZ0_
+    _0AAAAAAAAZZZZ0_
+    _0ZAAAAAAZZZZZ0_
+    __000000000000__
+    ${ERASED}
     ${ERASED}
     ${ERASED}
   `,
@@ -876,11 +882,11 @@ const headscarf = views(
     _0AAAAAAASSSSS0_
     _0ZAAAAASSS0SS0_
     _0ZAAAAASSS0SS0_
-    __0ZAAAASSSSB0__
-    ___0ZZAAASSS0___
-    ____00000AA0____
-    _________0AZ0___
-    __________00____
+    _0ZAAAAASSSSB0__
+    _0ZZAAAAASSS0___
+    _0ZZAAAAAAAA0___
+    __0000000000____
+    ${ERASED}
     ${ERASED}
     ${ERASED}
   `,

@@ -72,17 +72,18 @@ const FORBIDDEN: Partial<Record<Slot, string>> = {
 
 /** Turn a colour name or slot into tones. Throws, listing the names, when it is neither. */
 export function clothTones(color: string, what: string): Tones {
-  if (color in CLOTH) return CLOTH[color as ClothName];
+  if (Object.hasOwn(CLOTH, color)) return CLOTH[color as ClothName];
   if (isSlot(color)) {
     const why = FORBIDDEN[color];
     if (why) throw new Error(`${what}: "${color}" cannot be worn, ${why}. Colour names: ${Object.keys(CLOTH).join(', ')}.`);
     const dot = color.lastIndexOf('.');
     const ramp = color.slice(0, dot);
     const n = Number(color.slice(dot + 1));
-    const darker = `${ramp}.${n - 1}`;
+    // the shade is the next darker slot of the ramp that may be worn; the darkest slot of
+    // a ramp borrows slate, and steel.1 stays flat rather than use ink
+    const darker = [n - 1, n - 2].map((i) => `${ramp}.${i}`).find((s): s is Slot => isSlot(s) && !FORBIDDEN[s]);
+    const shade: Slot = darker ?? 'steel.1';
     const lighter = `${ramp}.${n + 1}`;
-    // the darkest slot of a ramp borrows slate as its shade; steel.1 stays flat rather than use ink
-    const shade: Slot = n > 0 && isSlot(darker) && darker !== 'steel.0' ? darker : color === 'steel.1' ? color : 'steel.1';
     const light: Slot = isSlot(lighter) && !FORBIDDEN[lighter] && !ramp.startsWith('skin') ? lighter : color;
     return { base: color, shade, light };
   }

@@ -99,6 +99,20 @@ describe('makeCharacter', () => {
     expectWellFormed(makeCharacter(spec({ top: { kind: 'shirt', color: 'plum.1' }, bottom: { kind: 'skirt', color: 'brick.0' }, shoes: 'steel.1' })));
   });
 
+  it('never shades a slot with ink or a ground colour', () => {
+    const banned = [slotIndex('steel.0'), slotIndex('moss.2'), slotIndex('cream.1')];
+    for (const color of ['moss.3', 'cream.2', 'steel.1', 'wood.0', 'ochre.3'] as const) {
+      const def = makeCharacter(spec({ head: 'bald', top: { kind: 'coat', color }, bottom: { kind: 'skirt', color }, shoes: color }));
+      const front = def.idle.down[0]!;
+      // inside the coat: every pixel between the outline columns of the chest row
+      const chest = Array.from({ length: 6 }, (_, i) => at(front, 5 + i, 16));
+      expect(chest.every((v) => !banned.includes(v)), color).toBe(true);
+      expect(allSprites(def).some((s) => s.px.some((v) => v === banned[1] || v === banned[2])), color).toBe(false);
+      // the shoes are exactly the slot asked for
+      expect(at(front, 5, 22)).toBe(slotIndex(color));
+    }
+  });
+
   it('the review casts cover the whole library with closed outlines', () => {
     const defs = [...reviewHeads(), ...reviewOutfits()];
     expect(defs.length).toBeGreaterThan(60);
@@ -143,6 +157,14 @@ describe('makeCharacter', () => {
         const inside = row.slice(first, last + 1);
         expect(inside.filter((v) => v === INK), `${head} row ${y}`).toEqual([]);
       }
+    }
+  });
+
+  it('gives every head and every hat its own silhouette, from the front and from the side', () => {
+    const defs = [...O.head.map((head) => makeCharacter(spec({ head }))), ...O.hat.map((kind) => makeCharacter(spec({ hat: { kind } })))];
+    for (const dir of ['down', 'right'] as Dir[]) {
+      const shapes = defs.map((def) => silhouette(def.idle[dir][0]!).replace(/#/g, 'o'));
+      expect(new Set(shapes).size, dir).toBe(shapes.length);
     }
   });
 

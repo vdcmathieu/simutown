@@ -148,9 +148,12 @@ export function build(parts: Parts): CharacterDef {
       return s;
     });
   };
+  // repeated frames share one mirrored sprite too
+  const mirrored = new Map<Sprite, Sprite>();
+  const flip = (s: Sprite): Sprite => mirrored.get(s) ?? (mirrored.set(s, flipX(s)), mirrored.get(s)!);
   const set = (pose: keyof typeof FRONT): Record<Dir, Sprite[]> => {
     const right = frames('side', SIDE, pose);
-    return { down: frames('front', FRONT, pose), up: frames('back', BACK, pose), right, left: right.map(flipX) };
+    return { down: frames('front', FRONT, pose), up: frames('back', BACK, pose), right, left: right.map(flip) };
   };
   const def: CharacterDef = {
     id: parts.id,

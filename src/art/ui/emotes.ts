@@ -141,29 +141,29 @@ const anger = outlined(`
 
 const happy = outlined(`
   ...........
+  ...........
   ...cccccb..
   ..cccccccb.
   .cc0ccc0cbb
   .c0c0c0c0bb
-  .zccccccczb
+  .*ccccccc*b
   .cc0ccc0cbb
   ..cc000ccb.
   ...cbbbbb..
-  ...........
   ...........
 `);
 
 const sad = outlined(`
   ...........
-  ...55555...
-  ..55555554.
-  .550555054.
-  .550555054.
-  .575555554.
-  .575000554.
-  ..5055504..
-  ...544444..
   ...........
+  ...fffff...
+  ..fffffff9.
+  .ff0fff0f9.
+  .ff0fff0f9.
+  .f8ffffff9.
+  .f8f000ff9.
+  ..f0fff09..
+  ...f99999..
   ...........
 `);
 

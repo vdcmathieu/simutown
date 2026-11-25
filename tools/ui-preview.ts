@@ -4,12 +4,14 @@
  *   pnpm tsx tools/ui-preview.ts [--scale 3]
  *
  * Writes:
- *   out/ui-overlays.png  the fixture frame with bubbles near edges and in the middle,
- *                        a two-line caption, labels and every emote
+ *   out/ui-overlays.png        the fixture at midday, with bubbles near edges and in the
+ *                              middle, a two-line caption, labels and every emote
+ *   out/ui-overlays-dusk.png   the same over the fixture at dusk
+ *   out/ui-renderer.png        the fixture frame as the renderer draws its own overlays
  *   out/ui-title.png     a title card
  *   out/ui-text.png      the whole character set and real sentences, on light and dark
  */
-import { compileTheme, dusk, lutRgb, type Slot } from '../src/core/palette';
+import { compileTheme, daylight, lutRgb, type Slot } from '../src/core/palette';
 import { Surface } from '../src/core/surface';
 import { FRAME_H, FRAME_W } from '../src/core/types';
 import { emotes, font } from '../src/art/ui';
@@ -21,22 +23,29 @@ import { drawBubble, drawCaption, drawEmote, drawLabel, drawText, drawTitle } fr
 const args = process.argv.slice(2);
 const si = args.indexOf('--scale');
 const scale = si >= 0 ? Number(args[si + 1]) : 3;
-const lut = compileTheme(dusk);
+const lut = compileTheme(daylight);
 const fill = (s: Surface, slot: Slot) => s.clear([...lutRgb(lut, slot), 255]);
 
-/** The fixture frame (dusk), or a flat bright ground to check overlays on a sunny scene. */
-function base(light: boolean): Surface {
+/** The fixture frame at an hour, rendered by the real renderer with its own overlays removed. */
+function base(hour: number): Surface {
   const frame = new Surface(FRAME_W, FRAME_H);
-  if (!light) createRenderer(tinyScene.town).render(tinyScene.frame(4), frame);
-  else {
-    fill(frame, 'moss.3');
-    frame.rect(0, 128, FRAME_W, 32, [...lutRgb(lut, 'cream.1'), 255]);
-  }
+  const state = tinyScene.frame(4);
+  createRenderer(tinyScene.town).render(
+    {
+      ...state,
+      timeOfDay: hour,
+      actors: state.actors.map(({ emote: _, ...a }) => a),
+      bubbles: [],
+      annotations: [],
+      caption: undefined,
+    },
+    frame,
+  );
   return frame;
 }
 
-function overlays(light = false): Surface {
-  const frame = base(light);
+function overlays(hour: number): Surface {
+  const frame = base(hour);
   // Bubbles: in the middle, against each edge, and one half typed out.
   drawBubble(frame, lut, { x: 248, y: 128, text: 'Hello, Simutown! Bonjour à tous.', kind: 'say', reveal: 1 });
   drawBubble(frame, lut, { x: 6, y: 60, text: 'I am right at the left edge of the frame.', kind: 'say', reveal: 1 });
@@ -56,8 +65,7 @@ function overlays(light = false): Surface {
 }
 
 function title(): Surface {
-  const frame = new Surface(FRAME_W, FRAME_H);
-  createRenderer(tinyScene.town).render(tinyScene.frame(4), frame);
+  const frame = base(12);
   drawTitle(frame, lut, 'Le bouche-à-oreille', 'How a rumour travels through a small town, one conversation at a time.', 1);
   return frame;
 }
@@ -96,8 +104,11 @@ function textSheet(): Surface {
   return s;
 }
 
-writePNG('out/ui-overlays.png', overlays().scaled(scale));
-writePNG('out/ui-overlays-light.png', overlays(true).scaled(scale));
+writePNG('out/ui-overlays.png', overlays(12).scaled(scale));
+writePNG('out/ui-overlays-dusk.png', overlays(19.5).scaled(scale));
+const own = new Surface(FRAME_W, FRAME_H);
+createRenderer(tinyScene.town).render({ ...tinyScene.frame(4), timeOfDay: 12 }, own);
+writePNG('out/ui-renderer.png', own.scaled(scale));
 writePNG('out/ui-title.png', title().scaled(scale));
 writePNG('out/ui-text.png', textSheet().scaled(scale));
-console.log('out/ui-overlays.png, out/ui-title.png, out/ui-text.png');
+console.log('out/ui-overlays.png, out/ui-overlays-dusk.png, out/ui-renderer.png, out/ui-title.png, out/ui-text.png');

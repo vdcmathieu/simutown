@@ -170,7 +170,7 @@ The rules that matter most, all from [the art direction](STYLE.md):
 
 A prop's sprite is anchored at its bottom-left corner, `[0, h]`, and that point lands on the bottom-left corner of its origin tile; the sprite rises above the tile.
 Its `footprint` is the ground it covers, `w` tiles wide and `h` deep, growing right and up from the origin tile: nobody can walk there.
-The footprint covers what stands on the ground, not the air above it, so a tree is solid only at its trunk and people walk behind its canopy.
+The footprint covers only what stands on the ground: a tree is solid only at its trunk and people walk behind its canopy.
 
 The hay bale above is two tiles wide and one deep.
 A prop with no footprint is walked through; set `flat: true` for things on the ground, such as flowers or a rug, so that they are drawn under people.

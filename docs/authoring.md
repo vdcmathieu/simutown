@@ -187,6 +187,7 @@ pnpm tsx -e "import { townsfolk } from './src'; console.table(townsfolk)"
 ```
 
 Every townsperson has the poses `sit`, `wave`, `talk` and `carry`, and every scene can use the emotes `anger`, `dots`, `happy`, `heart`, `idea`, `note`, `question`, `sad`, `surprise` and `zzz`.
+Cast only ids from this table: some snippets in the API reference use stand-in names such as `ben` and `cy`, which are not in the cast.
 The same person can appear twice if you give the second one an `id`.
 If nobody fits, make someone new with `makeCharacter`: see [Making art](making-art.md).
 
@@ -374,7 +375,8 @@ The MP4 is H.264 and plays in browsers, Keynote and PowerPoint; `.webm` also wor
 These come from watching scenes on a projector.
 
 - **Speech times itself.** A bubble types at 30 characters a second, then holds for at least 1.2 seconds, or one second per 15 characters if that is longer. "Ten coins for the basket." lasts about 2.5 seconds. Lines of dialogue can simply follow each other.
-- **A caption takes no time.** It appears and stays until the next caption, `s.clearCaption()`, or its `hold`. Give every caption either a `hold` or enough action after it: about one second per 15 characters, and never less than 2 seconds. Two captions in a row without either: the first is never seen.
+- **A caption takes no time.** It appears and stays until the next caption, `s.clearCaption()`, or the end of its `hold`. Give every caption either a `hold` or enough action after it: about one second per 15 characters, and never less than 2 seconds. Two captions in a row without either: the first is never seen.
+- **Clear a caption when its beat is over.** A caption without a `hold` stays up through everything that follows, dialogue included, until another caption replaces it. When a set-up caption should not hang over the conversation, end the set-up with `s.clearCaption()`, or give the caption a `hold` that covers the set-up.
 - **Keep text short.** A bubble wraps at about 29 characters a line; two lines is comfortable, three is the most. A caption fits about 80 characters on a line and two lines at most; longer text is cut off with an ellipsis.
 - **One thing at a time.** The eye follows one speaker. Use `s.together` for things that belong to one moment (a line, an emote, a link), never for two conversations.
 - **Cut to change the subject, pan to follow attention.** A cut is instant: use it after a fade, at the start, or to jump to another place. A pan (1.5 seconds by default) keeps the viewer oriented as you move within one place or change the zoom. Do not move the camera while someone is speaking.
@@ -383,6 +385,39 @@ These come from watching scenes on a projector.
 - **Let the point land.** After the key moment, hold 1 to 2 seconds before moving on: `s.wait(1.5)`.
 - **Walks are slow.** People walk 2.5 tiles a second, so crossing a 30-tile town takes 12 seconds. Start people close to where they are needed, or cut away while they walk.
 - **Length.** 15 to 60 seconds for one idea. Longer films are better split into several scenes.
+
+## Time of day
+
+`timeOfDay` in the scene options sets the hour, from 0 to 24 (default 12); `s.timeOfDay(hour, { duration })` changes it during the scene.
+The art is drawn for daylight, and the hours look like this:
+
+| Hour | What you see |
+|---|---|
+| before 5 | Night: deep blue, lamps and windows lit. |
+| 6 to 7 | Dawn, then a pale golden morning, with long shadows to the left. |
+| 9 to 16 | Plain daylight: the art exactly as drawn. Shadows are short at midday. |
+| 17 to 18 | A golden late afternoon, with long shadows to the right. Lamps and windows light up from 17:30. |
+| 19 | A pink sunset. |
+| 19.5 to 21 | A blue evening. |
+| after 21.5 | Night. |
+
+So "afternoon" in a caption needs about 17 or 18 to look like it; at 16 the picture is still plain daylight.
+Lamps and lit windows read best from 19.5 on.
+
+## Finding the times of your beats
+
+`pnpm simutown info` prints the total length.
+To know when a beat starts, print the script clock `s.now` at that point in the script:
+
+```ts
+  // Beat 3: Zara names a number first.
+  console.log('beat 3 at', s.now.toFixed(1));
+  s.caption('Zara speaks first.');
+```
+
+`pnpm simutown info <scene>` builds the scene and prints the line, here `beat 3 at 7.8`; render your still for that beat a second or two later.
+Take the line out when you are done.
+To hit a target length, add or trim `s.wait(...)` near the end and check the duration that `info` prints.
 
 ## Common mistakes
 

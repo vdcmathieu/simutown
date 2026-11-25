@@ -22,16 +22,19 @@ Claude Code has the same steps as a skill, in `.claude/skills/simutown-scene/SKI
    ```
 
    Props are not places: to reach the bakery, walk to `bakery.door`. A new setting is a small `defineTown` (see `examples/market.ts`).
-3. **Cast** by role from the townsfolk table in `docs/authoring.md` (the baker is `bo`, the children `kofi` and `lin`). The same list is `townsfolk` in `src/art/characters/index.ts`.
-4. **Write** `scenes/<kebab-name>.ts`, default-exporting `scene({ title, town, timeOfDay }, (s) => { ... })`. Copy the shape of `scenes/hello.ts` or `examples/haggle.ts`.
-5. **Build** with `pnpm simutown info <name>`. Errors list the valid names: fix and rerun.
-6. **Look**: `pnpm simutown still <name> -t <seconds> -o out/<name>-<seconds>.png` for each beat, and open every PNG with your image-reading tool. Check that the people who matter are in frame and unhidden, that bubbles and labels do not overlap, and that each caption is up while its beat needs it. Repeat until every beat reads.
-7. **Render** with `pnpm simutown render <name>` (MP4 in `out/`; `-o out/<name>.gif` for a GIF), and run `pnpm check`.
+3. **Cast** by role from the townsfolk table in `docs/authoring.md` (the baker is `bo`, the children `kofi` and `lin`). The same list is `townsfolk` in `src/art/characters/index.ts`. Use only those ids: `ben` and `cy` in some `docs/scene-api.md` snippets are stand-ins.
+4. **Pick the hour.** Plain daylight runs from 9 to 16; a golden late afternoon is 17 to 18 (lamps light at 17:30); sunset 19; a blue evening 19.5 to 21; night after 21.5. See "Time of day" in `docs/authoring.md`.
+5. **Write** `scenes/<kebab-name>.ts`, default-exporting `scene({ title, town, timeOfDay }, (s) => { ... })`. Copy the shape of a scene in `scenes/` (`pnpm simutown list`) or of `examples/haggle.ts`.
+6. **Build** with `pnpm simutown info <name>`. Errors list the valid names: fix and rerun. To find when a beat starts, put `console.log('beat 3 at', s.now.toFixed(1));` in the script; `info` prints it.
+7. **Look**: `pnpm simutown still <name> -t <seconds> -o out/<name>-<seconds>.png` for each beat, and open every PNG with your image-reading tool. Check that the people who matter are in frame and unhidden, that bubbles and labels do not overlap, and that each caption is up while its beat needs it. Repeat until every beat reads.
+8. **Render** with `pnpm simutown render <name>` (MP4 in `out/`; `-o out/<name>.gif` for a GIF), and run `pnpm check`.
 
-Pacing, in short: each call starts when the previous one ends and `s.together` runs calls at once; speech times itself, a caption takes no time (give it `{ hold }` or action after it); walking is 2.5 tiles a second; zoom 1 to set the scene and zoom 2 for dialogue; cut between places, pan within one, and keep the camera still while someone speaks.
+Pacing, in short: each call starts when the previous one ends and `s.together` runs calls at once; speech times itself; a caption takes no time (give it `{ hold }` or action after it) and, without a `hold`, stays up until the next caption or `s.clearCaption()`; walking is 2.5 tiles a second; zoom 1 to set the scene and zoom 2 for dialogue; cut between places, pan within one, and keep the camera still while someone speaks.
+To hit a target length, adjust an `s.wait(...)` before the final fade.
 
 A scene is done when it builds, its length is close to what was asked, you have looked at a still of every beat, the film is rendered, and `pnpm check` passes.
 Report the scene file, the output path, the duration and the stills you checked.
+Commit the scene if you are working on a branch of your own; in someone else's checkout or a scratch copy, leave committing to them.
 
 ## The pipeline
 

@@ -15,7 +15,7 @@ Your job: turn the request into a short, clear film, check it by looking at stil
 - `docs/scene-api.md`: the reference for every call and its timing.
 - The cast: the table in `docs/authoring.md` (section 3), or `townsfolk` in `src/art/characters/index.ts`.
 - The built-in town: `willowSquare` in `src/towns/willow-square.ts`.
-- `scenes/hello.ts`, `scenes/word-of-mouth.ts`, `scenes/day-and-night.ts`: example scenes to copy from.
+- `scenes/`: the example scenes to copy from, such as `hello.ts`; `pnpm simutown list` lists them.
 - `examples/haggle.ts`: the worked example of the guide, in a town of its own (`examples/market.ts`).
 
 ## The loop
@@ -32,7 +32,8 @@ Your job: turn the request into a short, clear film, check it by looking at stil
    Use the place names it prints: to reach the bakery, walk to `bakery.door`.
    If no town has the setting you need, define a small one with `defineTown` (30 x 17 tiles fills the frame); see `examples/market.ts`.
 3. **Cast** by role from the townsfolk table: the baker is `bo`, the children are `kofi` and `lin`, and so on.
-   Use ids, never names you invent; an unknown id is an error that lists the valid ones.
+   Use ids from that table only; an unknown id is an error that lists the valid ones, and the stand-in names in some `docs/scene-api.md` snippets (`ben`, `cy`) are not in the cast.
+   Pick the hour too: plain daylight runs from 9 to 16, a golden late afternoon is 17 to 18 (lamps light at 17:30), sunset 19, a blue evening 19.5 to 21, night after 21.5. The table is in `docs/authoring.md` under "Time of day".
 4. **Write** `scenes/<kebab-name>.ts`:
 
    ```ts
@@ -57,6 +58,7 @@ Your job: turn the request into a short, clear film, check it by looking at stil
    pnpm simutown still <name> -t 3 -o out/<name>-3.png
    ```
 
+   To find when a beat starts, put `console.log('beat 3 at', s.now.toFixed(1));` at that point of the script: `info` prints it. Take these lines out when done.
    Check that the people who matter are in frame and not behind a roof or a tree, that bubbles and labels do not cover each other, that each caption is up when its beat needs it, and that dialogue is shot at zoom 2.
    Fix the script and look again until every beat reads.
 7. **Render**: `pnpm simutown render <name>` writes `out/<name>.mp4` (add `-o out/<name>.gif` for a GIF).
@@ -67,6 +69,8 @@ Your job: turn the request into a short, clear film, check it by looking at stil
 - Every call starts when the previous one ends; `s.together(() => { ... })` starts its calls at the same moment.
 - Speech times itself: a bubble types at 30 characters a second and then holds for at least 1.2 seconds. Dialogue lines can simply follow each other.
 - A caption takes no time. Give it `{ hold: seconds }` (about 1 + characters / 15, at least 2) or enough action after it, or the next caption replaces it at once.
+- A caption without a `hold` stays up until the next caption or `s.clearCaption()`, through all the dialogue in between: clear the set-up caption before the conversation starts.
+- To hit a target length, add or trim an `s.wait(...)` before the final fade and check the duration with `info`.
 - Keep a bubble under about 60 characters and a caption under about 80.
 - Walking is 2.5 tiles a second: start people near where they are needed.
 - Zoom 1 sets the scene; zoom 2 for conversation. Cut to change place or after a fade; pan to move within a place. Do not move the camera while someone speaks.

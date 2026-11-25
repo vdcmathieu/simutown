@@ -1,0 +1,611 @@
+import { describe, expect, it } from 'vitest';
+import { blank } from '../src/core/sprite';
+import type { ArtRegistry, CharacterDef, Dir, FrameState } from '../src/core/types';
+import { type ActorHandle, scene, type SceneBuilder, timing } from '../src/scene';
+import { defineTown, isWalkable, tileAt, tileCenter } from '../src/world';
+
+const sp = blank(16, 16);
+const ch = blank(16, 24, [8, 24]);
+const dirs = (): Record<Dir, typeof ch[]> => ({ down: [ch], up: [ch], left: [ch], right: [ch] });
+const person = (id: string, poses?: string[]): CharacterDef => ({
+  id,
+  name: id,
+  idle: dirs(),
+  walk: dirs(),
+  ...(poses ? { poses: Object.fromEntries(poses.map((p) => [p, dirs()])) } : {}),
+});
+
+const art: ArtRegistry = {
+  terrain: {
+    grass: { id: 'grass', variants: [sp], priority: 2 },
+    cobble: { id: 'cobble', variants: [sp], priority: 1 },
+    water: { id: 'water', variants: [sp], priority: 3, solid: true },
+  },
+  props: {
+    lamp: { id: 'lamp', sprite: sp, footprint: { w: 1, h: 1 } },
+    house: { id: 'house', sprite: sp, footprint: { w: 3, h: 2 }, places: { door: { dx: 1, dy: 1 } } },
+  },
+  characters: { ana: person('ana', ['wave', 'sit']), ben: person('ben'), cy: person('cy') },
+  emotes: { surprise: sp, heart: sp },
+  font: { height: 8, glyphs: {} },
+};
+
+// 20 x 12 tiles = 320 x 192 px, smaller than the 480 x 270 view.
+const town = defineTown(
+  {
+    name: 'Testville',
+    terrain: `
+      gggggggggggggggggggg
+      gggggggggggggggggggg
+      gggggggggggggggggggg
+      gggggggggggggggggggg
+      gggggggg~~~ggggggggg
+      cccccccc~~~ccccccccc
+      gggggggg~~~ggggggggg
+      gggggggggggggggggggg
+      gggggggggggggggggggg
+      gggggggggggggggggggg
+      ggggggggggggggggg~~~
+      ggggggggggggggggg~g~
+    `,
+    legend: { g: 'grass', c: 'cobble', '~': 'water' },
+    props: [
+      { kind: 'house', at: [2, 3], id: 'cafe' },
+      { kind: 'lamp', at: [14, 4] },
+    ],
+    places: { west: [1, 5], east: [18, 5], plaza: [10, 8], pocket: [18, 11] },
+  },
+  art,
+);
+
+// 60 x 40 tiles = 960 x 640 px, larger than the view.
+const big = defineTown({ name: 'Big', terrain: Array(40).fill('g'.repeat(60)).join('\n'), legend: { g: 'grass' } }, art);
+
+const make = (script: (s: SceneBuilder) => void, t = town) => scene({ title: 'T', town: t, art }, script);
+const actor = (f: FrameState, id: string) => f.actors.find((a) => a.id === id);
+const center = (tx: number, ty: number) => tileCenter(tx, ty);
+
+describe('scene basics', () => {
+  it('defaults: noon, camera centred, no fade, duration from the script', () => {
+    const sc = make((s) => {
+      s.actor('ana', { at: 'west' });
+      s.wait(2);
+    });
+    expect(sc.duration).toBe(2);
+    expect([sc.fps, sc.width, sc.height]).toEqual([30, 480, 270]);
+    const f = sc.frame(0);
+    expect(f.timeOfDay).toBe(12);
+    expect(f.fade).toBe(0);
+    expect(f.camera).toEqual({ x: 160, y: 96, zoom: 1 });
+    expect(actor(f, 'ana')).toEqual({ id: 'ana', character: 'ana', ...center(1, 5), dir: 'down', pose: 'idle', animTime: 0 });
+  });
+
+  it('clamps t outside [0, duration] and treats NaN as 0', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: 'west' });
+      a.walkTo([5, 5]);
+    });
+    expect(sc.frame(-3)).toEqual(sc.frame(0));
+    expect(sc.frame(99)).toEqual(sc.frame(sc.duration));
+    expect(sc.frame(Number.NaN)).toEqual(sc.frame(0));
+    expect(sc.frame(99).t).toBe(sc.duration);
+  });
+});
+
+describe('walking', () => {
+  it('walks at constant speed, with dir, pose and animTime, and arrives', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: [2, 5] });
+      a.walkTo([7, 5]);
+    });
+    expect(sc.duration).toBeCloseTo(5 / timing.WALK_SPEED);
+    const mid = actor(sc.frame(1), 'ana')!;
+    expect(mid).toMatchObject({ x: center(2, 5).x + 40, y: center(2, 5).y, dir: 'right', pose: 'walk', animTime: 1 });
+    const end = actor(sc.frame(2), 'ana')!;
+    expect(end).toMatchObject({ ...center(7, 5), dir: 'right', pose: 'idle', animTime: 0 });
+  });
+
+  it('follows a path around water and turns along it', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: [7, 5] });
+      a.walkTo([11, 5], { speed: 4 });
+    });
+    // Around the 3-wide, 3-tall pond: 4 steps across + 2 * 2 steps around = 8 steps.
+    expect(sc.duration).toBeCloseTo(8 / 4);
+    const seen = new Set<string>();
+    for (let t = 0; t <= sc.duration; t += 1 / 30) {
+      const a = actor(sc.frame(t), 'ana')!;
+      const tile = tileAt(a.x, a.y);
+      expect(isWalkable(town, tile.tx, tile.ty)).toBe(true);
+      seen.add(a.dir);
+    }
+    expect(seen.has('right')).toBe(true);
+    expect(seen.has('up') || seen.has('down')).toBe(true);
+    expect(actor(sc.frame(sc.duration), 'ana')).toMatchObject(center(11, 5));
+  });
+
+  it('walks to another actor: stops on a free tile beside them, facing them', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: [1, 8] });
+      s.actor('ben', { at: [6, 8] });
+      a.walkTo(s.actor('cy', { at: [12, 9] }));
+    });
+    const f = sc.frame(sc.duration);
+    const a = actor(f, 'ana')!;
+    expect(a).toMatchObject({ ...center(11, 9), dir: 'right', pose: 'idle' });
+  });
+
+  it('a second walk inside together interrupts the first from where the actor is', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: [0, 8] });
+      s.together(() => {
+        a.walkTo([10, 8]);
+        s.sequence(() => {
+          s.wait(1);
+          a.walkTo([2, 9]);
+        });
+      });
+    });
+    const at1 = actor(sc.frame(1), 'ana')!;
+    expect(at1.x).toBe(center(0, 8).x + 40);
+    const after = actor(sc.frame(1.2), 'ana')!;
+    expect(after.x).toBeLessThan(at1.x);
+    expect(actor(sc.frame(sc.duration), 'ana')).toMatchObject(center(2, 9));
+  });
+
+  it('teleports, faces, hides and shows', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: 'west', facing: 'left' });
+      const b = s.actor('ben', { at: 'plaza' });
+      s.wait(1);
+      a.teleport('east');
+      a.face(b);
+      s.wait(1);
+      a.hide();
+      s.wait(1);
+      a.show();
+      a.face('up');
+      s.wait(1);
+    });
+    expect(actor(sc.frame(0.5), 'ana')).toMatchObject({ ...center(1, 5), dir: 'left' });
+    expect(actor(sc.frame(1.5), 'ana')).toMatchObject({ ...center(18, 5), dir: 'left' });
+    expect(actor(sc.frame(2.5), 'ana')).toBeUndefined();
+    expect(actor(sc.frame(3.5), 'ana')).toMatchObject({ ...center(18, 5), dir: 'up' });
+  });
+
+  it('enters and exits through a door', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: [3, 5] });
+      a.enter('cafe');
+      s.wait(1);
+      a.exit('cafe');
+    });
+    // cafe door is at [3, 4]: one step up, then a 0.3 s fade.
+    const walk = 1 / timing.WALK_SPEED;
+    expect(sc.duration).toBeCloseTo(walk + timing.DOOR_FADE + 1 + timing.DOOR_FADE);
+    expect(actor(sc.frame(walk + 0.15), 'ana')).toMatchObject({ ...center(3, 4), dir: 'up' });
+    expect(actor(sc.frame(walk + 0.15), 'ana')!.opacity).toBeCloseTo(0.5);
+    expect(actor(sc.frame(walk + 0.5), 'ana')).toBeUndefined();
+    const out = walk + timing.DOOR_FADE + 1;
+    expect(actor(sc.frame(out + 0.15), 'ana')).toMatchObject({ ...center(3, 4), dir: 'down' });
+    expect(actor(sc.frame(out + 0.15), 'ana')!.opacity).toBeCloseTo(0.5);
+    expect(actor(sc.frame(sc.duration), 'ana')!.opacity).toBeUndefined();
+  });
+
+  it('hidden actors can come out of a building later', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: 'cafe.door', hidden: true });
+      s.wait(1);
+      a.exit('cafe');
+    });
+    expect(sc.frame(0.5).actors).toEqual([]);
+    expect(actor(sc.frame(sc.duration), 'ana')).toBeDefined();
+  });
+
+  it('plays poses and returns to idle', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: 'west' });
+      a.pose('wave', { hold: 2 });
+      s.wait(1);
+    });
+    expect(actor(sc.frame(0.5), 'ana')).toMatchObject({ pose: 'wave', animTime: 0.5 });
+    expect(actor(sc.frame(2.5), 'ana')).toMatchObject({ pose: 'idle', animTime: 0.5 });
+  });
+});
+
+describe('timing', () => {
+  it('runs calls in sequence by default; together takes the longest; sequence sums', () => {
+    const marks: number[] = [];
+    const sc = make((s) => {
+      s.wait(1);
+      marks.push(s.now);
+      s.together(() => {
+        s.wait(2);
+        marks.push(s.now);
+        s.wait(3);
+        s.sequence(() => {
+          s.wait(1);
+          s.wait(1.5);
+          marks.push(s.now);
+        });
+      });
+      marks.push(s.now);
+      s.sequence(() => s.wait(0.5));
+    });
+    expect(marks).toEqual([1, 1, 3.5, 4]);
+    expect(sc.duration).toBe(4.5);
+  });
+
+  it('nests together inside sequence inside together', () => {
+    const sc = make((s) => {
+      s.together(() => {
+        s.wait(1);
+        s.sequence(() => {
+          s.together(() => {
+            s.wait(2);
+            s.wait(0.5);
+          });
+          s.wait(1);
+        });
+      });
+    });
+    expect(sc.duration).toBe(3);
+  });
+});
+
+describe('bubbles and emotes', () => {
+  it('reveals text like a typewriter and holds it long enough to read', () => {
+    const text = 'Party on Friday at the cafe!'; // 28 characters
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: 'west' });
+      a.say(text);
+    });
+    const type = text.length / 30;
+    expect(sc.duration).toBeCloseTo(type + Math.max(1.2, text.length / 15));
+    expect(sc.frame(0).bubbles).toEqual([{ actor: 'ana', text, kind: 'say', reveal: 0 }]);
+    expect(sc.frame(type / 2).bubbles[0]!.reveal).toBeCloseTo(0.5);
+    expect(sc.frame(type + 0.1).bubbles[0]!.reveal).toBe(1);
+    expect(sc.frame(sc.duration).bubbles).toEqual([]);
+  });
+
+  it('uses a hold option, bubble kinds and replaces a running bubble', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: 'west' });
+      const b = s.actor('ben', { at: 'east' });
+      s.together(() => {
+        a.think('hmm', { hold: 3 });
+        b.shout('HEY', { hold: 1 });
+      });
+      a.say('ok', { hold: 0.5 });
+    });
+    expect(sc.duration).toBeCloseTo(0.1 + 3 + 2 / 30 + 0.5);
+    const f = sc.frame(0.5);
+    expect(f.bubbles.map((b) => [b.actor, b.kind])).toEqual([['ana', 'think'], ['ben', 'shout']]);
+    expect(sc.frame(2).bubbles.map((b) => b.kind)).toEqual(['think']);
+  });
+
+  it('shows emotes for their hold', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: 'west' });
+      a.emote('surprise');
+      s.wait(1);
+    });
+    expect(sc.duration).toBeCloseTo(timing.EMOTE_HOLD + 1);
+    expect(actor(sc.frame(0.5), 'ana')!.emote).toBe('surprise');
+    expect(actor(sc.frame(1.5), 'ana')!.emote).toBeUndefined();
+  });
+});
+
+describe('overlays', () => {
+  it('titles fade in, hold and fade out', () => {
+    const sc = make((s) => s.title('Word of mouth', 'How news travels'));
+    expect(sc.duration).toBeCloseTo(2.5);
+    expect(sc.frame(0.25).title).toEqual({ text: 'Word of mouth', subtitle: 'How news travels', opacity: 0.5 });
+    expect(sc.frame(1).title!.opacity).toBe(1);
+    expect(sc.frame(2.25).title!.opacity).toBeCloseTo(0.5);
+  });
+
+  it('captions stay until replaced or cleared, or for their hold', () => {
+    const sc = make((s) => {
+      s.caption('one');
+      s.wait(1);
+      s.caption('two');
+      s.wait(1);
+      s.clearCaption();
+      s.wait(1);
+      s.caption('three', { hold: 1 });
+      s.wait(1);
+    });
+    expect(sc.frame(0.1).caption!.opacity).toBeCloseTo(0.4);
+    expect(sc.frame(0.5).caption).toEqual({ text: 'one', opacity: 1 });
+    expect(sc.frame(1.05).caption).toEqual({ text: 'two', opacity: 1 });
+    expect(sc.frame(2.1).caption!.opacity).toBeCloseTo(0.6);
+    expect(sc.frame(2.5).caption).toBeUndefined();
+    expect(sc.frame(3.5).caption!.text).toBe('three');
+    expect(sc.frame(4.5).caption).toBeUndefined();
+  });
+
+  it('labels, links and rings', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: 'west' });
+      const b = s.actor('ben', { at: 'east' });
+      s.label(a, 'knows');
+      s.label('plaza', 'the plaza');
+      s.link(a, b);
+      s.ring(b, { hold: 1, slot: 'ochre.2' });
+      s.unlabel(a);
+      s.wait(1);
+    });
+    expect(sc.duration).toBeCloseTo(1.5 + 1.4 + 1);
+    const f = sc.frame(0.3);
+    expect(f.annotations).toEqual([
+      { kind: 'label', actor: 'ana', text: 'knows', opacity: 1 },
+      { kind: 'label', at: center(10, 8), text: 'the plaza', opacity: 1 },
+      { kind: 'link', from: 'ana', to: 'ben', progress: 0.5 },
+    ]);
+    expect(sc.frame(1.7).annotations).toContainEqual({ kind: 'ring', actor: 'ben', progress: expect.closeTo(0.5), slot: 'ochre.2' });
+    expect(sc.frame(3).annotations!.map((a) => a.kind)).toEqual(['label', 'label']);
+    expect(sc.frame(3.5).annotations).toEqual([{ kind: 'label', at: center(10, 8), text: 'the plaza', opacity: 1 }]);
+  });
+
+  it('focus ramps in and out', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: 'west' });
+      s.focus(a);
+      s.wait(1);
+      s.unfocus({ duration: 1 });
+    });
+    expect(sc.frame(0.2).focus).toEqual({ actors: ['ana'], amount: 0.5 });
+    expect(sc.frame(1).focus!.amount).toBe(1);
+    expect(sc.frame(1.9).focus!.amount).toBeCloseTo(0.5);
+    expect(sc.frame(2.4).focus).toBeUndefined();
+  });
+
+  it('fades in from ink and out to ink; animates the hour', () => {
+    const sc = make((s) => {
+      s.fadeIn();
+      s.timeOfDay(18, { duration: 2 });
+      s.fadeOut(1);
+    });
+    expect(sc.frame(0).fade).toBe(1);
+    expect(sc.frame(0.3).fade).toBeCloseTo(0.5);
+    expect(sc.frame(1).fade).toBe(0);
+    expect(sc.frame(1.6).timeOfDay).toBeCloseTo(15);
+    expect(sc.frame(3.1).fade).toBeCloseTo(0.5);
+    expect(sc.frame(sc.duration)).toMatchObject({ fade: 1, timeOfDay: 18 });
+  });
+});
+
+describe('camera', () => {
+  it('centres a town smaller than the view, whatever the target', () => {
+    const sc = make((s) => s.camera.cut([0, 0]));
+    expect(sc.frame(0).camera).toEqual({ x: 160, y: 96, zoom: 1 });
+  });
+
+  it('clamps the view inside a town larger than the view', () => {
+    const sc = make((s) => {
+      s.camera.cut([0, 0]);
+      s.wait(1);
+      s.camera.cut([59, 39], { zoom: 2 });
+      s.wait(1);
+      s.camera.cut([30, 20]);
+    }, big);
+    expect(sc.frame(0.5).camera).toEqual({ x: 240, y: 135, zoom: 1 });
+    expect(sc.frame(1.5).camera).toEqual({ x: 960 - 120, y: 573, zoom: 2 });
+    expect(sc.frame(2).camera).toEqual({ x: 30 * 16 + 8, y: 20 * 16, zoom: 2 });
+  });
+
+  it('pans with ease-in-out and zooms halfway', () => {
+    const sc = make((s) => {
+      s.camera.cut([20, 20]);
+      s.camera.pan([40, 20], { duration: 2, zoom: 2 });
+    }, big);
+    const x0 = 20 * 16 + 8;
+    const x1 = 40 * 16 + 8;
+    expect(sc.frame(0).camera).toEqual({ x: x0, y: 320, zoom: 1 });
+    expect(sc.frame(0.5).camera.x).toBeCloseTo(x0 + (x1 - x0) * 0.15625, -1);
+    expect(sc.frame(0.9).camera.zoom).toBe(1);
+    expect(sc.frame(1).camera).toEqual({ x: (x0 + x1) / 2, y: 320, zoom: 2 });
+    expect(sc.frame(2).camera).toEqual({ x: x1, y: 320, zoom: 2 });
+  });
+
+  it('follows an actor until the next camera call', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: [20, 20] });
+      s.camera.follow(a);
+      a.walkTo([30, 20], { speed: 5 });
+      s.camera.follow(null);
+      a.walkTo([35, 20], { speed: 5 });
+    }, big);
+    expect(sc.frame(1).camera).toEqual({ x: 25 * 16 + 8, y: 20 * 16, zoom: 1 });
+    expect(sc.frame(2).camera.x).toBe(30 * 16 + 8);
+    expect(sc.frame(3).camera.x).toBe(30 * 16 + 8);
+  });
+
+  it('cuts to an actor where they are at that moment', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: [20, 20] });
+      s.camera.cut(a, { zoom: 3 });
+      a.walkTo([30, 20]);
+    }, big);
+    expect(sc.frame(sc.duration).camera).toEqual({ x: 20 * 16 + 8, y: 320, zoom: 3 });
+  });
+});
+
+describe('wander', () => {
+  const wanderScene = (seed = 1) =>
+    scene({ title: 'W', town, art, seed }, (s) => {
+      const a = s.actor('ana', { at: 'plaza' });
+      const b = s.actor('ben', { at: 'west' });
+      s.wander(a, { around: 'plaza', radius: 2 });
+      s.wait(10);
+      b.walkTo(a);
+      a.say('hi');
+    });
+
+  it('strolls near the place, deterministically, and stops at the next instruction', () => {
+    const sc = wanderScene();
+    let moved = false;
+    for (let t = 0; t <= 10; t += 0.1) {
+      const a = actor(sc.frame(t), 'ana')!;
+      const tile = tileAt(a.x, a.y);
+      expect(Math.abs(tile.tx - 10)).toBeLessThanOrEqual(2);
+      expect(Math.abs(tile.ty - 8)).toBeLessThanOrEqual(2);
+      if (a.pose === 'walk') moved = true;
+    }
+    expect(moved).toBe(true);
+    expect(JSON.stringify(wanderScene().frame(7.3))).toBe(JSON.stringify(sc.frame(7.3)));
+    const other = wanderScene(2);
+    const differs = [2, 4, 6, 8].some((t) => JSON.stringify(other.frame(t)) !== JSON.stringify(sc.frame(t)));
+    expect(differs).toBe(true);
+    // After the wander stops, ana stays put while ben walks over to her.
+    const later = sc.frame(sc.duration);
+    const a = actor(later, 'ana')!;
+    expect(a.pose).toBe('idle');
+    const b = actor(later, 'ben')!;
+    const [ta, tb] = [tileAt(a.x, a.y), tileAt(b.x, b.y)];
+    expect(Math.abs(ta.tx - tb.tx) + Math.abs(ta.ty - tb.ty)).toBe(1);
+  });
+});
+
+describe('determinism', () => {
+  it('frame(t) is identical across repeated and out-of-order calls', () => {
+    const build = () =>
+      make((s) => {
+        const a = s.actor('ana', { at: 'west' });
+        const b = s.actor('ben', { at: 'east' });
+        s.wander(b, { around: 'east', seed: 'x' });
+        s.camera.follow(a);
+        a.walkTo('plaza');
+        a.say('Hello there');
+        s.wait(3);
+      });
+    const sc = build();
+    const times = Array.from({ length: 60 }, (_, i) => (i * 7.3) % sc.duration);
+    const first = times.map((t) => JSON.stringify(sc.frame(t)));
+    const reversed = [...times].reverse().map((t) => JSON.stringify(sc.frame(t))).reverse();
+    expect(reversed).toEqual(first);
+    const again = build();
+    expect(times.map((t) => JSON.stringify(again.frame(t)))).toEqual(first);
+  });
+});
+
+describe('errors an author can act on', () => {
+  const err = (script: (s: SceneBuilder) => void) => () => make(script);
+
+  it('unknown character, place, prop, pose, emote, direction', () => {
+    expect(err((s) => s.actor('anna', { at: 'west' }))).toThrow(/Unknown character "anna". Did you mean "ana"\? Valid characters: ana, ben, cy\./);
+    expect(err((s) => s.actor('ana', { at: 'wset' }))).toThrow(/Unknown place "wset". Did you mean "west"\? Valid places: cafe.door, east, plaza, pocket, west\./);
+    expect(err((s) => s.actor('ana', { at: 'west' }).walkTo('cafe.dor'))).toThrow(/Did you mean "cafe.door"/);
+    expect(err((s) => s.actor('ana', { at: 'west' }).enter('caffe'))).toThrow(/Unknown prop "caffe". Did you mean "cafe"\? Valid props: cafe, lamp\./);
+    expect(err((s) => s.actor('ana', { at: 'west' }).enter('lamp'))).toThrow(/prop "lamp" has no door place. Props with a door: cafe\./);
+    expect(err((s) => s.actor('ana', { at: 'west' }).pose('wav'))).toThrow(/Unknown pose "wav". Did you mean "wave"\? Valid poses: sit, wave\. \(for character "ana"\)/);
+    expect(err((s) => s.actor('ben', { at: 'west' }).pose('wave'))).toThrow(/There are no poses/);
+    expect(err((s) => s.actor('ana', { at: 'west' }).emote('suprise'))).toThrow(/Unknown emote "suprise". Did you mean "surprise"\? Valid emotes: heart, surprise\./);
+    expect(err((s) => s.actor('ana', { at: 'west' }).face('north' as Dir))).toThrow(/Unknown direction "north"/);
+  });
+
+  it('actor ids passed as strings get a hint', () => {
+    expect(
+      err((s) => {
+        s.actor('ben', { at: 'east' });
+        s.actor('ana', { at: 'west' }).walkTo('ben');
+      }),
+    ).toThrow(/"ben" is an actor: pass its handle/);
+  });
+
+  it('unreachable targets say which tiles block them', () => {
+    expect(err((s) => s.actor('ana', { at: 'west' }).walkTo('pocket'))).toThrow(
+      /ana cannot walk from \[1, 5\] to \[18, 11\]\. The target \[18, 11\] is in an enclosed area of 1 tile\(s\), walled in by: .*\[18, 10\] water \(solid terrain\)/,
+    );
+    expect(err((s) => s.actor('ana', { at: 'west' }).walkTo([9, 5]))).toThrow(/\[9, 5\] is not walkable: water \(solid terrain\)/);
+    expect(err((s) => s.actor('ana', { at: 'west' }).walkTo([3, 3]))).toThrow(/\[3, 3\] is not walkable: prop cafe/);
+    expect(err((s) => s.actor('ana', { at: [40, 2] }))).toThrow(/tile \[40,2\] is not a tile of the 20x12 map/);
+  });
+
+  it('duplicate actors, bad handles, bad numbers, out-of-order moves', () => {
+    expect(
+      err((s) => {
+        s.actor('ana', { at: 'west' });
+        s.actor('ana', { at: 'east' });
+      }),
+    ).toThrow(/already an actor "ana". Give the second one an id/);
+    expect(err((s) => s.link({} as ActorHandle, {} as ActorHandle))).toThrow(/expected an actor handle returned by s.actor\(\)/);
+    expect(err((s) => s.wait(-1))).toThrow(/s.wait must be a number of seconds >= 0/);
+    expect(err((s) => s.camera.cut('plaza', { zoom: 1.5 }))).toThrow(/zoom must be a whole number >= 1/);
+    expect(err((s) => s.timeOfDay(25))).toThrow(/between 0 and 24/);
+    expect(
+      err((s) => {
+        const a = s.actor('ana', { at: 'west' });
+        s.together(() => {
+          s.sequence(() => {
+            s.wait(2);
+            a.walkTo('plaza');
+          });
+          a.walkTo('east');
+        });
+      }),
+    ).toThrow(/ana already has a move starting at 2.00s.*in time order/);
+  });
+});
+
+describe('a longer scene with three actors', () => {
+  const sc = make((s) => {
+    const ana = s.actor('ana', { at: 'cafe.door', hidden: true });
+    const ben = s.actor('ben', { at: 'plaza', facing: 'left' });
+    const cy = s.actor('cy', { at: 'east' });
+    s.fadeIn();
+    s.title('Word of mouth', 'How news travels');
+    s.wander(cy, { around: 'east', radius: 2 });
+    s.camera.cut('cafe.door', { zoom: 2 });
+    ana.exit('cafe');
+    s.caption('Ana has news.');
+    s.camera.follow(ana);
+    ana.walkTo(ben);
+    ana.say('Party at the cafe on Friday!');
+    s.together(() => {
+      ben.emote('surprise');
+      s.link(ana, ben);
+      s.camera.pan('plaza', { duration: 2, zoom: 1 });
+    });
+    s.label(ben, 'knows');
+    ben.walkTo(cy);
+    ben.shout('Party on Friday!');
+    s.together(() => {
+      s.link(ben, cy);
+      cy.emote('heart');
+      ana.enter('cafe');
+    });
+    s.label(cy, 'knows');
+    s.focus([ana, ben, cy]);
+    s.clearCaption();
+    s.wait(1);
+    s.fadeOut();
+  });
+
+  it('runs end to end with everyone on walkable tiles', () => {
+    expect(sc.duration).toBeGreaterThan(15);
+    for (let i = 0; i <= sc.duration * 30; i++) {
+      const f = sc.frame(i / 30);
+      for (const a of f.actors) {
+        const tile = tileAt(a.x, a.y);
+        expect(isWalkable(town, tile.tx, tile.ty)).toBe(true);
+        expect(Number.isInteger(a.x) && Number.isInteger(a.y)).toBe(true);
+      }
+      expect(Number.isInteger(f.camera.x) && Number.isInteger(f.camera.y)).toBe(true);
+    }
+  });
+
+  it('ends with ana inside, ben next to cy, both labelled, faded out', () => {
+    const f = sc.frame(sc.duration);
+    expect(actor(f, 'ana')).toBeUndefined();
+    const b = actor(f, 'ben')!;
+    const c = actor(f, 'cy')!;
+    const [tb, tc] = [tileAt(b.x, b.y), tileAt(c.x, c.y)];
+    expect(Math.abs(tb.tx - tc.tx) + Math.abs(tb.ty - tc.ty)).toBe(1);
+    expect(f.annotations!.filter((a) => a.kind === 'label').map((a) => (a as { actor: string }).actor)).toEqual(['ben', 'cy']);
+    expect(f.fade).toBe(1);
+    expect(f.caption).toBeUndefined();
+    expect(f.focus).toEqual({ actors: ['ana', 'ben', 'cy'], amount: 1 });
+  });
+});

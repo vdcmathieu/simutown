@@ -293,8 +293,11 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
         touch(r, t);
         const what = `${id}.walkTo`;
         if (isHandle(target)) {
+          // Someone walking up to a wandering actor makes them stop and wait.
+          const them = rec(target, what);
+          touch(them, t);
           const me = body(r, t);
-          const { tile, target: other } = besideActor(rec(target, what), t, what, me);
+          const { tile, target: other } = besideActor(them, t, what, me);
           const goalPt = tileCenter(tile.tx, tile.ty);
           const face = dirBetween(goalPt, tileCenter(other.tx, other.ty));
           advance(walk(tile, t, speed, face));

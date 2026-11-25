@@ -1,421 +1,69 @@
-import { sprite, stack } from '../../core/sprite';
-import type { Sprite } from '../../core/sprite';
-import { type Anim, TILE, type TerrainDef } from '../../core/types';
+import type { TerrainDef } from '../../core/types';
+import { driftEdge, recolorFringe, straightEdge, turf } from './edges';
+import { dirtTiles, grassTiles, meadowTiles, sandTiles, tallGrassTiles } from './ground';
+import { cobbleTiles, plankTiles, plankUprightTiles, roadTiles, soilTiles } from './paving';
 import { basinRim, pondBank } from './shores';
+import { waterLooks, waterShimmer } from './water';
 
-// Reference ground for the daylight look. These tiles set the level of detail:
-// a flat, bright base colour and a handful of deliberate marks. Keep the ids `grass`
-// and `cobble` (fixtures and tests use them).
+// The ground of the town. Every material is a flat, bright base colour and a handful of
+// deliberate marks; edges are fringes that a higher-priority terrain draws on its
+// lower-priority neighbours. Keep the ids `grass` and `cobble` (fixtures and tests use them).
+//
+// Priority order, low to high. A terrain creeps over everything below it:
+//
+//   0  dirt         a footpath; no edge of its own
+//   1  cobble       the pale paving of the square; no edge of its own
+//   2  road         grey flagstones; a kerb line on cobble and dirt
+//   3  soil         a garden bed; a crumbling dark border on road, cobble and dirt
+//   4  grass        the lawn; the turf edge on the four grounds listed above it
+//   4  meadow       the lawn with wild flowers; the turf edge too, and no edge against grass
+//   5  tall-grass   stands above the lawn; a turf edge in deeper green
+//   6  water        a natural pond or stream; its bank curves into the land
+//   6  basin        the same water in a stone rim
+//   7  sand         a beach or a sandpit; drifts over the land and into the water
+//   8  plank        a deck; a straight wooden edge with a front face, over anything
+//   8  plank-v      the same deck with its boards running north-south
+//
+// Which grounds may touch. A pair that is not listed meets in a hard seam: keep a tile of
+// grass between the two.
+//
+//   grass, meadow   everything. They meet each other without an edge.
+//   tall-grass      grass, meadow, dirt, cobble, road, soil, water, sand, plank
+//   dirt            grass kinds, soil, sand, plank; cobble and road end-on only (a path
+//                   may run into paving across its width, never alongside it)
+//   cobble          grass kinds, road (kerb), soil, basin (the stone rim), sand, plank
+//   road            grass kinds, cobble, soil, basin, sand, plank
+//   soil            grass kinds, dirt, cobble, road, plank
+//   water           grass kinds (the bank), sand (a beach), plank
+//   basin           cobble, road, grass kinds
+//   sand            grass kinds, water, dirt, cobble, road, plank
+//   plank, plank-v  everything but basin. A deck that reaches over water starts one tile
+//                   inland on each bank, so the bank runs under it.
 
-// ---------------------------------------------------------------------------------------
-// Grass: flat moss.2, two or three small marks per tile, never a speckle.
-// ---------------------------------------------------------------------------------------
-
-const grassA = sprite(`
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iihihiiiiiiiiiii
-  iiihiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiijiii
-  iiiiiiiiiiijiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiihihiiiiiii
-  iiiiiiihiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-`);
-
-const grassB = sprite(`
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiijiiiii
-  iiiiiiiiijiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iihihiiiiiiiiiii
-  iiihiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiijii
-  iiiiiiiiiiiijiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-`);
-
-const grassC = sprite(`
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiijiiiiiiiiiii
-  iiijiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiihihii
-  iiiiiiiiiiiihiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-  iiiiiiiiiiiiiiii
-`);
-
-// ---------------------------------------------------------------------------------------
-// Cobble: pale sand-cream paving, the light ground of the square. Rounded stones in a
-// running bond, joints one step darker, about one glint per tile. The tile starts with a
-// full course of stones, so a road never opens on a half-cut row.
-// ---------------------------------------------------------------------------------------
-
-const cobbleA = sprite(`
-  abbbbbaaabbbbbaa
-  bccbbbbabbbbbbba
-  bcbbbbbabbbbbbba
-  bbbbbbbabbbbbbba
-  bbbbbbbabbbbbbba
-  bbbbbbbabbbbbbba
-  abbbbbaaabbbbbaa
-  aaaaaaaaaaaaaaaa
-  bbaaabbbbbaaabbb
-  bbbabbbbbbbabbbb
-  bbbabbbbbbbabbbb
-  bbbabbbbbbbabbbb
-  bbbabbbbbbbabbbb
-  bbbabbbbbbbabbbb
-  bbaaabbbbbaaabbb
-  aaaaaaaaaaaaaaaa
-`);
-
-// One long slab in the first course, and the glint on the second.
-const cobbleB = sprite(`
-  abbbbbbbbbbbbbaa
-  bbbbbbbbbbbbbbba
-  bbbbbbbbbbbbbbba
-  bbbbbbbbbbbbbbba
-  bbbbbbbbbbbbbbba
-  bbbbbbbbbbbbbbba
-  abbbbbbbbbbbbbaa
-  aaaaaaaaaaaaaaaa
-  bbaaabbbbbaaabbb
-  bbbabccbbbbabbbb
-  bbbabcbbbbbabbbb
-  bbbabbbbbbbabbbb
-  bbbabbbbbbbabbbb
-  bbbabbbbbbbabbbb
-  bbaaabbbbbaaabbb
-  aaaaaaaaaaaaaaaa
-`);
-
-// ---------------------------------------------------------------------------------------
-// Dirt: a trodden footpath. Flat cream.0 with a pebble or two and a wheel-worn scuff.
-// ---------------------------------------------------------------------------------------
-
-const dirtA = sprite(`
-  aaaaaaaaaaaaaaaa
-  aaaaaaaaaaaaaaaa
-  aaaaaaaaaaawwaaa
-  aaabaaaaaaaaaaaa
-  aaaaaaaaaaaaaaaa
-  aaaaaaaaaaaaaaaa
-  aaaaaaaaaaaaaaaa
-  aaaaaawwwaaaaaaa
-  aaaaaaaaaaaaaaaa
-  aaaaaaaaaaaaaaba
-  aaaaaaaaaaaaaaaa
-  aaaaaaaaaaaaaaaa
-  aawwaaaaaaaaaaaa
-  aaaaaaaaaabbaaaa
-  aaaaaaaaaaaaaaaa
-  aaaaaaaaaaaaaaaa
-`);
-
-const dirtB = sprite(`
-  aaaaaaaaaaaaaaaa
-  aaaaabbaaaaaaaaa
-  aaaaaaaaaaaaaaaa
-  aaaaaaaaaaaaaaaa
-  aaaaaaaaaaaawwwa
-  aaaaaaaaaaaaaaaa
-  awwaaaaaaaaaaaaa
-  aaaaaaaaaaaaaaaa
-  aaaaaaaaaaaaaaaa
-  aaaaaaaabaaaaaaa
-  aaaaaaaaaaaaaaaa
-  aaaaaaaaaaaaaaaa
-  aaaaaaaaaaaaaaaa
-  aaaawwaaaaaaaaaa
-  aaaaaaaaaaaaabaa
-  aaaaaaaaaaaaaaaa
-`);
-
-// ---------------------------------------------------------------------------------------
-// Water: flat sky.1. Each variant carries one or two ripples of different lengths, on rows
-// and columns that no other variant uses, so a mixed pond shows no 16-pixel grid. Ripples
-// keep 2 pixels clear of the tile's sides: the shimmer slides them sideways and back.
-// ---------------------------------------------------------------------------------------
-
-const waterA = sprite(`
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  999ffff999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  999999999ff99999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-`);
-
-const waterB = sprite(`
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  999999fffff99999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-`);
-
-const waterC = sprite(`
-  9999999999999999
-  999999999fff9999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  99fff99999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-`);
-
-const waterD = sprite(`
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  9999999999999999
-  99999fff59999999
-  9999999999999999
-  9999999999999999
-`);
-
-const waterLooks = [waterA, waterB, waterC, waterD];
-
-/** The same tile with every pixel moved `dx` to the right, wrapping at the sides. */
-function drift(s: Sprite, dx: number): Sprite {
-  const px = new Uint8Array(s.px.length);
-  for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) px[y * s.w + ((x + dx) % s.w)] = s.px[y * s.w + x]!;
-  return { ...s, px };
-}
-
-// A slow, gentle shimmer: each ripple slides 2 pixels to the right and back, 2 frames a
-// second. The renderer starts every tile at its own phase, so the pond never pulses.
-const waterShimmer: Anim[] = waterLooks.map((s) => ({ frames: [s, drift(s, 1), drift(s, 2), drift(s, 1)], fps: 2 }));
-
-// ---------------------------------------------------------------------------------------
-// The turf edge: grass creeping over paving or dirt. A fringe piece is drawn on the
-// NEIGHBOURING tile, so it is authored as a small strip and pinned to that tile's edge.
-// Lumps are 1, 2 and 3 pixels deep in runs of uneven length. Every side has three
-// interchangeable strips (the renderer picks one per tile), and every strip starts and
-// ends 2 deep, so any strip joins any other and a long edge never repeats on a 16-pixel
-// beat. One line of darker green closes the edge: moss.1 where it faces the light (north
-// and west), moss.0 where it faces away (south and east).
-// ---------------------------------------------------------------------------------------
-
-type Corner = 'tl' | 'tr' | 'bl' | 'br';
-
-/** Pin a small piece into a corner of an empty TILE x TILE sprite. */
-function pin(piece: Sprite, corner: Corner): Sprite {
-  const px = new Uint8Array(TILE * TILE);
-  const x0 = corner === 'tl' || corner === 'bl' ? 0 : TILE - piece.w;
-  const y0 = corner === 'tl' || corner === 'tr' ? 0 : TILE - piece.h;
-  for (let y = 0; y < piece.h; y++) {
-    for (let x = 0; x < piece.w; x++) px[(y0 + y) * TILE + x0 + x] = piece.px[y * piece.w + x]!;
-  }
-  return { w: TILE, h: TILE, px, ax: 0, ay: 0 };
-}
-
-/** Turn a strip drawn left-to-right into one that runs top-to-bottom. */
-function upright(s: Sprite): Sprite {
-  const px = new Uint8Array(s.w * s.h);
-  for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) px[x * s.h + y] = s.px[y * s.w + x]!;
-  return { w: s.h, h: s.w, px, ax: 0, ay: 0 };
-}
-
-// on the tile north of the grass: its bottom rows
-const turfN = [
-  pin(sprite(`
-    .....hhhh.....h.
-    hh..hiiiih..hhih
-    iihhiiiiiihhiiii
-  `), 'bl'),
-  pin(sprite(`
-    .hh......hhh....
-    hiih....hiiih..h
-    iiiihhhhiiiiihhi
-  `), 'bl'),
-  pin(sprite(`
-    .....hh.....hhh.
-    h..hhiih...hiiih
-    ihhiiiiihhhiiiii
-  `), 'bl'),
-];
-// on the tile south of the grass: its top rows
-const turfS = [
-  pin(sprite(`
-    iggiiiiiggggiiii
-    g..giiig....giig
-    ....ggg......gg.
-  `), 'tl'),
-  pin(sprite(`
-    iggiiiiigggiiiii
-    g..ggiig...giiig
-    .....gg.....ggg.
-  `), 'tl'),
-  pin(sprite(`
-    iiiiggiiiiiiggii
-    gigg..giiiig..gg
-    .g.....gggg.....
-  `), 'tl'),
-];
-// on the tile west of the grass: its right columns
-const turfW = [
-  pin(upright(sprite(`
-    .....hh.....hhh.
-    h..hhiih...hiiih
-    ihhiiiiihhhiiiii
-  `)), 'tr'),
-  pin(upright(sprite(`
-    .h.....hhhh.....
-    hihh..hiiiih..hh
-    iiiihhiiiiiihhii
-  `)), 'tr'),
-  pin(upright(sprite(`
-    .hh......hhh....
-    hiih....hiiih..h
-    iiiihhhhiiiiihhi
-  `)), 'tr'),
-];
-// on the tile east of the grass: its left columns
-const turfE = [
-  pin(upright(sprite(`
-    iiiiigggiiiiiggi
-    giiig...giigg..g
-    .ggg.....gg.....
-  `)), 'tl'),
-  pin(upright(sprite(`
-    iiggiiiiiiggiiii
-    gg..giiiig..ggig
-    .....gggg.....g.
-  `)), 'tl'),
-  pin(upright(sprite(`
-    iggiiiiiggggiiii
-    g..giiig....giig
-    ....ggg......gg.
-  `)), 'tl'),
-];
-
-const turf: TerrainDef['fringe'] = {
-  n: turfN,
-  s: turfS,
-  w: turfW,
-  e: turfE,
-  // outer corners: the grass only touches this tile diagonally
-  ne: pin(sprite(`
-    h.
-    ig
-  `), 'bl'),
-  nw: pin(sprite(`
-    .h
-    hi
-  `), 'br'),
-  se: pin(sprite(`
-    ig
-    g.
-  `), 'tl'),
-  sw: pin(sprite(`
-    hi
-    .g
-  `), 'tr'),
-  // inner corners: the two strips, plus a wedge of grass that rounds the bend
-  'in-ne': stack(turfN[0]!, turfE[0]!, pin(sprite(`
-    gg....
-    iig...
-    iiig..
-    iiiig.
-    iiiiig
-    iiiiig
-  `), 'bl')),
-  'in-nw': stack(turfN[0]!, turfW[0]!, pin(sprite(`
-    ....hh
-    ...hii
-    ..hiii
-    .hiiii
-    hiiiii
-    hiiiii
-  `), 'br')),
-  'in-se': stack(turfS[0]!, turfE[0]!, pin(sprite(`
-    iiiiig
-    iiiiig
-    iiiig.
-    iiig..
-    iig...
-    gg....
-  `), 'tl')),
-  'in-sw': stack(turfS[0]!, turfW[0]!, pin(sprite(`
-    hiiiii
-    hiiiii
-    .giiii
-    ..giii
-    ...gii
-    ....gg
-  `), 'tr')),
-};
+// Sand spills over its neighbours in shallow tongues, closed by a line of darker, wet sand.
+const sandDrift = driftEdge('ochre.3', 'cream.0');
+// Tall grass borrows the turf edge, one tone down: a moss.1 lump, shaded moss.0 on the far side.
+const tallGrassEdge = recolorFringe(turf, { 'moss.2': 'moss.1' });
+// A bed's border: the turf lumps in earth, closed all round by its dark tone.
+const soilBorder = recolorFringe(turf, { 'moss.2': 'wood.1', 'moss.1': 'wood.0', 'moss.0': 'wood.0' });
+// A road's kerb: a pale line where it faces the light, a slate line where it faces away.
+const kerb = straightEdge('steel.3', 'steel.2');
+// A deck's edge, with a front face 2 pixels tall on a dark base line.
+const deckEdge = straightEdge('wood.1', 'wood.0', 2);
 
 export const terrain: Record<string, TerrainDef> = {
-  dirt: { id: 'dirt', variants: [dirtA, dirtB], priority: 0 },
-  cobble: { id: 'cobble', variants: [cobbleA, cobbleB], priority: 1 },
-  grass: { id: 'grass', variants: [grassA, grassB, grassC], priority: 2, fringe: turf },
+  dirt: { id: 'dirt', variants: dirtTiles, priority: 0 },
+  cobble: { id: 'cobble', variants: cobbleTiles, priority: 1 },
+  road: { id: 'road', variants: roadTiles, priority: 2, fringe: kerb },
+  soil: { id: 'soil', variants: soilTiles, priority: 3, fringe: soilBorder },
+  grass: { id: 'grass', variants: grassTiles, priority: 4, fringe: turf },
+  meadow: { id: 'meadow', variants: meadowTiles, priority: 4, fringe: turf },
+  'tall-grass': { id: 'tall-grass', variants: tallGrassTiles, priority: 5, fringe: tallGrassEdge },
   // A natural pond: a grass bank that curves. See shores.ts.
-  water: { id: 'water', variants: waterLooks, anims: waterShimmer, solid: true, priority: 3, fringe: pondBank },
+  water: { id: 'water', variants: waterLooks, anims: waterShimmer, solid: true, priority: 6, fringe: pondBank },
   // The same water in a stone rim, for squares and gardens.
-  basin: { id: 'basin', variants: waterLooks, anims: waterShimmer, solid: true, priority: 3, fringe: basinRim },
+  basin: { id: 'basin', variants: waterLooks, anims: waterShimmer, solid: true, priority: 6, fringe: basinRim },
+  sand: { id: 'sand', variants: sandTiles, priority: 7, fringe: sandDrift },
+  plank: { id: 'plank', variants: plankTiles, priority: 8, fringe: deckEdge },
+  'plank-v': { id: 'plank-v', variants: plankUprightTiles, priority: 8, fringe: deckEdge },
 };

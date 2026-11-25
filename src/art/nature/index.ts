@@ -1,131 +1,111 @@
-import { recolor, sprite } from '../../core/sprite';
+import type { Sprite } from '../../core/sprite';
 import type { PropDef } from '../../core/types';
+import {
+  buttercups,
+  cabbages,
+  clover,
+  cornflowers,
+  daisies,
+  fern,
+  grassTuft,
+  grassTuftSmall,
+  leaves,
+  mushrooms,
+  mushroomsBrown,
+  pebbles,
+  pinks,
+  poppies,
+  pumpkins,
+  sprouts,
+  steppingStones,
+  tulips,
+  tulipsPink,
+  tulipsYellow,
+  violets,
+} from './patches';
+import { log, rock, rockLarge, stump } from './rocks';
+import { bush, bushLarge, hedge, hedgeH, hedgeHL, hedgeHR, hedgeSE, hedgeSW, hedgeV } from './shrubs';
+import { fruitTree, oak, pine, sapling, tree, willow, willowSway } from './trees';
+import { lily, lilyPads, lotus, reeds, reedsSmall, waterRocks } from './water-plants';
 
-// Reference nature for the daylight look: one round tree, flower clusters, lily pads,
-// stepping stones.
+// The nature of the town: trees, bushes and hedges, rocks and dead wood, flat patches for
+// lawns and garden beds, and plants for the water.
+//
+// Standing props are solid on their footprint and are anchored so that the trunk (or the
+// left end of a wide prop) stands on the origin tile; a canopy overhangs its neighbours
+// and people can walk behind it. Flat props have no footprint and lie under people.
 
-// A round, bushy tree. Four leaf lobes sit off-grid over a darker mass: a large crown
-// left of centre, a small lobe tucked under it on the right, and two lower lobes of
-// different widths. Their moss.0 undersides meet in T-junctions, never in a cross.
-// The leaf mass is flat moss.1. The sunlit rim is moss.2, one pixel inside the ink (two
-// on the crown's shoulder), with a few moss.3 tips at the top left: any wider and the
-// rim reads as lawn, because moss.2 is the grass. The ink outline is closed all round.
-// The trunk tile is the origin tile; the canopy overhangs half a tile on each side.
-const tree = sprite(
-  `
-  ............000.................
-  ........0000iii0000.............
-  .......0jjiiiiiiiii0............
-  .....00jiihhhhhhhhhi0...........
-  ....0jjiihhhhhhhhhhhi0..........
-  ....0jiihhhhhhhhhhhhhi0.........
-  ...0jiihhhhhhhhhhhhhhhg0........
-  ...0iihhhhhhhhhhhhhhhhg0000.....
-  ..0iihhhhhhhhhhhhhhhhhggiii0....
-  ..0ihhhhhhhhhhhhhhhhhhgghhhi0...
-  ..0ihhhhhhhhhhhhhhhhhhgghhhhg0..
-  ..0ihhhhhhhhhhhhhhhhhgghhhhhgg0.
-  ...0ihhhhhhhhhhhhhhhggghhhhhgg0.
-  ...0ghhhhhhhhhhhhhhggghhhhhhgg0.
-  ...00ghhhhhhhhhhhhgggghhhhhggg0.
-  ..0iiigghhhhhhhhgggghhhhhhhggg0.
-  .0iihhhhggggggggggghhhhhhgggg0..
-  .0ihhhhhhhhggggghhggggggggggg0..
-  .0ihhhhhhhhhhhhhhhghhgggggg00...
-  0jihhhhhhhhhhhhhhgghhhhhhhgg0...
-  0ihhhhhhhhhhhhhhhgghhhhhhhgg0...
-  .0ihhhhhhhhhhhhhggghhhhhhhgg0...
-  .0ghhhhhhhhhhhhggghhhhhhhggg0...
-  ..0ghhhhhhhhhgggghhhhhhggggg0...
-  ...0ggggggggggggggggggggggg0....
-  ....00gggggggguuuggggggggg0.....
-  ......0000000uuuuuu0ggg000......
-  ............0vvuuuu0000.........
-  ............0wwvvuu0............
-  ............0wwvvuu0............
-  ............0wwvvuu0............
-  ............0wwvvuu0............
-  ............0wwvvuu0............
-  ...........0vwwvvuuu0...........
-  ...........0vwwvvuuu0...........
-  ............00000000............
-`,
-  { anchor: [8, 36] },
-);
+/** A standing prop that blocks `w` tiles, starting at its origin tile. */
+function standing(id: string, sprite: Sprite, w = 1): PropDef {
+  return { id, sprite, footprint: { w, h: 1 } };
+}
 
-// A cluster of poppies. Flat ground decoration: no ink outline, no footprint.
-// A patch is one colour, so it reads as a cluster from across the room; the other
-// colours are the same drawing recoloured.
-const poppies = sprite(`
-  ................
-  ......y.........
-  .....yqy..y.....
-  ..y...y..yqy....
-  .yqy.h....y.h...
-  ..y.hh..y..hh...
-  ....h..yqy......
-  .y......y...y...
-  yqy..h.....yqy..
-  .y..hh..y...y...
-  ....h..yqy.h....
-  ........y.hh....
-  ................
-  ................
-  ................
-  ................
-`, { anchor: [0, 16] });
-const daisies = recolor(poppies, { 'brick.1': 'steel.5' });
-const buttercups = recolor(poppies, { 'brick.1': 'ochre.2', 'ochre.2': 'ochre.1' });
-const pinks = recolor(poppies, { 'brick.1': 'rose.1', 'ochre.2': 'rose.0' });
+/** A hedge piece. It rises 10 pixels whatever its sprite shows of its top, and casts its shadow from there. */
+function hedgePiece(id: string, sprite: Sprite): PropDef {
+  return { ...standing(id, sprite), castHeight: 10 };
+}
 
-// Stepping stones: the way to cross a lawn to a door without paving a one-tile road.
-// Flat; the stone is cream.1 like the paving, on a cream.0 base along its lower edge,
-// which is what makes it sit on the lawn instead of floating over it.
-const steppingStones = sprite(`
-  ................
-  ....bbbbbbb.....
-  ...bccbbbbbb....
-  ...bcbbbbbbbb...
-  ...bbbbbbbbbb...
-  ...abbbbbbbba...
-  ....aaaaaaaa....
-  ................
-  ................
-  ......bbbbbbb...
-  .....bccbbbbbb..
-  .....bbbbbbbbbb.
-  .....bbbbbbbbbb.
-  .....abbbbbbbba.
-  ......aaaaaaaa..
-  ................
-`, { anchor: [0, 16] });
+/** A flat patch: part of the ground, walked over. */
+function patch(id: string, sprite: Sprite): PropDef {
+  return { id, sprite, flat: true };
+}
 
-// Lily pads for the pond, one in bloom. Flat, and placed on water tiles.
-const lily = sprite(`
-  ................
-  ................
-  ....gggg........
-  ...ghhhhg.......
-  ..ghhiihhg......
-  ..ghihhh.g......
-  ..ghhhhhhg......
-  ...ghhhhg.......
-  ....gggg..*.....
-  .........*q*....
-  ..........*gg...
-  ..........ghhg..
-  ..........ghig..
-  ...........gg...
-  ................
-  ................
-`, { anchor: [0, 16] });
+const defs: PropDef[] = [
+  // trees: the trunk tile is solid
+  standing('tree', tree),
+  // the willow sways: one slow change of frame, about every second and a half
+  { ...standing('willow', willow), anim: { frames: [willow, willowSway], fps: 0.7 } },
+  standing('oak', oak),
+  standing('pine', pine),
+  standing('fruit-tree', fruitTree),
+  standing('sapling', sapling),
+  // bushes and hedges
+  standing('bush', bush),
+  standing('bush-large', bushLarge, 2),
+  hedgePiece('hedge', hedge),
+  hedgePiece('hedge-h', hedgeH),
+  hedgePiece('hedge-h-l', hedgeHL),
+  hedgePiece('hedge-h-r', hedgeHR),
+  hedgePiece('hedge-v', hedgeV),
+  hedgePiece('hedge-sw', hedgeSW),
+  hedgePiece('hedge-se', hedgeSE),
+  // stone and dead wood
+  standing('rock', rock),
+  standing('rock-large', rockLarge, 2),
+  standing('stump', stump),
+  standing('log', log, 2),
+  // flowers
+  patch('flowers', poppies),
+  patch('flowers-white', daisies),
+  patch('flowers-yellow', buttercups),
+  patch('flowers-pink', pinks),
+  patch('flowers-blue', cornflowers),
+  patch('flowers-purple', violets),
+  patch('tulips', tulips),
+  patch('tulips-yellow', tulipsYellow),
+  patch('tulips-pink', tulipsPink),
+  // greenery on the ground
+  patch('grass-tuft', grassTuft),
+  patch('grass-tuft-small', grassTuftSmall),
+  patch('clover', clover),
+  patch('fern', fern),
+  // the kitchen garden, for `soil`
+  patch('cabbages', cabbages),
+  patch('sprouts', sprouts),
+  patch('pumpkins', pumpkins),
+  // odds and ends
+  patch('mushrooms', mushrooms),
+  patch('mushrooms-brown', mushroomsBrown),
+  patch('leaves', leaves),
+  patch('pebbles', pebbles),
+  patch('stepping-stones', steppingStones),
+  // on the water
+  patch('lily', lily),
+  patch('lily-pads', lilyPads),
+  patch('lotus', lotus),
+  patch('reeds', reeds),
+  patch('reeds-small', reedsSmall),
+  patch('water-rocks', waterRocks),
+];
 
-export const natureProps: Record<string, PropDef> = {
-  tree: { id: 'tree', sprite: tree, footprint: { w: 1, h: 1 } },
-  flowers: { id: 'flowers', sprite: poppies, flat: true },
-  'flowers-white': { id: 'flowers-white', sprite: daisies, flat: true },
-  'flowers-yellow': { id: 'flowers-yellow', sprite: buttercups, flat: true },
-  'flowers-pink': { id: 'flowers-pink', sprite: pinks, flat: true },
-  'stepping-stones': { id: 'stepping-stones', sprite: steppingStones, flat: true },
-  lily: { id: 'lily', sprite: lily, flat: true },
-};
+export const natureProps: Record<string, PropDef> = Object.fromEntries(defs.map((d) => [d.id, d]));

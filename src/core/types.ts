@@ -81,6 +81,11 @@ export interface LightDef {
   slot?: Slot;
   /** 0..1 amount of flicker. Default 0. */
   flicker?: number;
+  /**
+   * Whether the light pools on the ground below it. Default true. Set false for a light
+   * that should only glow around its source, such as an upstairs window.
+   */
+  ground?: boolean;
 }
 
 /**
@@ -114,6 +119,12 @@ export interface PropDef {
   places?: Record<string, { dx: number; dy: number }>;
   /** Drawn on the ground under every actor (rugs, flower beds, road markings). */
   flat?: boolean;
+  /**
+   * Height in pixels of what casts the shadow. Default: derived from the sprite and the
+   * footprint. Set it when the guess is wrong (a building whose sprite is mostly roof
+   * depth), or to 0 for no cast shadow.
+   */
+  castHeight?: number;
 }
 
 /**

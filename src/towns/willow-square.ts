@@ -135,8 +135,6 @@ const square: PropSpec[] = [
   ...hedgeRow(26, 29, 17),
   { kind: 'bush', at: [17, 17] },
   { kind: 'bush', at: [30, 17] },
-  { kind: 'tulips', at: [19, 16] },
-  { kind: 'tulips-yellow', at: [20, 16] },
 ];
 
 const lamps: PropSpec[] = [
@@ -219,8 +217,9 @@ const gardenRow: PropSpec[] = [
   { kind: 'fence-h-left', at: [6, 20] },
   { kind: 'fence-h', at: [7, 20] },
   { kind: 'fence-h-right', at: [8, 20] },
-  { kind: 'tree', at: [7, 21] },
-  { kind: 'sapling', at: [1, 21] },
+  // the yard's trees stand clear of the fence, so its rails are not hidden behind a trunk
+  { kind: 'tree', at: [7, 22] },
+  { kind: 'sapling', at: [1, 22] },
   { kind: 'fruit-tree', at: [12, 22] },
   { kind: 'flowers-pink', at: [11, 21] },
   { kind: 'flowers', at: [13, 20] },

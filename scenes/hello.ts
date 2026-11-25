@@ -78,17 +78,21 @@ export default scene({ title: 'Hello, Willow Square', town: willowSquare, timeOf
       ana.say('Hello! Welcome to Willow Square.');
       ana.emote('heart', { hold: 1 });
     });
-    // behind her, the school run reaches the fountain
+    // in front of her, the school run reaches the fountain; a small radius keeps the children inside the close shot
     after(7.6, () => {
       kofi.walkTo('fountain.west', { speed: 3.5 });
-      s.wander(kofi, { around: 'fountain.west', radius: 2, speed: 2.5 });
+      s.wander(kofi, { around: 'fountain.west', radius: 1, speed: 2.5 });
     });
     after(7.9, () => {
-      lin.walkTo([20, 15], { speed: 3.5 });
-      s.wander(lin, { around: 'fountain.west', radius: 2, speed: 2.5 });
+      lin.walkTo([19, 14], { speed: 3.5 });
+      s.wander(lin, { around: 'willow.shade', radius: 1, speed: 2.5 });
     });
-    after(8.2, () => yuki.walkTo('willow.shade'));
-    after(8.5, () => raj.walkTo('shop.door'));
+    after(8.2, () => yuki.walkTo([15, 17]));
+    // the post for the shop: Raj waits beside the door, and Zara comes out for it
+    after(8.5, () => {
+      raj.walkTo([36, 10]);
+      raj.face('right');
+    });
     after(11.6, () => zara.exit('shop'));
   });
 
@@ -102,7 +106,7 @@ export default scene({ title: 'Hello, Willow Square', town: willowSquare, timeOf
     s.sequence(() => {
       ana.walkTo('market.fruit.front');
       ana.face('up');
-      mira.say('Fresh plums!', { hold: 1.4 });
+      mira.pose('wave', { hold: 1 });
     });
     s.sequence(() => {
       zara.walkTo('market.greens.front');

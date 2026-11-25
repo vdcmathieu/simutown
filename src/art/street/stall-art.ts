@@ -1,9 +1,8 @@
 // Market stall art: a striped awning on two poles over a counter of produce.
 import { sprite, type Sprite } from '../../core/sprite';
 
-/** The market stall in two colourways, 48x48. */
+/** The market stall in two colourways, 48x56. */
 export const stallSprite: Sprite = sprite(`
-  ................................................
   .0000000000000000000000000000000000000000000000.
   0cccccccccccccccccccccccccccccccccccccccccccccc0
   .00cccyyyyyyccccccyyyyyyccccccyyyyyyccccccyyy00.
@@ -30,10 +29,19 @@ export const stallSprite: Sprite = sprite(`
   ..0wv0....................................0wv0..
   ..0wv0....................................0wv0..
   ..0wv0....................................0wv0..
+  ..0wv0....................................0wv0..
+  ..0wv0....................................0wv0..
+  ..0wv0....................................0wv0..
+  ..0wv0....................................0wv0..
+  ..0wv0....................................0wv0..
+  ..0wv0....................................0wv0..
+  ..0wv0....................................0wv0..
+  ..0wv0....................................0wv0..
   ..0wv000000...00000...00000...00000...00000wv0..
   ..0wv0yzyyy0.0hihhh0.0bcbbb0.0yzyyy0.0hjhhhwv0..
   ..0wv0yyyzy0.0hhhih0.0bbbcb0.0yyyzy0.0hhhjhwv0..
-  ..0wvuyyyyyu0uhhhhhu0ubbbbbu0uyyyyyu0uhhhhhuv0..
+  ..0wv0yyyyy0.0hhhhh0.0bbbbb0.0yyyyy0.0hhhhhwv0..
+  ..0wvvvvvvvv0vvvvvvv0vvvvvvv0vvvvvvv0vvvvvvvv0..
   .00wvuuuuuuu0uuuuuuu0uuuuuuu0uuuuuuu0uuuuuuuv00.
   0ccccuuuuuuucuuuuuuucuuuuuuucuuuuuuucuuuuuuuccc0
   0wwwwuuuuuuuwuuuuuuuwuuuuuuuwuuuuuuuwuuuuuuuwww0
@@ -49,11 +57,10 @@ export const stallSprite: Sprite = sprite(`
   0uvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvv0
   0uvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvv0
   0uvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvv0
+  0uvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvv0
   .0000000000000000000000000000000000000000000000.
-  ................................................
-`, { anchor: [0, 48] });
+`, { anchor: [0, 56] });
 export const stallTealSprite: Sprite = sprite(`
-  ................................................
   .0000000000000000000000000000000000000000000000.
   0cccccccccccccccccccccccccccccccccccccccccccccc0
   .00ccc777777cccccc777777cccccc777777cccccc77700.
@@ -80,10 +87,19 @@ export const stallTealSprite: Sprite = sprite(`
   ..0wv0....................................0wv0..
   ..0wv0....................................0wv0..
   ..0wv0....................................0wv0..
+  ..0wv0....................................0wv0..
+  ..0wv0....................................0wv0..
+  ..0wv0....................................0wv0..
+  ..0wv0....................................0wv0..
+  ..0wv0....................................0wv0..
+  ..0wv0....................................0wv0..
+  ..0wv0....................................0wv0..
+  ..0wv0....................................0wv0..
   ..0wv000000...00000...00000...00000...00000wv0..
   ..0wv0yzyyy0.0hihhh0.0bcbbb0.0yzyyy0.0hjhhhwv0..
   ..0wv0yyyzy0.0hhhih0.0bbbcb0.0yyyzy0.0hhhjhwv0..
-  ..0wvuyyyyyu0uhhhhhu0ubbbbbu0uyyyyyu0uhhhhhuv0..
+  ..0wv0yyyyy0.0hhhhh0.0bbbbb0.0yyyyy0.0hhhhhwv0..
+  ..0wvvvvvvvv0vvvvvvv0vvvvvvv0vvvvvvv0vvvvvvvv0..
   .00wvuuuuuuu0uuuuuuu0uuuuuuu0uuuuuuu0uuuuuuuv00.
   0ccccuuuuuuucuuuuuuucuuuuuuucuuuuuuucuuuuuuuccc0
   0wwwwuuuuuuuwuuuuuuuwuuuuuuuwuuuuuuuwuuuuuuuwww0
@@ -99,6 +115,6 @@ export const stallTealSprite: Sprite = sprite(`
   0uvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvv0
   0uvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvv0
   0uvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvv0
+  0uvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvvvvuvvv0
   .0000000000000000000000000000000000000000000000.
-  ................................................
-`, { anchor: [0, 48] });
+`, { anchor: [0, 56] });

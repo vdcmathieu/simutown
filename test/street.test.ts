@@ -48,10 +48,12 @@ describe('street props', () => {
     const col = (x: number) => Array.from({ length: h.h }, (_, y) => h.px[y * h.w + x]);
     expect(col(0)).toEqual(col(h.w - 1));
     expect(col(0).some((v) => v !== 0)).toBe(true);
-    // The vertical rail reaches exactly one tile up, to the next post's top.
+    // Posts sit at the same height in both, and the vertical rail reaches up exactly to
+    // the base of the post one tile above, without covering it.
     const v = streetProps['fence-v']!.sprite;
     const top = (s: typeof v) => Math.floor([...s.px].findIndex((p) => p !== 0) / s.w);
-    const postTop = top(h) + (v.h - h.h); // post tops sit at the same height in both
-    expect(top(v)).toBe(postTop - TILE);
+    const bottom = (s: typeof v) => Math.floor([...s.px].findLastIndex((p) => p !== 0) / s.w);
+    expect(bottom(v) - v.h).toBe(bottom(h) - h.h);
+    expect(top(v)).toBe(bottom(v) - TILE);
   });
 });

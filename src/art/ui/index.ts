@@ -1,6 +1,3 @@
-import type { Sprite } from '../../core/sprite';
-import type { BitmapFont } from '../../core/types';
-
-// The bitmap font, speech-bubble pieces and emotes. Empty in the pin.
-export const font: BitmapFont = { height: 8, glyphs: {} };
-export const emotes: Record<string, Sprite> = {};
+// The bitmap font and the emotes. Speech bubbles are drawn as shapes in src/ui.
+export { emotes } from './emotes';
+export { FONT_CAP, FONT_H, FONT_TOP, font } from './font';

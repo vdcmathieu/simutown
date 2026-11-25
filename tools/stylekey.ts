@@ -29,10 +29,10 @@ const col = (slot: Slot, a = 255) => [...lutRgb(lut, slot), a] as const;
 // g grass, c cobble (paving), w water
 const MAP = [
   'gggggggggggggggggggg',
-  'gggggggggggggggwwwgg',
   'ggggggggggggggwwwwwg',
   'ggggggggggggggwwwwwg',
-  'gggggggggggggggwwwgg',
+  'ggggggggggggggwwwwwg',
+  'gggggggggggggggggggg',
   'gggggggggggggggggggg',
   'gggggcgggggggggggggg',
   'gggggcgggggggggggggg',
@@ -53,6 +53,8 @@ const PROPS: { kind: string; tx: number; ty: number }[] = [
   { kind: 'tree', tx: 16, ty: 12 },
   { kind: 'lamp', tx: 7, ty: 7 },
   { kind: 'bench', tx: 10, ty: 7 },
+  { kind: 'lily', tx: 15, ty: 2 },
+  { kind: 'lily', tx: 17, ty: 3 },
   { kind: 'flowers', tx: 9, ty: 5 },
   { kind: 'flowers', tx: 12, ty: 6 },
   { kind: 'flowers', tx: 2, ty: 11 },
@@ -62,7 +64,7 @@ const PROPS: { kind: string; tx: number; ty: number }[] = [
 
 // Actors stand on a feet position in world pixels.
 const ACTORS: { id: string; x: number; y: number; dir: Dir; pose: 'idle' | 'walk'; frame: number }[] = [
-  { id: 'ana', x: 5 * TILE + 8, y: 7 * TILE + 6, dir: 'down', pose: 'walk', frame: 0 },
+  { id: 'ana', x: 5 * TILE + 8, y: 7 * TILE + 13, dir: 'down', pose: 'walk', frame: 0 },
   { id: 'tomas', x: 14 * TILE + 8, y: 9 * TILE + 4, dir: 'left', pose: 'walk', frame: 0 },
   { id: 'mira', x: 12 * TILE + 8, y: 11 * TILE + 2, dir: 'down', pose: 'idle', frame: 0 },
 ];
@@ -142,6 +144,10 @@ function scene(): Surface {
     if (s) shadow(out, p.tx * TILE + s[0], (p.ty + 1) * TILE + s[1], s[2], s[3]);
   }
   for (const a of ACTORS) shadow(out, a.x, a.y - 1, 5, 2);
+  // a building throws a thin strip along its base
+  for (const p of PROPS) {
+    if (p.kind === 'house') out.rect(p.tx * TILE + 2, (p.ty + 1) * TILE, 78, 2, col('steel.0', 56));
+  }
 
   // standing things, sorted by their base line
   const drawables: { y: number; draw: () => void }[] = [];

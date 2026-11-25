@@ -58,12 +58,12 @@ const done = (c: Canvas, anchor: readonly [number, number]): Sprite => ({
 const roofTiles = sprite(`
   yzzzzyyyyzzzzyyy
   yyyyyyyyyyyyyyyy
-  yyyyyyyxyyyyyyyx
+  yyyyyyyyyyyyyyyy
   xyyyyyxxxyyyyyxx
   yxxxxxyyyxxxxxyy
   zyyyyzzzzyyyyzzz
   yyyyyyyyyyyyyyyy
-  yyyxyyyyyyyxyyyy
+  yyyyyyyyyyyyyyyy
   yyxxxyyyyyxxxyyy
   xxyyyxxxxxyyyxxx
 `);
@@ -191,6 +191,7 @@ const WALL_X = 2;
 const WALL_W = W - 4;
 const DOOR_X = 32;
 const WINDOW_XS = [9, 56];
+const WINDOW_Y = WALL_TOP + 8; // level with the top of the door
 
 function buildHouse(): { day: Sprite; glow: Sprite } {
   const c = canvas(W, H);
@@ -199,18 +200,19 @@ function buildHouse(): { day: Sprite; glow: Sprite } {
   fill(c, plaster, WALL_X, WALL_TOP, WALL_W, H - WALL_TOP);
   fill(c, plasterShade, WALL_X, WALL_TOP, WALL_W, 4);
   fill(c, beam, WALL_X, WALL_TOP + 4, WALL_W, 4);
-  fill(c, plinth, WALL_X, H - 4, WALL_W, 4);
+  fill(c, plinth, WALL_X, H - 5, WALL_W, 4);
   for (const x of [WALL_X, DOOR_X - 6, DOOR_X + 18, WALL_X + WALL_W - 4]) {
-    fill(c, post, x, WALL_TOP + 4, 4, H - 4 - (WALL_TOP + 4));
+    fill(c, post, x, WALL_TOP + 4, 4, H - 5 - (WALL_TOP + 4));
   }
   for (const x of WINDOW_XS) {
-    paste(c, windowDay, x, WALL_TOP + 10);
-    paste(c, flowerBox, x, WALL_TOP + 21);
+    paste(c, windowDay, x, WINDOW_Y);
+    paste(c, flowerBox, x, WINDOW_Y + 11);
   }
-  paste(c, door, DOOR_X, H - door.h);
-  // ink outline of the wall
-  fill(c, ink, WALL_X - 1, WALL_TOP, 1, H - WALL_TOP);
-  fill(c, ink, WALL_X + WALL_W, WALL_TOP, 1, H - WALL_TOP);
+  paste(c, door, DOOR_X, H - 1 - door.h);
+  // ink outline of the wall: both sides and the base line
+  fill(c, ink, WALL_X - 1, WALL_TOP, 1, H - 1 - WALL_TOP);
+  fill(c, ink, WALL_X + WALL_W, WALL_TOP, 1, H - 1 - WALL_TOP);
+  fill(c, ink, WALL_X, H - 1, WALL_W, 1);
 
   // roof: tile courses between a ridge cap and an eave, lit on the left, shaded on the right
   fill(c, roofTiles, 0, ROOF_TOP + 5, W, ROOF_H - 10);
@@ -235,7 +237,7 @@ function buildHouse(): { day: Sprite; glow: Sprite } {
   paste(c, chimney, 57, 0);
 
   const g = canvas(W, H);
-  for (const x of WINDOW_XS) paste(g, windowLit, x, WALL_TOP + 10);
+  for (const x of WINDOW_XS) paste(g, windowLit, x, WINDOW_Y);
 
   return { day: done(c, [0, H]), glow: done(g, [0, H]) };
 }

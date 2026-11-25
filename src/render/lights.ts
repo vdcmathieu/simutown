@@ -108,8 +108,10 @@ export function collectLights(props: StaticProp[], lut: Lut): Light[] {
       const y = Math.round(prop.y + def.dy);
       const gy = Math.max(y, prop.y);
       const radius = def.radius;
-      // full strength while the source is within reach of the ground, then fading out
-      const pool = POOL_GAIN * Math.max(0, Math.min(1, (1.6 * radius - (gy - y)) / radius));
+      // full strength while the source is within reach of the ground, then fading out;
+      // none at all for a light the art marks as `ground: false` (an upstairs window)
+      const reach = Math.max(0, Math.min(1, (1.6 * radius - (gy - y)) / radius));
+      const pool = def.ground === false ? 0 : POOL_GAIN * reach;
       const partial = {
         x,
         y,
@@ -228,6 +230,7 @@ export function createTownOcclusion(w: number, h: number, lights: Light[], props
     const m = (mask = new Uint8Array(w * h));
     for (const p of props) {
       const s = p.def.sprite;
+      if (castHeight(p) === 0) continue;
       castOcclusion(lights, { sprite: s, x: p.x, y: p.y }, p.x - s.ax + s.w / 2, 1, p, (wx, wy, value) => {
         if (wx < 0 || wy < 0 || wx >= w || wy >= h) return;
         const i = wy * w + wx;

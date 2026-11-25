@@ -6,6 +6,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Surface } from '../src/core/surface';
 import { createRenderer } from '../src/render';
+import { labelHeight } from '../src/render/overlays';
 import * as ui from '../src/ui';
 import { actor, block, frameState, kitArt, kitTown } from '../tools/render-testkit';
 
@@ -31,11 +32,12 @@ describe('overlays', () => {
       bubbles: [{ actor: 'a', text: 'Hello', kind: 'say', reveal: 0.5 }],
     });
     renderer.render(state, out);
-    // head top is world (40, 26); at zoom 1 the view starts at world (0, 0)
-    expect(vi.mocked(ui.drawBubble).mock.calls[0]![2]).toEqual({ x: 40, y: 26, text: 'Hello', kind: 'say', reveal: 0.5 });
+    // the head's top is world (40, 26) and at zoom 1 the view starts at world (0, 0);
+    // the tail stops a pixel short so that two clear pixels are left above the hair
+    expect(vi.mocked(ui.drawBubble).mock.calls[0]![2]).toEqual({ x: 40, y: 25, text: 'Hello', kind: 'say', reveal: 0.5 });
     renderer.render({ ...state, camera: { x: 48, y: 32, zoom: 2 } }, out);
     // at zoom 2 the view starts at world (24, 16)
-    expect(vi.mocked(ui.drawBubble).mock.calls[1]![2]).toMatchObject({ x: 32, y: 20 });
+    expect(vi.mocked(ui.drawBubble).mock.calls[1]![2]).toMatchObject({ x: 32, y: 19 });
   });
 
   it('stacks emote, label and bubble upward from the head', () => {
@@ -50,15 +52,15 @@ describe('overlays', () => {
       }),
       out,
     );
-    expect(vi.mocked(ui.drawEmote).mock.calls[0]!.slice(2)).toEqual(['heart', 40, 26]);
+    expect(vi.mocked(ui.drawEmote).mock.calls[0]!.slice(2)).toEqual(['heart', 40, 25]); // never on the face
     const labels = vi.mocked(ui.drawLabel).mock.calls.map((c) => c.slice(2));
     expect(labels).toEqual([
-      ['knows', 40, 16, 0.8], // above the 8-pixel emote and a gap
+      ['knows', 40, 15, 0.8], // above the 8-pixel emote and a gap
       ['cafe', 10, 16, 1], // `at` is a spot on the ground: lifted by a character's height
     ]);
     const bubble = vi.mocked(ui.drawBubble).mock.calls[0]![2];
     expect(bubble.x).toBe(40);
-    expect(bubble.y).toBeLessThan(16);
+    expect(bubble.y).toBe(15 - labelHeight(art.font) - 2); // above the label and a gap
   });
 
   it('draws caption and title only when visible, and overlays last', () => {

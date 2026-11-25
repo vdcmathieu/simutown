@@ -1,6 +1,6 @@
 /**
- * Time the renderer on the synthetic preview town (tools/render-art.ts): 480x270 frames, seven
- * actors, some twenty props and ten lights. Prints the median and the 95th percentile per case.
+ * Time the renderer on the preview town (tools/render-art.ts): 480x270 frames, seven
+ * actors, some thirty props and ten lights. Prints the median and the 95th percentile per case.
  *
  *   pnpm tsx tools/render-bench.ts [--frames 300]
  *
@@ -22,7 +22,7 @@ const out = new Surface(FRAME_W, FRAME_H);
 /** A busy frame: seven people walking in a slow circle around the plaza. */
 function frame(i: number, hour: number, zoom: number): FrameState {
   const t = i / 30;
-  const characters = ['ana', 'ben', 'cy', 'dee'];
+  const characters = ['ana', 'tomas', 'mira'];
   return {
     t,
     camera: { x: (town.w * TILE) / 2 + Math.round(Math.sin(t) * 20), y: (town.h * TILE) / 2, zoom },

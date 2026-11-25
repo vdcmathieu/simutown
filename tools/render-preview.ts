@@ -1,7 +1,7 @@
 /**
  * Render the synthetic preview town (tools/render-art.ts) to PNGs, to judge the renderer by eye.
  *
- *   pnpm tsx tools/render-preview.ts [--theme dusk|sunny] [--scale 2] [--t 1.3]
+ *   pnpm tsx tools/render-preview.ts [--scale 2] [--t 1.3]
  *                                    [--time-of-day 19:30] [--zoom 2] [--annotate] [--focus 0.5] [--plain]
  *                                    [--crop x,y,w,h] [--strip] [--out out/render]
  *
@@ -11,16 +11,14 @@
  * frame (in pixels) before scaling, for a close look. `--strip` writes one sheet with every
  * second hour of the day, to check that the moods flow into each other.
  */
-import { dusk } from '../src/core/palette';
 import { Surface } from '../src/core/surface';
 import { type ActorState, FRAME_H, FRAME_W, type FrameState, TILE } from '../src/core/types';
 import { writePNG } from '../src/node/png';
 import { createRenderer } from '../src/render';
 import { hourTag, parseHour, REVIEW_HOURS, takeFlag, takeOption } from './render-args';
-import { buildPreviewTown, previewArt, sunny } from './render-art';
+import { buildPreviewTown, previewArt } from './render-art';
 
 const args = process.argv.slice(2);
-const themeName = takeOption(args, '--theme') ?? 'dusk';
 const scale = Number(takeOption(args, '--scale') ?? 2);
 const t = Number(takeOption(args, '--t') ?? 1.3);
 const hourArg = takeOption(args, '--time-of-day');
@@ -33,50 +31,47 @@ const plain = takeFlag(args, '--plain');
 const strip = takeFlag(args, '--strip');
 
 const town = buildPreviewTown();
-const renderer = createRenderer(town, { art: previewArt, theme: themeName === 'sunny' ? sunny : dusk });
+const renderer = createRenderer(town, { art: previewArt });
 
-/** Feet position of someone standing on a tile, nudged by a few pixels. */
-function at(tx: number, ty: number, dx = 0, dy = 0): { x: number; y: number } {
-  return { x: tx * TILE + 8 + dx, y: ty * TILE + 12 + dy };
-}
-
-/** The preview frame: people under lamps, by the fire, at a window and out in the dark. */
+/** The preview frame: people under lamps, by the fire, at a door and out in the dark. */
 export function previewFrame(time: number, hour: number): FrameState {
-  const actor = (id: string, character: string, pos: { x: number; y: number }, pose = 'idle'): ActorState => ({
+  const actor = (id: string, character: string, x: number, y: number, extra: Partial<ActorState> = {}): ActorState => ({
     id,
     character,
-    ...pos,
+    x,
+    y,
     dir: 'down',
-    pose,
+    pose: 'idle',
     animTime: time,
+    ...extra,
   });
   const actors: ActorState[] = [
-    actor('ana', 'ana', { x: 180, y: 110 }),
-    { ...actor('ben', 'ben', { x: 198, y: 114 }), emote: 'heart' },
-    actor('cy', 'cy', at(13, 12, 6, 0), 'walk'),
-    actor('dee', 'dee', at(18, 12, 0, 0)),
-    actor('fay', 'dee', { x: 394, y: 146 }),
-    actor('gus', 'ben', { x: 332, y: 104 }),
-    actor('hal', 'cy', { x: 100, y: 106 }),
-    actor('ivy', 'ana', { x: 240, y: 152 }),
+    actor('mira', 'mira', 112, 126, { dir: 'right' }),
+    actor('tomas', 'tomas', 134, 128, { dir: 'left', emote: 'heart' }),
+    actor('ana', 'ana', 56, 122),
+    actor('ana-2', 'ana', 264, 180, { dir: 'left' }),
+    actor('tomas-2', 'tomas', 214, 196, { dir: 'up' }),
+    actor('mira-2', 'mira', 330, 160, { dir: 'right', pose: 'walk' }),
+    actor('ana-3', 'ana', 420, 158, { dir: 'left', pose: 'walk' }),
+    actor('tomas-3', 'tomas', 390, 232),
   ];
   const state: FrameState = {
     t: time,
-    camera: zoom > 1 ? { x: 200, y: 100, zoom } : { x: (town.w * TILE) / 2, y: (town.h * TILE) / 2, zoom: 1 },
+    camera: zoom > 1 ? { x: 150, y: 120, zoom } : { x: (town.w * TILE) / 2, y: (town.h * TILE) / 2, zoom: 1 },
     timeOfDay: hour,
     actors,
-    bubbles: plain ? [] : [{ actor: 'ana', text: 'Lovely evening.', kind: 'say', reveal: 1 }],
+    bubbles: plain ? [] : [{ actor: 'mira', text: 'Lovely evening.', kind: 'say', reveal: 1 }],
     ...(plain ? {} : { caption: { text: 'The preview town.', opacity: 1 } }),
   };
   if (annotate) {
     state.annotations = [
-      { kind: 'ring', actor: 'ana', progress: 1 },
-      { kind: 'ring', actor: 'fay', progress: 0.6 },
-      { kind: 'link', from: 'ana', to: 'fay', progress: 0.8 },
-      { kind: 'link', from: 'ana', to: 'ben', progress: 1 },
-      { kind: 'label', actor: 'ana', text: 'knows', opacity: 1 },
+      { kind: 'ring', actor: 'mira', progress: 1 },
+      { kind: 'ring', actor: 'ana-2', progress: 0.6 },
+      { kind: 'link', from: 'mira', to: 'ana-2', progress: 0.8 },
+      { kind: 'link', from: 'mira', to: 'ana', progress: 1 },
+      { kind: 'label', actor: 'tomas', text: 'knows', opacity: 1 },
     ];
-    state.focus = { actors: ['ana', 'ben', 'fay'], amount: focus };
+    state.focus = { actors: ['mira', 'tomas', 'ana-2'], amount: focus };
   }
   return state;
 }
@@ -91,17 +86,17 @@ function renderAt(hour: number): Surface {
   return cut;
 }
 
-const tag = `${themeName}${zoom > 1 ? `-zoom${zoom}` : ''}${annotate ? '-annot' : ''}${crop ? '-crop' : ''}`;
+const tag = `${zoom > 1 ? `-zoom${zoom}` : ''}${annotate ? '-annot' : ''}${crop ? '-crop' : ''}`;
 if (strip) {
   const hours = [0, 2, 4, 6, 8, 10, 12, 14, 16, 17, 18, 19, 19.5, 20, 21, 22];
   const cols = 4;
   const sheet = new Surface(FRAME_W * cols, FRAME_H * Math.ceil(hours.length / cols));
   hours.forEach((hour, i) => sheet.draw(renderAt(hour), (i % cols) * FRAME_W, Math.floor(i / cols) * FRAME_H));
-  writePNG(`${outDir}/strip-${tag}.png`, sheet);
-  console.log(`${outDir}/strip-${tag}.png (${hours.map(hourTag).join(' ')})`);
+  writePNG(`${outDir}/strip${tag}.png`, sheet);
+  console.log(`${outDir}/strip${tag}.png (${hours.map(hourTag).join(' ')})`);
 } else {
   for (const hour of hourArg === undefined ? REVIEW_HOURS : [parseHour(hourArg)]) {
-    const file = `${outDir}/preview-${tag}-${hourTag(hour)}.png`;
+    const file = `${outDir}/preview${tag}-${hourTag(hour)}.png`;
     writePNG(file, renderAt(hour).scaled(scale));
     console.log(file);
   }

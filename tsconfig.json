@@ -16,7 +16,9 @@
     // vite.config.ts has the same mapping for the gallery and the tests.
     "paths": {
       "simutown": ["./src/index.ts"],
-      "simutown/*": ["./src/*/index.ts"]
+      "simutown/node": ["./src/node/index.ts"],
+      "simutown/player": ["./src/player/index.ts"],
+      "simutown/towns": ["./src/towns/index.ts"]
     }
   },
   "include": ["src", "tools", "scenes", "test", "web"]

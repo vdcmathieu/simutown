@@ -21,7 +21,7 @@ function watchScenes(): Plugin {
 /**
  * The gallery in web/: `pnpm dev` serves it, `pnpm build:web` writes dist/web.
  * Vitest reads this file too, so its root is set back to the repository.
- * `simutown` and `simutown/<entry>` resolve to the sources, as in tsconfig.json.
+ * `simutown` and its entries (`simutown/towns`, ...) resolve to the sources, as in tsconfig.json.
  */
 export default defineConfig({
   root: 'web',
@@ -30,7 +30,7 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /^simutown$/, replacement: `${root}src/index.ts` },
-      { find: /^simutown\/([\w-]+)$/, replacement: `${root}src/$1/index.ts` },
+      { find: /^simutown\/(node|player|towns)$/, replacement: `${root}src/$1/index.ts` },
     ],
   },
   server: { fs: { allow: [root] } },

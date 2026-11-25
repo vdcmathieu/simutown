@@ -1,6 +1,6 @@
 /**
- * Time the renderer on the synthetic preview town (tools/render-art.ts): 480x270 frames,
- * 7 actors, 18 props, 9 lights. Prints the median and the slowest-typical frame per case.
+ * Time the renderer on the synthetic preview town (tools/render-art.ts): 480x270 frames, seven
+ * actors, some twenty props and ten lights. Prints the median and the 95th percentile per case.
  *
  *   pnpm tsx tools/render-bench.ts [--frames 300]
  *

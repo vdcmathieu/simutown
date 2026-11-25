@@ -2,12 +2,12 @@
  * Render the synthetic preview town (tools/render-art.ts) to PNGs, to judge the renderer by eye.
  *
  *   pnpm tsx tools/render-preview.ts [--theme dusk|sunny] [--scale 2] [--t 1.3]
- *                                    [--time-of-day 19:30] [--zoom 2] [--annotate] [--focus 0.5]
+ *                                    [--time-of-day 19:30] [--zoom 2] [--annotate] [--focus 0.5] [--plain]
  *                                    [--crop x,y,w,h] [--strip] [--out out/render]
  *
  * With no time given it writes the four review hours (12:00, 18:00, 19:30, 23:00).
  * `--annotate` adds rings, links and focus dimming (`--focus` sets how much, 0 for none).
- * `--crop` cuts a region of the native
+ * `--plain` leaves out the bubble and the caption. `--crop` cuts a region of the native
  * frame (in pixels) before scaling, for a close look. `--strip` writes one sheet with every
  * second hour of the day, to check that the moods flow into each other.
  */
@@ -29,6 +29,7 @@ const crop = takeOption(args, '--crop')?.split(',').map(Number);
 const outDir = takeOption(args, '--out') ?? 'out/render';
 const focus = Number(takeOption(args, '--focus') ?? 1);
 const annotate = takeFlag(args, '--annotate');
+const plain = takeFlag(args, '--plain');
 const strip = takeFlag(args, '--strip');
 
 const town = buildPreviewTown();
@@ -50,21 +51,22 @@ export function previewFrame(time: number, hour: number): FrameState {
     animTime: time,
   });
   const actors: ActorState[] = [
-    actor('ana', 'ana', at(11, 6, 4, 2)),
-    actor('ben', 'ben', at(12, 6, 12, 4)),
+    actor('ana', 'ana', { x: 180, y: 110 }),
+    { ...actor('ben', 'ben', { x: 198, y: 114 }), emote: 'heart' },
     actor('cy', 'cy', at(13, 12, 6, 0), 'walk'),
     actor('dee', 'dee', at(18, 12, 0, 0)),
-    actor('fay', 'dee', at(24, 8, 10, 4)),
-    actor('gus', 'ben', at(20, 6, -2, -2)),
-    actor('hal', 'cy', at(5, 7, 0, 0)),
+    actor('fay', 'dee', { x: 394, y: 146 }),
+    actor('gus', 'ben', { x: 332, y: 104 }),
+    actor('hal', 'cy', { x: 100, y: 106 }),
+    actor('ivy', 'ana', { x: 240, y: 152 }),
   ];
   const state: FrameState = {
     t: time,
-    camera: zoom > 1 ? { x: 13 * TILE, y: 6 * TILE + 8, zoom } : { x: (town.w * TILE) / 2, y: (town.h * TILE) / 2, zoom: 1 },
+    camera: zoom > 1 ? { x: 200, y: 100, zoom } : { x: (town.w * TILE) / 2, y: (town.h * TILE) / 2, zoom: 1 },
     timeOfDay: hour,
     actors,
-    bubbles: [{ actor: 'ana', text: 'Lovely evening.', kind: 'say', reveal: 1 }],
-    caption: { text: 'The preview town.', opacity: 1 },
+    bubbles: plain ? [] : [{ actor: 'ana', text: 'Lovely evening.', kind: 'say', reveal: 1 }],
+    ...(plain ? {} : { caption: { text: 'The preview town.', opacity: 1 } }),
   };
   if (annotate) {
     state.annotations = [

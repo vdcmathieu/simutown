@@ -101,11 +101,22 @@ function fringe(side: FringeSide, base: Slot, edge: Slot, seed: number): Sprite 
     p.ellipse(at[0] + 0.5, at[1] + 0.5, 3.6, 3.6, edge);
     p.ellipse(at[0] + 0.5, at[1] + 0.5, 2.6, 2.6, base);
   }
+  // an inner corner fills everything outside a quarter circle around the tile's free corner
+  const free: Partial<Record<FringeSide, [number, number]>> = { 'in-ne': [TILE, 0], 'in-nw': [0, 0], 'in-se': [TILE, TILE], 'in-sw': [0, TILE] };
+  const centre = free[side];
+  if (centre) {
+    for (let y = 0; y < TILE; y++) {
+      for (let x = 0; x < TILE; x++) {
+        const d = Math.hypot(x + 0.5 - centre[0], y + 0.5 - centre[1]);
+        if (d > 12.5) p.set(x, y, d < 13.6 ? edge : base);
+      }
+    }
+  }
   return p.sprite();
 }
 
 function fringes(base: Slot, edge: Slot, seed: number): Partial<Record<FringeSide, Sprite>> {
-  const sides: FringeSide[] = ['n', 'e', 's', 'w', 'ne', 'nw', 'se', 'sw'];
+  const sides: FringeSide[] = ['n', 'e', 's', 'w', 'ne', 'nw', 'se', 'sw', 'in-ne', 'in-nw', 'in-se', 'in-sw'];
   return Object.fromEntries(sides.map((s, i) => [s, fringe(s, base, edge, seed + i)]));
 }
 
@@ -240,15 +251,6 @@ function flowers(): PropDef {
   return { id: 'flowers', sprite: p.sprite([0, 16]), flat: true };
 }
 
-/** A 32x16 bench. */
-function bench(): PropDef {
-  const p = new Paint(32, 16);
-  p.rect(2, 3, 28, 4, 'wood.2').rect(2, 6, 28, 1, 'wood.0').rect(2, 9, 28, 3, 'wood.1').rect(2, 11, 28, 1, 'wood.0');
-  p.rect(4, 7, 2, 8, 'steel.1').rect(26, 7, 2, 8, 'steel.1');
-  p.outline('steel.0');
-  return { id: 'bench', sprite: p.sprite([0, 16]), footprint: { w: 2, h: 1 } };
-}
-
 export const previewProps: Record<string, PropDef> = {
   ...builtin.props,
   house: house('house', { roof: ['steel.1', 'steel.2', 'steel.3'], wall: ['cream.0', 'cream.1'], door: ['wood.0', 'wood.1'] }),
@@ -256,7 +258,6 @@ export const previewProps: Record<string, PropDef> = {
   tree: tree(),
   brazier: brazier(),
   flowers: flowers(),
-  bench: bench(),
 };
 
 // ---------------------------------------------------------------------------------------
@@ -301,7 +302,7 @@ const MAP = `
   gg==========================gg
   gg==========================gg
   gg==========================gg
-  gggggggggggg====gggggggggggggg
+  gggggggggg========gggggggggggg
   gggggggggggg====ggggg~~~~~gggg
   gggggggggggg====gggg~~~~~~~ggg
   gggggggggggg====gggg~~~~~~~ggg
@@ -323,12 +324,16 @@ export function buildPreviewTown(): Town {
     { kind: 'house', tx: 3, ty: 5 },
     { kind: 'cottage', tx: 19, ty: 5 },
     { kind: 'lamp', tx: 10, ty: 5 },
-    { kind: 'lamp', tx: 16, ty: 5 },
+    { kind: 'lamp', tx: 17, ty: 5 },
     { kind: 'lamp', tx: 11, ty: 12 },
     { kind: 'lamp', tx: 27, ty: 9 },
     { kind: 'tree', tx: 0, ty: 4 },
     { kind: 'tree', tx: 12, ty: 3 },
-    { kind: 'tree', tx: 26, ty: 3 },
+    { kind: 'tree', tx: 28, ty: 2 },
+    { kind: 'stall', tx: 25, ty: 5 },
+    { kind: 'barrel', tx: 24, ty: 5 },
+    { kind: 'mailbox', tx: 9, ty: 5 },
+    { kind: 'fountain', tx: 13, ty: 8 },
     { kind: 'tree', tx: 3, ty: 11 },
     { kind: 'tree', tx: 7, ty: 14 },
     { kind: 'tree', tx: 17, ty: 15 },

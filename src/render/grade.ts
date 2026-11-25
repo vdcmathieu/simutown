@@ -16,8 +16,6 @@ import type { Condition } from './conditions';
 import { BAYER4 } from './hash';
 import type { View } from './view';
 
-/** Number of brightness bands in a glow. */
-const LEVELS = 5;
 /** Share of each band that is a dithered transition into the next; the rest is flat. */
 const DITHER = 0.6;
 /** How strongly a light's colour tints what it lights (0 = white light). */
@@ -31,6 +29,8 @@ const BLOOM = 56;
  * the biggest, so the rim of a pool is a clear edge and not a haze.
  */
 const BAND_WEIGHT = [0, 0.26, 0.46, 0.64, 0.8, 0.94];
+/** Number of brightness bands in a glow. */
+const LEVELS = BAND_WEIGHT.length - 1;
 /** Share of a light's pool that a caster's shadow removes. */
 const OCCLUSION = 0.9;
 

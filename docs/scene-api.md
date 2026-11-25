@@ -76,10 +76,11 @@ The view never leaves the town, down to the last pixel the renderer draws: near 
 |------|--------|------------------|
 | `a.walkTo(target, { speed? })` | Walk there along the shortest path that avoids solid tiles. | path length / speed |
 | `a.face(dir \| actor)` | Turn. | 0 |
-| `a.say(text, { hold? })` | Speech bubble with typewriter reveal, held long enough to read. | from text length |
-| `a.think(text, { hold? })` / `a.shout(text, { hold? })` | Same, different bubble. | from text length |
+| `a.say(text, { hold?, gesture? })` | Speech bubble with typewriter reveal, held long enough to read. A standing speaker plays the `talk` pose while the text types out; `gesture: false` turns that off. | from text length |
+| `a.think(text, { hold?, gesture? })` / `a.shout(text, { hold?, gesture? })` | Same, different bubble. | from text length |
 | `a.emote(name, { hold? })` | Icon above the head. | 1.2 s |
-| `a.pose(name, { hold? })` | Play one of the character's extra poses, then return to idle. | 1 s |
+| `a.pose(name, { hold? })` | Play any of the character's poses (the townsfolk have `sit`, `wave`, `talk`, `carry`), then return to idle. | 1 s |
+| `a.sitOn(prop, seat?, { hold?, speed? })` | Walk to a seat of a prop (default: its first), slide onto it and sit until the next move or pose. | walk + 0.3 s + `hold` |
 | `a.enter(prop, { speed? })` | Walk to the prop's `door` place, face up, fade out, and leave the map. | walk + 0.3 s |
 | `a.exit(prop)` | Appear at the prop's `door` place facing down and fade in. | 0.3 s |
 | `a.hide()` / `a.show()` | Remove from or return to the map. | 0 |
@@ -100,6 +101,23 @@ s.wait(2);
 cy.exit('cafe');
 ```
 
+Seats belong to props: the built-in `bench` has `left` and `right`.
+`sitOn` walks to the prop's place named like the seat (`bench.left`), or else the nearest free tile beside the prop, then slides onto the seat and faces the seat's direction.
+Talking, emotes and `face` keep a sitter seated; the next move or pose first steps them back to that tile (0.3 s), then carries on.
+Two actors on one seat at the same time is an error that lists the free seats.
+
+```ts
+const ana = s.actor('ana', { at: 'plaza' });
+const kofi = s.actor('kofi', { at: 'fountain.south' });
+s.together(() => {
+  ana.sitOn('bench', 'left');
+  kofi.sitOn('bench', 'right');
+});
+ana.say('Did you hear about Friday?');
+kofi.say('Tell me everything!');
+ana.walkTo('cafe.door'); // gets up, then walks
+```
+
 Inside `together`, give each actor its moves in time order; an earlier move after a later one is an error.
 A later walk may interrupt an earlier one: the actor sets off from wherever they are.
 
@@ -113,7 +131,7 @@ Unknown pose "wav". Did you mean "wave"? Valid poses: sit, wave. (for character 
 ana cannot walk from [1, 5] to [18, 11]. The target [18, 11] is in an enclosed area of 1 tile(s), walled in by: [18, 10] water (solid terrain), ...
 ```
 
-Unknown characters, places, props, poses, emotes and directions are all reported this way.
+Unknown characters, places, props, seats, poses, emotes and directions are all reported this way, as are a prop with no seats and a character with no `sit` pose.
 Passing an actor's id as a string where a handle is expected says so.
 
 ## A town

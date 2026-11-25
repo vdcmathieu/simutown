@@ -30,6 +30,14 @@ export interface ActorOpts {
   hidden?: boolean;
 }
 
+/** Options for `say`, `think` and `shout`. */
+export interface SayOpts {
+  /** Seconds the full text stays up after typing. Default: from the text length. */
+  hold?: number;
+  /** Play the character's `talk` pose while typing, if it has one. Default true. */
+  gesture?: boolean;
+}
+
 /** A person in the scene. Every call is scheduled at the script's current time. */
 export interface ActorHandle {
   readonly id: string;
@@ -38,12 +46,21 @@ export interface ActorHandle {
   walkTo(target: Target, opts?: { speed?: number }): void;
   /** Turn to a direction or towards another actor. */
   face(dir: Dir | ActorHandle): void;
-  /** Speech bubble with a typewriter reveal, held long enough to read. */
-  say(text: string, opts?: { hold?: number }): void;
+  /**
+   * Speech bubble with a typewriter reveal, held long enough to read. A standing character
+   * with a `talk` pose gestures while the text types out; `gesture: false` turns that off.
+   */
+  say(text: string, opts?: SayOpts): void;
   /** Thought bubble. */
-  think(text: string, opts?: { hold?: number }): void;
+  think(text: string, opts?: SayOpts): void;
   /** Shouted bubble. */
-  shout(text: string, opts?: { hold?: number }): void;
+  shout(text: string, opts?: SayOpts): void;
+  /**
+   * Sit on one of a prop's seats (default: its first). Walks to the prop's place named like
+   * the seat, or else the nearest free tile beside the prop, then sits until the next move
+   * or pose, which first steps back to that tile. Talking, emotes and turning keep them seated.
+   */
+  sitOn(prop: string, seat?: string, opts?: { hold?: number; speed?: number }): void;
   /** Icon above the head, by emote name. */
   emote(name: string, opts?: { hold?: number }): void;
   /** Play one of the character's extra poses, then return to idle. */

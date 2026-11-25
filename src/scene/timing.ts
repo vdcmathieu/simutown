@@ -16,6 +16,8 @@ export const READ_CPS = 15;
 export const MIN_HOLD = 1.2;
 export const EMOTE_HOLD = 1.2;
 export const POSE_HOLD = 1;
+/** Sliding from the tile in front of a seat onto it, or back. */
+export const SIT_MOVE = 0.3;
 /** Fade out at a door, or in when coming out of one. */
 export const DOOR_FADE = 0.3;
 export const TITLE_FADE = 0.5;

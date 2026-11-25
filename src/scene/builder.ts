@@ -5,14 +5,14 @@
  * starts each child at the group's start. Every call records timed segments and returns.
  */
 import { art as builtinArt } from '../art';
-import { type ArtRegistry, type Dir, FPS, FRAME_H, FRAME_W, type Scene } from '../core/types';
+import { type ArtRegistry, type Dir, FPS, FRAME_H, FRAME_W, type PlacedProp, type Scene, TILE } from '../core/types';
 import { blockerAt, fmtTile, inBounds, isWalkable, type Tile, tileAt, tileCenter } from '../world/grid';
 import { unknownName } from '../world/names';
 import { explainNoPath, findPath } from '../world/path';
 import { createRng, type Rng } from '../world/random';
 import { type ActorSeg, bodyAt, type Body, type CamTarget, cutWalk, dirBetween, emptyTimeline, frameAt, insertByStart, type Pt, type Ramp, settleByKey, settleCamera, settleRamps, type Timeline } from './timeline';
 import * as T from './timing';
-import type { ActorHandle, ActorOpts, SceneBuilder, SceneOpts, Target } from './types';
+import type { ActorHandle, ActorOpts, SayOpts, SceneBuilder, SceneOpts, Target } from './types';
 
 const DIRS: Dir[] = ['down', 'up', 'left', 'right'];
 /** Tiles beside an actor, in order of preference on ties: side by side reads best as a conversation. */
@@ -42,10 +42,38 @@ interface Wander {
   pending?: number;
 }
 
+/** Someone on a seat, from `start` (when they begin to sit down) until `end` (when they get up). */
+interface Seating {
+  key: string;
+  prop: string;
+  seats: string[];
+  actor: string;
+  start: number;
+  end: number;
+}
+
 interface ActorRec {
   handle: ActorHandle;
   segs: ActorSeg[];
   wander?: Wander;
+  /** Set while seated: the tile they came from, the seat pixel, the open sit pose. */
+  seat?: { tile: Tile; at: Pt; pose: ActorSeg & { kind: 'pose' }; seating: Seating };
+}
+
+/** Throw if two actors would be on the same seat at the same time (checked in scene time, after the script). */
+function checkSeats(seatings: Seating[]): void {
+  const sorted = [...seatings].sort((a, b) => a.start - b.start);
+  sorted.forEach((b, j) => {
+    const a = sorted.slice(0, j).find((x) => x.key === b.key && x.actor !== b.actor && x.end > b.start);
+    if (!a) return;
+    const busy = (seat: string) => sorted.some((x) => x.key === `${b.prop}.${seat}` && x.start <= b.start && x.end > b.start);
+    const free = b.seats.filter((seat) => !busy(seat));
+    const until = Number.isFinite(a.end) ? ` until ${a.end.toFixed(2)}s` : '';
+    throw new Error(
+      `Seat "${b.key}" is taken: ${a.actor} sits there from ${a.start.toFixed(2)}s${until}, and ${b.actor} would sit there at ${b.start.toFixed(2)}s. ` +
+        `Free seats on ${b.prop}: ${free.join(', ') || 'none'}.`,
+    );
+  });
 }
 
 function checkSeconds(what: string, v: number | undefined): void {
@@ -148,6 +176,20 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     r.wander = undefined;
   };
 
+  const seatings: Seating[] = [];
+
+  /** A seated actor gets up at t: back to the tile they came from. Returns the seconds it takes. */
+  const rise = (r: ActorRec, t: number): number => {
+    const st = r.seat;
+    if (!st) return 0;
+    r.seat = undefined;
+    st.pose.end = t;
+    st.seating.end = t;
+    const to = tileCenter(st.tile.tx, st.tile.ty);
+    addMove(r, { kind: 'walk', start: t, end: t + T.SIT_MOVE, points: [st.at, to], times: [t, t + T.SIT_MOVE], dirs: [dirBetween(st.at, to)] });
+    return T.SIT_MOVE;
+  };
+
   /** Record a segment that moves the actor; moves must be added in time order. */
   const addMove = (r: ActorRec, seg: ActorSeg): void => {
     const later = r.segs.find((s) => (s.kind === 'walk' || s.kind === 'place') && s.start > seg.start && !(s.kind === 'walk' && s.wander));
@@ -217,6 +259,25 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     return { tile: best.tile, target };
   };
 
+  /** The free tile beside a prop's footprint (or its origin tile) that is quickest to reach from `from`. */
+  const besideProp = (p: PlacedProp, from: Body, what: string): Tile => {
+    const fp = art.props[p.kind]?.footprint ?? { w: 1, h: 1 };
+    const inside = (tx: number, ty: number) => tx >= p.tx && tx < p.tx + fp.w && ty <= p.ty && ty > p.ty - fp.h;
+    let best: { tile: Tile; len: number } | undefined;
+    for (let dy = 0; dy < fp.h; dy++) {
+      for (let dx = 0; dx < fp.w; dx++) {
+        for (const [nx, ny] of NEIGHBOURS) {
+          const tile = { tx: p.tx + dx + nx, ty: p.ty - dy + ny };
+          if (inside(tile.tx, tile.ty) || !isWalkable(town, tile.tx, tile.ty)) continue;
+          const len = findPath(town, tileAt(from.x, from.y), tile)?.length ?? Infinity;
+          if (len < (best?.len ?? Infinity)) best = { tile, len };
+        }
+      }
+    }
+    if (!best) throw new Error(`${what}: no free tile next to prop "${p.id ?? p.kind}" at ${fmtTile(p)} can be reached.`);
+    return best.tile;
+  };
+
   /** A walkable tile to stand on for a target (an actor target means beside them). */
   const standTile = (target: Target, t: number, what: string): Tile => {
     if (isHandle(target)) return besideActor(rec(target, what), t, what).tile;
@@ -254,12 +315,23 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     const c = tileCenter(tile.tx, tile.ty);
     const segs: ActorSeg[] = [{ kind: 'place', start: t0, x: c.x, y: c.y, dir: o.facing ?? 'down', visible: !o.hidden, opacity: 1 }];
 
-    const say = (kind: 'say' | 'think' | 'shout') => (text: string, opts: { hold?: number } = {}) => {
+    const say = (kind: 'say' | 'think' | 'shout') => (text: string, opts: SayOpts = {}) => {
       checkSeconds(`${id}.${kind} hold`, opts.hold);
       const typeEnd = T.typeTime(text);
       const d = typeEnd + (opts.hold ?? T.readHold(text));
       const t = start(d);
       tl.bubbles.push({ actor: id, text, kind, start: t, typeEnd: t + typeEnd, end: t + d });
+      // A standing speaker gestures while the words appear.
+      if (opts.gesture !== false && def.poses?.talk && !r.seat && typeEnd > 0 && body(r, t).pose === 'idle') {
+        insertByStart(r.segs, { kind: 'pose', start: t, end: t + typeEnd, name: 'talk' });
+      }
+    };
+    /** Start a move or pose at the current time: stop any wander, get up from any seat. Returns [start, delay]. */
+    const begin = (): [number, number] => {
+      const t0 = now();
+      touch(r, t0);
+      const up = rise(r, t0);
+      return [t0 + up, up];
     };
     /** Reserve time for a call on this actor and stop any wander at its start. */
     const start = (d: number): number => {
@@ -296,21 +368,20 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
       character,
       walkTo(target, opts = {}) {
         const speed = checkSpeed(opts.speed);
-        const t = now();
-        touch(r, t);
         const what = `${id}.walkTo`;
-        if (isHandle(target)) {
+        const them = isHandle(target) ? rec(target, what) : undefined;
+        const [t, up] = begin();
+        if (them) {
           // Someone walking up to a wandering actor makes them stop and wait.
-          const them = rec(target, what);
           touch(them, t);
           const me = body(r, t);
           const { tile, target: other } = besideActor(them, t, what, me);
           const goalPt = tileCenter(tile.tx, tile.ty);
           const face = dirBetween(goalPt, tileCenter(other.tx, other.ty));
-          advance(walk(tile, t, speed, face));
+          advance(up + walk(tile, t, speed, face));
           return;
         }
-        advance(walk(standTile(target, t, what), t, speed));
+        advance(up + walk(standTile(target, t, what), t, speed));
       },
       face(dir) {
         const t = start(0);
@@ -337,22 +408,56 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
         if (!poses.includes(name)) throw unknownName('pose', name, poses, `(for character "${character}")`);
         checkSeconds(`${id}.pose hold`, opts.hold);
         const d = opts.hold ?? T.POSE_HOLD;
-        const t = start(d);
+        const [t, up] = begin();
         insertByStart(r.segs, { kind: 'pose', start: t, end: t + d, name });
+        advance(up + d);
+      },
+      sitOn(prop, seatName, opts = {}) {
+        const what = `${id}.sitOn`;
+        const speed = checkSpeed(opts.speed);
+        checkSeconds(`${what} hold`, opts.hold);
+        if (!def.poses?.sit) {
+          throw new Error(`${id} cannot sit: character "${character}" has no "sit" pose. Its poses: ${Object.keys(def.poses ?? {}).join(', ') || 'none'}.`);
+        }
+        const ids = town.props.map((p) => p.id ?? p.kind);
+        const placed = town.props.find((p) => (p.id ?? p.kind) === prop);
+        if (!placed) throw unknownName('prop', prop, ids, `(in ${what})`);
+        const pdef = art.props[placed.kind]!;
+        const names = Object.keys(pdef.seats ?? {});
+        if (names.length === 0) {
+          const withSeats = town.props.filter((p) => Object.keys(art.props[p.kind]?.seats ?? {}).length > 0).map((p) => p.id ?? p.kind);
+          throw new Error(`${what}: prop "${prop}" has no seats. Props with seats: ${withSeats.sort().join(', ') || 'none'}.`);
+        }
+        const name = seatName ?? names[0]!;
+        const seat = pdef.seats![name];
+        if (!seat) throw unknownName('seat', name, names, `(on prop "${prop}")`);
+        const [t, up] = begin();
+        const tile = town.places[`${prop}.${name}`] ?? besideProp(placed, body(r, t), what);
+        const t1 = t + walk(tile, t, speed);
+        const from = tileCenter(tile.tx, tile.ty);
+        const at = { x: placed.tx * TILE + seat.x, y: (placed.ty + 1) * TILE + seat.y };
+        const t2 = t1 + T.SIT_MOVE;
+        addMove(r, { kind: 'walk', start: t1, end: t2, points: [from, at], times: [t1, t2], dirs: [dirBetween(from, at)], face: seat.dir ?? 'down' });
+        const pose: ActorSeg & { kind: 'pose' } = { kind: 'pose', start: t2, end: Infinity, name: 'sit' };
+        insertByStart(r.segs, pose);
+        const seating: Seating = { key: `${prop}.${name}`, prop, seats: names, actor: id, start: t1, end: Infinity };
+        seatings.push(seating);
+        r.seat = { tile, at, pose, seating };
+        advance(up + (t2 - t) + (opts.hold ?? 0));
       },
       enter(prop, opts = {}) {
         const speed = checkSpeed(opts.speed);
         const tile = door(prop, `${id}.enter`);
-        const t = now();
-        touch(r, t);
+        const [t, up] = begin();
         const w = walk(tile, t, speed, 'up');
         const t1 = t + w;
         insertByStart(r.segs, { kind: 'fade', start: t1, end: t1 + T.DOOR_FADE, from: 1, to: 0 });
         insertByStart(r.segs, { kind: 'visible', start: t1 + T.DOOR_FADE, visible: false, opacity: 1 });
-        advance(w + T.DOOR_FADE);
+        advance(up + w + T.DOOR_FADE);
       },
       exit(prop) {
         const tile = door(prop, `${id}.exit`);
+        rise(r, now());
         const t = start(T.DOOR_FADE);
         const c = tileCenter(tile.tx, tile.ty);
         addMove(r, { kind: 'place', start: t, x: c.x, y: c.y, dir: 'down', visible: true, opacity: 0 });
@@ -365,6 +470,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
         insertByStart(r.segs, { kind: 'visible', start: start(0), visible: true });
       },
       teleport(target) {
+        rise(r, now());
         const t = start(0);
         const tile = standTile(target, t, `${id}.teleport`);
         const c = tileCenter(tile.tx, tile.ty);
@@ -507,8 +613,9 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
       if (!(Number.isInteger(radius) && radius >= 1)) throw new Error(`s.wander: radius must be a whole number of tiles >= 1, got ${radius}.`);
       const speed = opts.speed ?? T.WANDER_SPEED;
       if (!(speed > 0)) throw new Error(`s.wander: speed must be positive, got ${speed}.`);
-      const t = advance(0);
-      touch(r, t);
+      const t0 = advance(0);
+      touch(r, t0);
+      const t = t0 + rise(r, t0);
       const around = standTile(opts.around, t, 's.wander');
       const rng = createRng(`${seed}/${opts.seed ?? ''}/${r.handle.id}/${t}`);
       r.wander = { start: t, around, radius, speed, rng, free: t };
@@ -540,6 +647,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
   }
   // Needs the final actor tracks: camera segments may point at actors.
   settleCamera(tl);
+  checkSeats(seatings);
 
   return {
     title: opts.title,

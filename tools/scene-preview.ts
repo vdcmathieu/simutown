@@ -39,23 +39,27 @@ const town = defineTown({
     // A wall of lamps across the road forces a detour around it.
     { kind: 'lamp', at: [23, 8], id: 'post-a' },
     { kind: 'lamp', at: [23, 9], id: 'post-b' },
+    { kind: 'bench', at: [14, 11] },
   ],
   places: { west: [2, 9], east: [27, 8], square: [15, 6], corner: [4, 3] },
 });
 
 const sc = scene({ title: 'Preview', town, timeOfDay: 10 }, (s) => {
   const ana = s.actor('ana', { at: [8, 9], facing: 'right' });
-  const bea = s.actor('ana', { id: 'bea', at: 'east', facing: 'left' });
-  s.fadeIn(0.5);
+  const tomas = s.actor('tomas', { at: 'east', facing: 'left' });
   s.together(() => {
     ana.walkTo('square'); // 7 tiles right, 3 up: 4 s
-    bea.walkTo([20, 8]); // around the posts
+    tomas.walkTo([20, 8]); // around the posts
   });
-  bea.walkTo(ana); // stops on the free tile beside Ana, facing her
-  ana.face(bea);
+  tomas.walkTo(ana); // stops on the free tile beside Ana, facing her
+  ana.face(tomas);
   ana.say('Did you hear the news?');
-  bea.say('Tell me everything!');
-  ana.walkTo('corner', { speed: 4 });
+  s.together(() => {
+    ana.sitOn('bench', 'left');
+    tomas.sitOn('bench', 'right');
+  });
+  tomas.say('Tell me everything!');
+  ana.walkTo('corner', { speed: 4 }); // gets up first, then walks
   s.wait(0.5);
 });
 

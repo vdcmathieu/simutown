@@ -25,8 +25,17 @@ const art: ArtRegistry = {
   props: {
     lamp: { id: 'lamp', sprite: sp, footprint: { w: 1, h: 1 } },
     house: { id: 'house', sprite: sp, footprint: { w: 3, h: 2 }, places: { door: { dx: 1, dy: 1 } } },
+    bench: {
+      id: 'bench',
+      sprite: sp,
+      footprint: { w: 2, h: 1 },
+      places: { left: { dx: 0, dy: 1 }, right: { dx: 1, dy: 1 } },
+      seats: { left: { x: 8, y: 2 }, right: { x: 24, y: 2 } },
+    },
+    // Seats but no places: sitters come from the nearest free tile beside it.
+    stool: { id: 'stool', sprite: sp, footprint: { w: 1, h: 1 }, seats: { top: { x: 8, y: -4, dir: 'left' } } },
   },
-  characters: { ana: person('ana', ['wave', 'sit']), ben: person('ben'), cy: person('cy') },
+  characters: { ana: person('ana', ['wave', 'sit', 'talk', 'carry']), ben: person('ben'), cy: person('cy', ['sit', 'talk']) },
   emotes: { surprise: sp, heart: sp },
   font: { height: 8, glyphs: {} },
 };
@@ -501,7 +510,7 @@ describe('errors an author can act on', () => {
     expect(err((s) => s.actor('ana', { at: 'west' }).walkTo('cafe.dor'))).toThrow(/Did you mean "cafe.door"/);
     expect(err((s) => s.actor('ana', { at: 'west' }).enter('caffe'))).toThrow(/Unknown prop "caffe". Did you mean "cafe"\? Valid props: cafe, lamp\./);
     expect(err((s) => s.actor('ana', { at: 'west' }).enter('lamp'))).toThrow(/prop "lamp" has no door place. Props with a door: cafe\./);
-    expect(err((s) => s.actor('ana', { at: 'west' }).pose('wav'))).toThrow(/Unknown pose "wav". Did you mean "wave"\? Valid poses: sit, wave\. \(for character "ana"\)/);
+    expect(err((s) => s.actor('ana', { at: 'west' }).pose('wav'))).toThrow(/Unknown pose "wav". Did you mean "wave"\? Valid poses: carry, sit, talk, wave\. \(for character "ana"\)/);
     expect(err((s) => s.actor('ben', { at: 'west' }).pose('wave'))).toThrow(/There are no poses/);
     expect(err((s) => s.actor('ana', { at: 'west' }).emote('suprise'))).toThrow(/Unknown emote "suprise". Did you mean "surprise"\? Valid emotes: heart, surprise\./);
     expect(err((s) => s.actor('ana', { at: 'west' }).face('north' as Dir))).toThrow(/Unknown direction "north"/);
@@ -726,5 +735,151 @@ describe('regressions from review', () => {
     }, big);
     expect(() => sc.frame(49)).not.toThrow();
     expect(sc.frame(sc.duration).camera).toEqual({ x: 30 * 16 + 8, y: 320, zoom: 2 });
+  });
+});
+
+describe('sitting and gestures', () => {
+  // 12 x 8 tiles. Bench at [5, 4] (covers [5, 4] and [6, 4]), its places left [5, 5] and right [6, 5].
+  // Its seats are at pixels (88, 82) and (104, 82). A stool at [9, 2] has a seat but no places.
+  const park = defineTown(
+    {
+      name: 'Park',
+      terrain: Array(8).fill('g'.repeat(12)).join('\n'),
+      legend: { g: 'grass' },
+      props: [
+        { kind: 'bench', at: [5, 4] },
+        { kind: 'stool', at: [9, 2] },
+        { kind: 'lamp', at: [2, 1] },
+      ],
+    },
+    art,
+  );
+  const inPark = (script: (s: SceneBuilder) => void) => make(script, park);
+
+  it('walks to the seat place, slides onto the seat pixel and sits', () => {
+    const sc = inPark((s) => s.actor('ana', { at: [1, 5] }).sitOn('bench', 'left'));
+    const walk = 4 / timing.WALK_SPEED;
+    expect(sc.duration).toBeCloseTo(walk + timing.SIT_MOVE);
+    expect(actor(sc.frame(1), 'ana')).toMatchObject({ pose: 'walk', dir: 'right' });
+    expect(actor(sc.frame(walk), 'ana')).toMatchObject(center(5, 5));
+    expect(actor(sc.frame(sc.duration), 'ana')).toMatchObject({ x: 88, y: 82, dir: 'down', pose: 'sit', animTime: 0 });
+  });
+
+  it('stays seated through talk, then steps back to its tile on the next move and carries on', () => {
+    const sc = inPark((s) => {
+      const ana = s.actor('ana', { at: [1, 5] });
+      ana.sitOn('bench');
+      ana.say('Nice day.');
+      ana.walkTo([1, 5]);
+    });
+    const seated = 4 / timing.WALK_SPEED + timing.SIT_MOVE;
+    const said = seated + 'Nice day.'.length / 30 + timing.MIN_HOLD;
+    expect(actor(sc.frame(seated + 0.2), 'ana')).toMatchObject({ x: 88, y: 82, pose: 'sit' });
+    expect(sc.frame(seated + 0.2).bubbles).toHaveLength(1);
+    expect(actor(sc.frame(said + timing.SIT_MOVE), 'ana')).toMatchObject(center(5, 5));
+    expect(sc.duration).toBeCloseTo(said + timing.SIT_MOVE + 4 / timing.WALK_SPEED);
+    expect(actor(sc.frame(sc.duration), 'ana')).toMatchObject({ ...center(1, 5), pose: 'idle' });
+  });
+
+  it('holds the seat for `hold` seconds; two people share a bench', () => {
+    const sc = inPark((s) => {
+      const ana = s.actor('ana', { at: [1, 5] });
+      const cy = s.actor('cy', { at: [10, 5] });
+      s.together(() => {
+        ana.sitOn('bench', 'left', { hold: 2 });
+        cy.sitOn('bench', 'right');
+      });
+      cy.say('Did you hear?');
+    });
+    const seated = 4 / timing.WALK_SPEED + timing.SIT_MOVE;
+    expect(sc.frame(seated + 2).actors.map((a) => [a.id, a.x, a.y, a.pose])).toEqual([
+      ['ana', 88, 82, 'sit'],
+      ['cy', 104, 82, 'sit'],
+    ]);
+  });
+
+  it('uses the first seat by default, and the nearest free tile when the prop has no places', () => {
+    const sc = inPark((s) => {
+      const cy = s.actor('cy', { at: [10, 6] });
+      const ana = s.actor('ana', { at: [1, 2] });
+      s.together(() => {
+        cy.sitOn('bench');
+        ana.sitOn('stool');
+      });
+    });
+    const f = sc.frame(sc.duration);
+    expect(actor(f, 'cy')).toMatchObject({ x: 88, y: 82 });
+    expect(actor(f, 'ana')).toMatchObject({ x: 152, y: 44, dir: 'left', pose: 'sit' });
+    expect(actor(sc.frame(7 / timing.WALK_SPEED), 'ana')).toMatchObject(center(8, 2));
+  });
+
+  it('a seat can be taken again once its sitter has left', () => {
+    const sc = inPark((s) => {
+      const ana = s.actor('ana', { at: [1, 5] });
+      const cy = s.actor('cy', { at: [10, 5] });
+      ana.sitOn('bench', 'left');
+      ana.walkTo([1, 6]);
+      cy.sitOn('bench', 'left');
+    });
+    expect(actor(sc.frame(sc.duration), 'cy')).toMatchObject({ x: 88, y: 82, pose: 'sit' });
+  });
+
+  it('say plays the talk pose while the text types out, unless gesture is false', () => {
+    const text = 'Hello there, friend'; // 19 characters
+    const sc = inPark((s) => {
+      const ana = s.actor('ana', { at: [1, 5] });
+      const ben = s.actor('ben', { at: [3, 5] });
+      ana.say(text);
+      ana.say(text, { gesture: false });
+      ben.say(text);
+    });
+    const typing = text.length / 30;
+    const one = typing + Math.max(timing.MIN_HOLD, text.length / 15);
+    expect(actor(sc.frame(0.2), 'ana')).toMatchObject({ pose: 'talk', animTime: 0.2 });
+    expect(actor(sc.frame(typing + 0.1), 'ana')!.pose).toBe('idle');
+    expect(actor(sc.frame(one + 0.2), 'ana')!.pose).toBe('idle');
+    expect(actor(sc.frame(2 * one + 0.2), 'ben')!.pose).toBe('idle');
+  });
+
+  it('pose accepts every pose the character has', () => {
+    for (const name of ['talk', 'wave', 'carry', 'sit']) {
+      const sc = inPark((s) => s.actor('ana', { at: [1, 5] }).pose(name, { hold: 2 }));
+      expect(actor(sc.frame(1), 'ana')).toMatchObject({ pose: name, animTime: 1 });
+      expect(actor(sc.frame(2), 'ana')!.pose).toBe('idle');
+    }
+  });
+
+  it('frames stay pure with sitting in the script', () => {
+    const sc = inPark((s) => {
+      const ana = s.actor('ana', { at: [1, 5] });
+      const cy = s.actor('cy', { at: [10, 5] });
+      s.together(() => {
+        ana.sitOn('bench', 'left');
+        cy.sitOn('bench', 'right');
+      });
+      ana.say('So?');
+      cy.say('So what?');
+      s.together(() => {
+        ana.walkTo([0, 0]);
+        cy.walkTo([11, 7]);
+      });
+    });
+    const times = Array.from({ length: 50 }, (_, i) => (i * 3.7) % sc.duration);
+    const first = times.map((t) => JSON.stringify(sc.frame(t)));
+    expect([...times].reverse().map((t) => JSON.stringify(sc.frame(t))).reverse()).toEqual(first);
+  });
+
+  it('errors say what is valid', () => {
+    const err = (script: (s: SceneBuilder) => void) => () => inPark(script);
+    expect(err((s) => s.actor('ana', { at: [1, 5] }).sitOn('bnech'))).toThrow(/Unknown prop "bnech". Did you mean "bench"\? Valid props: bench, lamp, stool/);
+    expect(err((s) => s.actor('ana', { at: [1, 5] }).sitOn('lamp'))).toThrow(/prop "lamp" has no seats. Props with seats: bench, stool\./);
+    expect(err((s) => s.actor('ana', { at: [1, 5] }).sitOn('bench', 'middle'))).toThrow(/Unknown seat "middle".*Valid seats: left, right\. \(on prop "bench"\)/);
+    expect(err((s) => s.actor('ben', { at: [1, 5] }).sitOn('bench'))).toThrow(/ben cannot sit: character "ben" has no "sit" pose\. Its poses: none\./);
+    expect(
+      err((s) => {
+        s.actor('ana', { at: [1, 5] }).sitOn('bench', 'left');
+        s.actor('cy', { at: [10, 5] }).sitOn('bench', 'left');
+      }),
+    ).toThrow(/Seat "bench.left" is taken: ana sits there from 1.60s, and cy would sit there at .*s\. Free seats on bench: right\./);
   });
 });

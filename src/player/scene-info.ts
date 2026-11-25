@@ -12,8 +12,8 @@ import { frameCount } from './clock';
 export function assertScene(value: unknown, source: string): Scene {
   const hint =
     `A scene file must default-export a Scene, for example:\n` +
-    `  import { tinyScene } from '../src/fixtures/tiny';\n` +
-    `  export default tinyScene;`;
+    `  import { scene, willowSquare } from 'simutown';\n` +
+    `  export default scene({ title: 'My scene', town: willowSquare }, (s) => { ... });`;
   if (value === undefined) throw new Error(`${source} has no default export.\n${hint}`);
   if (value === null || typeof value !== 'object') {
     throw new Error(`${source}: the default export is ${value === null ? 'null' : typeof value}, not a Scene.\n${hint}`);

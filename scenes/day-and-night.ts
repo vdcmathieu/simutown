@@ -60,16 +60,16 @@ export default scene({ title: 'Day and night', town: willowSquare, timeOfDay: 5 
       s.caption('5 am. The baker is up before the sun.', { hold: 3.5 });
       s.caption('7 am. Off to work.', { hold: 3 });
       s.wait(1.9);
-      s.caption('Noon. Lunch on the benches.', { hold: 4 });
-      s.wait(0.5);
+      s.caption('Noon. Lunch on the benches.', { hold: 4.3 });
+      s.wait(0.3);
       s.caption('3 pm. School is out.', { hold: 2.6 });
-      s.wait(0.5);
+      s.wait(0.4);
       s.caption('Dusk. The lamps come on and everyone heads home.', { hold: 4.4 });
     });
 
     // the camera: locked off, with a closer look at lunch
     at(10.6, () => s.camera.cut(BENCH, { zoom: 2 }));
-    at(13.1, () => s.camera.cut(WIDE, { zoom: 1 }));
+    at(13.5, () => s.camera.cut(WIDE, { zoom: 1 }));
 
     // Bo, the baker: first out, sets down the morning's crates, takes a tray to the cafe before lunch
     at(0.5, () => {
@@ -94,11 +94,17 @@ export default scene({ title: 'Day and night', town: willowSquare, timeOfDay: 5 
       ana.exit('cafe');
       ana.walkTo([14, 15], { speed: 3.5 });
       ana.sitOn('square.bench', 'right', { speed: 3.5 });
-      ana.face(otto);
     });
-    at(10.9, () => ana.say('Lovely day, Otto.'));
-    at(11.6, () => otto.emote('happy'));
-    at(13.3, () => {
+    // directions by name: Otto's track is declared further down, so `face(otto)` would not know yet where he sits
+    at(10.9, () => {
+      ana.face('left');
+      ana.say('Lovely day, Otto.');
+      // Otto turns to her and answers once her bubble is out of the way
+      otto.face('right');
+      otto.emote('happy', { hold: 0.8 });
+    });
+    at(13.5, () => otto.face('down'));
+    at(13.6, () => {
       ana.walkTo([14, 15], { speed: 3.5 });
       ana.enter('cafe', { speed: 3.5 });
     });
@@ -123,15 +129,15 @@ export default scene({ title: 'Day and night', town: willowSquare, timeOfDay: 5 
     });
     at(7.4, () => mira.sitOn('market.bench', 'left', { speed: 4 }));
     at(8.4, () => zara.sitOn('market.bench', 'right', { speed: 3 }));
-    at(13.4, () => {
+    at(13.7, () => {
       mira.walkTo('market.fruit.vendor', { speed: 3.5 });
       mira.face('down');
       // closing time: pack up and walk home
-      s.wait(1.5);
+      s.wait(0.9);
       mira.walkTo([23, 19], { speed: 3.5 });
       mira.hide();
     });
-    at(13.5, () => {
+    at(13.8, () => {
       zara.walkTo('market.greens.front');
       zara.face('up');
       s.wait(1.8);
@@ -168,11 +174,11 @@ export default scene({ title: 'Day and night', town: willowSquare, timeOfDay: 5 
     });
 
     // after school, the children have the fountain to themselves
-    at(13.3, () => {
+    at(13.7, () => {
       kofi.walkTo('fountain.east', { speed: 4 });
       s.wander(kofi, { around: 'fountain.east', radius: 2, speed: 2.5 });
     });
-    at(13.5, () => {
+    at(13.9, () => {
       lin.walkTo([24, 16], { speed: 4 });
       s.wander(lin, { around: 'square.south', radius: 2, speed: 2.5 });
     });

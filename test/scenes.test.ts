@@ -125,6 +125,20 @@ describe.each(scenes)('scene $name', ({ scene, lasts, cast }) => {
     expect([...lost].slice(0, 5)).toEqual([]);
   });
 
+  it('never shows a label for someone outside the frame', () => {
+    // the renderer keeps such a label at the edge of the picture, where it reads as a stray number
+    const stray = new Set<string>();
+    for (const f of all) {
+      if (covered(f)) continue;
+      for (const a of f.annotations ?? []) {
+        if (a.kind !== 'label' || !a.actor || a.opacity <= 0) continue;
+        const who = f.actors.find((x) => x.id === a.actor);
+        if (!who || !onScreen(f, who.x, who.y)) stray.add(`"${a.text}" for ${a.actor} at ${f.t.toFixed(2)}s`);
+      }
+    }
+    expect([...stray].slice(0, 5)).toEqual([]);
+  });
+
   it('never pops anyone in or out of the picture: people come and go by a door, a fade or a cut', () => {
     const pops = new Set<string>();
     for (let i = 1; i < all.length; i++) {

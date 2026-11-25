@@ -49,9 +49,19 @@ export default scene({ title: 'Word of mouth', town: willowSquare, timeOfDay: 10
   /** Everyone who knows, in the order they heard. A person's number is their place in it. */
   const knows: ActorHandle[] = [];
   const numberOf = (who: ActorHandle) => String(knows.indexOf(who) + 1);
-  /** Show or hide people's numbers. A label stays on screen when its actor leaves the frame, so hide the ones the camera leaves behind. */
+  /** Show or hide people's numbers. */
   const show = (who: ActorHandle[]) => who.forEach((a) => s.label(a, numberOf(a)));
   const hide = (who: ActorHandle[]) => who.forEach((a) => s.unlabel(a));
+  /**
+   * Cut the camera, leaving these people's numbers behind. A label stays at the edge of the
+   * picture when its actor is out of frame and takes a moment to fade, so the numbers go
+   * just before the cut.
+   */
+  const cutAway = (leaving: ActorHandle[], cut: () => void) => {
+    hide(leaving);
+    s.wait(0.25);
+    cut();
+  };
   /** The score, as the caption shows it. */
   const score = () => `${knows.length} of 10 ${knows.length === 1 ? 'knows' : 'know'}.`;
   /** These people now know: give each the next number and a ring to mark the moment, and update the score. */
@@ -162,12 +172,13 @@ export default scene({ title: 'Word of mouth', town: willowSquare, timeOfDay: 10
       otto.face(raj);
       tell(raj, [otto], `Otto! ${NEWS}`);
     });
-    // the camera goes with him, and leaves the others' numbers behind
-    after(1.0, () => {
-      hide([ana, bo, mira, zara, tomas]);
-      s.camera.cut(raj, { zoom: 2 });
-      s.camera.follow(raj);
-    });
+    // the camera goes with him
+    after(0.75, () =>
+      cutAway([ana, bo, mira, zara, tomas], () => {
+        s.camera.cut(raj, { zoom: 2 });
+        s.camera.follow(raj);
+      }),
+    );
   });
   s.wait(0.5);
 
@@ -206,11 +217,12 @@ export default scene({ title: 'Word of mouth', town: willowSquare, timeOfDay: 10
       });
     });
     // cut ahead of him, to the three who have not heard yet
-    after(1.8, () => {
-      hide([otto, raj]);
-      s.camera.cut(POND, { zoom: 2 });
-      s.caption('Three in the park have not heard yet.');
-    });
+    after(1.55, () =>
+      cutAway([otto, raj], () => {
+        s.camera.cut(POND, { zoom: 2 });
+        s.caption('Three in the park have not heard yet.');
+      }),
+    );
   });
   s.wait(1.8);
 

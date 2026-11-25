@@ -10,7 +10,7 @@ import { blockerAt, fmtTile, inBounds, isWalkable, type Tile, tileAt, tileCenter
 import { unknownName } from '../world/names';
 import { explainNoPath, findPath } from '../world/path';
 import { createRng, type Rng } from '../world/random';
-import { type ActorSeg, bodyAt, type Body, type CamTarget, cutWalk, dirBetween, emptyTimeline, frameAt, insertByStart, type Pt, type Ramp, settleByKey, settleRamps, type Timeline } from './timeline';
+import { type ActorSeg, bodyAt, type Body, type CamTarget, cutWalk, dirBetween, emptyTimeline, frameAt, insertByStart, type Pt, type Ramp, settleByKey, settleCamera, settleRamps, type Timeline } from './timeline';
 import * as T from './timing';
 import type { ActorHandle, ActorOpts, SceneBuilder, SceneOpts, Target } from './types';
 
@@ -538,6 +538,8 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     extendWander(r, tl.duration);
     tl.actors.find((a) => a.id === r.handle.id)!.segs = r.segs;
   }
+  // Needs the final actor tracks: camera segments may point at actors.
+  settleCamera(tl);
 
   return {
     title: opts.title,

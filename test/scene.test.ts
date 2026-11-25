@@ -713,7 +713,7 @@ describe('regressions from review', () => {
     }
   });
 
-  it.fails('thousands of camera calls neither overflow the stack nor slow frames down', () => {
+  it('thousands of camera calls neither overflow the stack nor slow frames down', () => {
     const sc = make((s) => {
       // Only the first cut sets the zoom; every later one carries it forward.
       for (let i = 0; i < 5000; i++) {

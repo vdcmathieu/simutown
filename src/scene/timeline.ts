@@ -60,6 +60,15 @@ export interface Timeline {
   fades: Ramp[];
   hours: Ramp[];
   camera: CameraSeg[];
+  /** The camera just before each camera segment starts; filled in by `settleCamera`. */
+  cameraFrom: Cam[];
+}
+
+/** A camera position in world pixels and a whole-number zoom. */
+export interface Cam {
+  x: number;
+  y: number;
+  zoom: number;
 }
 
 /** An empty timeline for a town. */
@@ -80,6 +89,7 @@ export function emptyTimeline(town: Town, timeOfDay: number): Timeline {
     fades: [],
     hours: [],
     camera: [],
+    cameraFrom: [],
   };
 }
 
@@ -232,12 +242,6 @@ export function dirBetween(a: Pt, b: Pt): Dir {
 // Camera
 // ---------------------------------------------------------------------------------------
 
-interface Cam {
-  x: number;
-  y: number;
-  zoom: number;
-}
-
 /** Keep the view inside the town; centre the town on an axis where it is smaller than the view. */
 export function clampCamera(town: Town, c: Cam): Cam {
   const axis = (v: number, view: number, size: number): number =>
@@ -259,23 +263,60 @@ function targetPos(tl: Timeline, target: CamTarget, t: number): Pt {
   return 'actor' in target ? actorPos(tl, target.actor, target.at ?? t) : target;
 }
 
-/** The camera after the first `count` camera segments, at time t. */
-function cameraAt(tl: Timeline, count: number, t: number): Cam {
-  if (count === 0) return clampCamera(tl.town, { x: (tl.town.w * TILE) / 2, y: (tl.town.h * TILE) / 2, zoom: 1 });
-  const s = tl.camera[count - 1]!;
-  const before = (): Cam => cameraAt(tl, count - 1, s.start);
+/** The default camera: the town's centre at zoom 1. */
+function homeCamera(town: Town): Cam {
+  return clampCamera(town, { x: (town.w * TILE) / 2, y: (town.h * TILE) / 2, zoom: 1 });
+}
+
+/**
+ * Record, for every camera segment, the camera just before it starts (position and the zoom
+ * carried forward). Call once after the script; each frame then evaluates a single segment.
+ */
+export function settleCamera(tl: Timeline): void {
+  let from = homeCamera(tl.town);
+  tl.cameraFrom = tl.camera.map((s, i) => {
+    if (i > 0) from = segCamera(tl, tl.camera[i - 1]!, from, s.start);
+    return from;
+  });
+}
+
+/** The camera at time t: the last segment that has started, from its recorded starting camera. */
+function cameraAt(tl: Timeline, t: number): Cam {
+  let lo = 0;
+  let hi = tl.camera.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (tl.camera[mid]!.start <= t) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo === 0 ? homeCamera(tl.town) : segCamera(tl, tl.camera[lo - 1]!, tl.cameraFrom[lo - 1]!, t);
+}
+
+/**
+ * Round the camera to whole pixels so that the view the renderer draws (top-left corner
+ * round(centre - view / 2), size ceil(view)) stays inside the town, also when view / 2 is not whole.
+ */
+export function snapCamera(town: Town, c: Cam): Cam {
+  const axis = (v: number, view: number, size: number): number => {
+    const w = Math.ceil(view);
+    if (size <= w) return Math.round(size / 2);
+    const half = view / 2;
+    const x0 = Math.min(size - w, Math.max(0, Math.round(Math.round(v) - half)));
+    // The whole-pixel centre whose rounded corner is exactly x0 (and v itself when v is inside).
+    return x0 + Math.ceil(half - 0.5);
+  };
+  return { x: axis(c.x, FRAME_W / c.zoom, town.w * TILE), y: axis(c.y, FRAME_H / c.zoom, town.h * TILE), zoom: c.zoom };
+}
+
+/** The camera during segment `s` at time t, given the camera `from` just before it started. */
+function segCamera(tl: Timeline, s: CameraSeg, from: Cam, t: number): Cam {
   switch (s.kind) {
-    case 'cut': {
-      const p = targetPos(tl, s.target, s.start);
-      return clampCamera(tl.town, { ...p, zoom: s.zoom ?? before().zoom });
-    }
-    case 'follow': {
-      const from = before();
+    case 'cut':
+      return clampCamera(tl.town, { ...targetPos(tl, s.target, s.start), zoom: s.zoom ?? from.zoom });
+    case 'follow':
       if (s.actor === null) return from;
       return clampCamera(tl.town, { ...actorPos(tl, s.actor, t), zoom: from.zoom });
-    }
     case 'pan': {
-      const from = before();
       const u = s.end > s.start ? clamp01((t - s.start) / (s.end - s.start)) : 1;
       const zoom = u >= 0.5 ? (s.zoom ?? from.zoom) : from.zoom;
       const to = clampCamera(tl.town, { ...targetPos(tl, s.target, Math.min(t, s.end)), zoom });
@@ -350,7 +391,7 @@ export function frameAt(tl: Timeline, time: number): FrameState {
   const frame: FrameState = {
     t,
     camera: (() => {
-      const c = cameraAt(tl, tl.camera.filter((s) => s.start <= t).length, t);
+      const c = cameraAt(tl, t);
       return { x: Math.round(c.x), y: Math.round(c.y), zoom: c.zoom };
     })(),
     timeOfDay: rampAt(tl.hours, t, tl.timeOfDay),

@@ -336,7 +336,7 @@ export function frameAt(tl: Timeline, time: number): FrameState {
   for (const l of tl.labels) {
     if (t < l.start || t >= l.end + LABEL_FADE || (l.actor && !shown.has(l.actor))) continue;
     const opacity = inOut(t, l.start, l.end + LABEL_FADE, LABEL_FADE, LABEL_FADE);
-    annotations.push({ kind: 'label', ...(l.actor ? { actor: l.actor } : { at: l.at! }), text: l.text, opacity });
+    annotations.push({ kind: 'label', ...(l.actor ? { actor: l.actor } : { at: { ...l.at! } }), text: l.text, opacity });
   }
   for (const l of tl.links) {
     if (t < l.start || t >= l.end || !shown.has(l.from) || !shown.has(l.to)) continue;
@@ -376,6 +376,6 @@ export function frameAt(tl: Timeline, time: number): FrameState {
   let focus: Timeline['focus'][number] | undefined;
   for (const f of tl.focus) if (f.start <= t) focus = f;
   const amount = rampAt(tl.focus, t, 0);
-  if (focus && amount > 0) frame.focus = { actors: focus.actors, amount };
+  if (focus && amount > 0) frame.focus = { actors: [...focus.actors], amount };
   return frame;
 }

@@ -679,7 +679,7 @@ describe('regressions from review', () => {
     expect(actor(sc.frame(sc.duration), 'ana')!.x).toBe(center(12, 8).x);
   });
 
-  it.fails('frames are copies: changing one never changes the next', () => {
+  it('frames are copies: changing one never changes the next', () => {
     const sc = make((s) => {
       const a = s.actor('ana', { at: 'west' });
       s.label('plaza', 'here');

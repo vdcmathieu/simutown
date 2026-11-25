@@ -1,4 +1,5 @@
 import { sprite } from '../../core/sprite';
+import type { Sprite } from '../../core/sprite';
 
 // Trees. Each species has its own silhouette, and all of them follow one recipe: leaf
 // lobes of flat moss.1 laid off-grid over a darker mass, a moss.0 underside where a lobe
@@ -118,6 +119,24 @@ export const willow = sprite(
   { anchor: [16, 56] },
 );
 
+/**
+ * The same sprite with a box of pixels moved one pixel to the left. `x1` is the column
+ * right of the box; when `keep` is set that column stays as it was (a neighbour's outline
+ * stands there), otherwise it is left empty.
+ */
+function nudgeLeft(s: Sprite, x0: number, x1: number, y0: number, y1: number, keep = false): Sprite {
+  const px = new Uint8Array(s.px);
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) px[y * s.w + x - 1] = s.px[y * s.w + x]!;
+    if (!keep) px[y * s.w + x1] = 0;
+  }
+  return { ...s, px };
+}
+
+// The willow in a breath of wind: the free ends of three fronds swing one pixel to the
+// left. The crown, the trunk and the fronds that hang against a neighbour stay still.
+export const willowSway = nudgeLeft(nudgeLeft(nudgeLeft(willow, 3, 9, 38, 41, true), 9, 15, 42, 48), 32, 38, 44, 49);
+
 // An old oak: five lobes, wider than it is tall, on a stout trunk. The crown sits left of
 // centre with a second lobe behind its right shoulder; two side lobes hang lower, and a
 // broad lobe closes the bottom.
@@ -154,7 +173,7 @@ export const oak = sprite(
   ............0gggghhhhhhhhhhhhhhhhgggg0..........
   .............00ggggghhhhhhhhhhggggg00...........
   ...............00gggggggggggggggg00.............
-  .................000ggggggggggg000..............
+  .................000gggggggggg000...............
   ...................0uuuuuuuu00..................
   ...................0vuuuuuuu0...................
   ...................0vvuuuuuu0...................

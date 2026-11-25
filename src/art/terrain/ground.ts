@@ -55,8 +55,8 @@ export const grassTiles: Sprite[] = [
 ];
 
 // ---------------------------------------------------------------------------------------
-// Meadow: the same lawn with wild flowers in it. One or two flowers a tile, a plus of
-// petals around a heart, in white, yellow and pink, and a tuft. It shares the grass base,
+// Meadow: the same lawn with wild flowers in it. About one flower a tile, a plus of
+// petals around a heart, in white, yellow and pink, with a tuft or a bud beside it. It shares the grass base,
 // so a meadow fades into a lawn without an edge.
 // ---------------------------------------------------------------------------------------
 
@@ -85,12 +85,14 @@ const budYellow = sprite(`
 `);
 
 export const meadowTiles: Sprite[] = [
-  ground('moss.2', [daisy, 2, 2], [buttercup, 10, 9], [tuft, 5, 12]),
-  ground('moss.2', [buttercup, 4, 5], [bud, 12, 2], [blade, 11, 12]),
-  ground('moss.2', [pink, 11, 4], [daisy, 3, 10]),
-  ground('moss.2', [tuft, 3, 3], [daisy, 9, 12], [budYellow, 13, 6]),
-  ground('moss.2', [buttercup, 7, 1], [sprig, 2, 8], [bud, 13, 13]),
-  ground('moss.2', [daisy, 12, 7], [pink, 5, 13], [blade, 3, 4]),
+  ground('moss.2', [daisy, 3, 3], [tuft, 10, 11]),
+  ground('moss.2', [buttercup, 9, 6]),
+  ground('moss.2', [blade, 4, 5], [pink, 11, 10]),
+  ground('moss.2', [daisy, 12, 2], [budYellow, 4, 12]),
+  ground('moss.2', [tuft, 6, 8]),
+  ground('moss.2', [buttercup, 2, 9], [bud, 12, 13]),
+  ground('moss.2', [daisy, 7, 12], [sprig, 13, 4]),
+  ground('moss.2', [pink, 5, 1], [daisy, 12, 8]),
 ];
 
 // ---------------------------------------------------------------------------------------

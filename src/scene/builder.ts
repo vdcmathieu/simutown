@@ -10,7 +10,7 @@ import { blockerAt, fmtTile, inBounds, isWalkable, type Tile, tileAt, tileCenter
 import { unknownName } from '../world/names';
 import { explainNoPath, findPath } from '../world/path';
 import { createRng, type Rng } from '../world/random';
-import { type ActorSeg, bodyAt, type Body, type CamTarget, cutWalk, dirBetween, emptyTimeline, frameAt, insertByStart, type Pt, type Ramp, settleRamps, type Timeline } from './timeline';
+import { type ActorSeg, bodyAt, type Body, type CamTarget, cutWalk, dirBetween, emptyTimeline, frameAt, insertByStart, type Pt, type Ramp, settleByKey, settleRamps, type Timeline } from './timeline';
 import * as T from './timing';
 import type { ActorHandle, ActorOpts, SceneBuilder, SceneOpts, Target } from './types';
 
@@ -259,7 +259,6 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
       const typeEnd = T.typeTime(text);
       const d = typeEnd + (opts.hold ?? T.readHold(text));
       const t = start(d);
-      for (const b of tl.bubbles) if (b.actor === id && b.start < t && b.end > t) b.end = t;
       tl.bubbles.push({ actor: id, text, kind, start: t, typeEnd: t + typeEnd, end: t + d });
     };
     /** Reserve time for a call on this actor and stop any wander at its start. */
@@ -397,8 +396,9 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     if (!tile) throw placeError(target as string);
     return { at: tileCenter(tile.tx, tile.ty) };
   };
-  const sameKey = (a: { actor?: string; at?: Pt }, b: { actor?: string; at?: Pt }): boolean =>
-    a.actor !== undefined ? a.actor === b.actor : !!b.at && a.at!.x === b.at.x && a.at!.y === b.at.y;
+  /** Captions and labels as calls made them; `text: null` is a clear. Settled in scene time at the end. */
+  const captions: { text: string | null; start: number; end: number; fadeIn: boolean }[] = [];
+  const labels: { actor?: string; at?: Pt; text: string | null; start: number; end: number }[] = [];
 
   const s: SceneBuilder = {
     get now() {
@@ -420,18 +420,11 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     caption(text, opts = {}) {
       checkSeconds('s.caption hold', opts.hold);
       const t = advance(opts.hold ?? 0);
-      let fadeIn = true;
-      for (const c of tl.captions) {
-        if (c.start <= t && c.end > t) {
-          c.end = t;
-          fadeIn = false;
-        }
-      }
-      insertByStart(tl.captions, { text, start: t, end: opts.hold !== undefined ? t + opts.hold : Infinity, fadeIn });
+      captions.push({ text, start: t, end: opts.hold !== undefined ? t + opts.hold : Infinity, fadeIn: true });
     },
     clearCaption() {
       const t = advance(0);
-      for (const c of tl.captions) if (c.start <= t && c.end > t) c.end = t;
+      captions.push({ text: null, start: t, end: t, fadeIn: false });
     },
     camera: {
       cut(target, opts = {}) {
@@ -461,13 +454,12 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     label(target, text) {
       const key = labelKey(target, 's.label');
       const t = advance(0);
-      for (const l of tl.labels) if (sameKey(key, l) && l.start <= t && l.end > t) l.end = t;
-      tl.labels.push({ ...key, text, start: t, end: Infinity });
+      labels.push({ ...key, text, start: t, end: Infinity });
     },
     unlabel(target) {
       const key = labelKey(target, 's.unlabel');
       const t = advance(0);
-      for (const l of tl.labels) if (sameKey(key, l) && l.start <= t && l.end > t) l.end = t;
+      labels.push({ ...key, text: null, start: t, end: t });
     },
     link(a, b, opts = {}) {
       checkSeconds('s.link hold', opts.hold);
@@ -530,6 +522,15 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
   settleRamps(tl.hours, hour0);
   settleRamps(tl.fades, 0);
   settleRamps(tl.focus, 0);
+  // A bubble, emote, caption or label ends when the next one for the same speaker or spot starts.
+  tl.bubbles = settleByKey(tl.bubbles, (b) => b.actor);
+  tl.emotes = settleByKey(tl.emotes, (e) => e.actor);
+  tl.captions = settleByKey(captions, () => '', (c) => (c.fadeIn = false))
+    .filter((c) => c.text !== null)
+    .map((c) => ({ ...c, text: c.text! }));
+  tl.labels = settleByKey(labels, (l) => l.actor ?? `${l.at!.x},${l.at!.y}`)
+    .filter((l) => l.text !== null)
+    .map((l) => ({ ...l, text: l.text! }));
   tl.focus.forEach((f, i) => {
     if (unfocusRamps.has(f)) f.actors = i > 0 ? tl.focus[i - 1]!.actors : [];
   });

@@ -91,6 +91,24 @@ export function insertByStart<T extends { start: number }>(list: T[], item: T): 
 }
 
 /**
+ * Sort items by start (stable) and cut each one short when the next item with the same key
+ * starts while it is still running. `onReplace` is told about the item that cut in.
+ */
+export function settleByKey<T extends { start: number; end: number }>(items: T[], key: (x: T) => string, onReplace?: (x: T) => void): T[] {
+  const sorted = [...items].sort((a, b) => a.start - b.start);
+  const last = new Map<string, T>();
+  for (const x of sorted) {
+    const prev = last.get(key(x));
+    if (prev && prev.end > x.start) {
+      prev.end = x.start;
+      onReplace?.(x);
+    }
+    last.set(key(x), x);
+  }
+  return sorted;
+}
+
+/**
  * Fill in every ramp whose `from` is NaN with the value at its start: `initial` for the first,
  * else where the previous ramp (in start order) stands at that moment.
  */

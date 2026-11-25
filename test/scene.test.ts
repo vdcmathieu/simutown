@@ -641,7 +641,7 @@ describe('regressions from review', () => {
     expect(sc.frame(4).timeOfDay).toBe(0);
   });
 
-  it.fails('the bubble shown is the latest in scene time, and it cuts off the earlier one', () => {
+  it('the bubble shown is the latest in scene time, and it cuts off the earlier one', () => {
     const sc = make((s) => {
       const a = s.actor('ana', { at: 'west' });
       s.together(() => {

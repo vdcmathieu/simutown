@@ -5,9 +5,10 @@ import type { PropDef } from '../../core/types';
 // stepping stones.
 
 // A round, bushy tree, built from four leaf lobes over a darker mass. Each lobe is flat
-// moss.1 with a sunlit moss.2 crescent along its upper-left rim, a short clump mark or
-// two inside, and its own moss.0 underside where it overhangs the lobe below. The two
-// right-hand lobes sit further from the light: thinner crescents, deeper undersides.
+// moss.1 with a sunlit moss.2 crescent along its upper-left rim and its own moss.0
+// underside where it overhangs the lobe below. The two right-hand lobes sit further from
+// the light: thinner crescents, deeper undersides. Lobes stay plain inside: two marks
+// side by side on a round shape read as eyes.
 // The trunk tile is the origin tile; the canopy overhangs half a tile on each side.
 const tree = sprite(
   `
@@ -18,21 +19,21 @@ const tree = sprite(
   ..0jjiiiiiihhhhhhhigiiiiiii0....
   ..0jiiiiihhhhhhhhhhhiiiiiiii0...
   .0iiiiihhhhhhhhhhhhhghhhhhhhi0..
-  .0iiiiihhhhhhhhhhhhhghhiiihhhg0.
-  .0iiiihhhhiiiihhhhhhghihhhhhhg0.
-  .0iiihhhhihhhhhhhhhhghhhhhhhhgg0
+  .0iiiiihhhhhhhhhhhhhghhhhhhhhg0.
+  .0iiiihhhhhhhhhhhhhhghhhhhhhhg0.
+  .0iiihhhhhhhhhhhhhhhghhhhhhhhgg0
   .0iiihhhhhhhhhhhhhhgghhhhhhhhgg0
-  .0iiihhhhhhhhiiihhhgghhhhhhhhgg0
-  ..0iihhhhhhhihhhhhgghhhhhhhhggg0
+  .0iiihhhhhhhhhhhhhhgghhhhhhhhgg0
+  ..0iihhhhhhhhhhhhhgghhhhhhhhggg0
   ..0iihhhhhhhhhhhhggghhhhhhhhgg0.
   ..0jghhhhhhhhhhhggghhhhhhhhggg0.
   .0jjigghhhhhhggggghhhhhhhhggg0..
   0iiiiihgggggggggggghhhhgggggg0..
   0iiiihhhhhggghhhghggggggggghgg0.
   0iiihhhhhhhhhhhhghhhhggghhhhgg0.
-  0iiihhiiiihhhhhhghhhhhhhhhhhgg0.
-  0iihhihhhhhhhhhgghhhiiihhhhggg0.
-  0iihhhhhhhhhhhhgghhihhhhhhhggg0.
+  0iiihhhhhhhhhhhhghhhhhhhhhhhgg0.
+  0iihhhhhhhhhhhhgghhhhhhhhhhggg0.
+  0iihhhhhhhhhhhhgghhhhhhhhhhggg0.
   0iihhhhhhhhhhhggghhhhhhhhggggg0.
   .0ghhhhhhhhhhggghhhhhhhhggggg0..
   ..0gghhhhhhggggggggggggggggg0...

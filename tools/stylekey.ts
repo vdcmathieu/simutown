@@ -7,17 +7,19 @@
  *   stylekey.png    a corner of Willow Square at midday, hand-laid, at scale 4
  *   characters.png  every townsperson: rows are down, left, right, up; columns are the
  *                   two idle frames (on paving) and the four walk frames (on grass)
- *   palette.png     the palette, one row per ramp, dark to light
+ *   palette.png     the palette, one row per ramp, dark to light, each swatch labelled
+ *                   with its slot name and its sprite-grid letter (in red)
  *
  * The scene is composed here, by hand, without the renderer: the style key must not
  * change when the renderer does.
  */
 import { art } from '../src/art';
 import { compileTheme, daylight, lutRgb, SLOTS, type Slot } from '../src/core/palette';
-import type { Sprite } from '../src/core/sprite';
+import { LEGEND, type Sprite } from '../src/core/sprite';
 import { Surface } from '../src/core/surface';
 import { type Dir, type FringeSide, TILE } from '../src/core/types';
 import { writePNG } from '../src/node/png';
+import { drawText } from '../src/ui';
 
 const lut = compileTheme(daylight);
 const col = (slot: Slot, a = 255) => [...lutRgb(lut, slot), a] as const;
@@ -231,17 +233,23 @@ function palette(): Surface {
     const ramp = slot.slice(0, slot.lastIndexOf('.'));
     ramps.set(ramp, [...(ramps.get(ramp) ?? []), slot]);
   }
-  const CELL = 12;
-  const GAP = 2;
+  const letter = new Map<string, string>();
+  for (const [ch, slot] of Object.entries(LEGEND)) if (slot) letter.set(slot, ch);
+  const CW = 46;
+  const CH = 26;
+  const GAP = 4;
   const rows = [...ramps.values()];
   const cols = Math.max(...rows.map((r) => r.length));
-  const out = new Surface(GAP + cols * (CELL + GAP), GAP + rows.length * (CELL + GAP)).clear(col('cream.2'));
+  const out = new Surface(GAP + cols * CW, GAP + rows.length * CH).clear(col('cream.2'));
   rows.forEach((ramp, j) => {
     ramp.forEach((slot, i) => {
-      const x = GAP + i * (CELL + GAP);
-      const y = GAP + j * (CELL + GAP);
-      out.rect(x, y, CELL, CELL, col('steel.0'));
-      out.rect(x + 1, y + 1, CELL - 2, CELL - 2, col(slot));
+      const x = GAP + i * CW;
+      const y = GAP + j * CH;
+      out.rect(x, y, CW - GAP, 12, col('steel.0'));
+      out.rect(x + 1, y + 1, CW - GAP - 2, 10, col(slot));
+      // the slot name, then the letter that stands for it in a sprite grid
+      drawText(out, lut, slot, x, y + 13);
+      drawText(out, lut, letter.get(slot) ?? '', x + CW - GAP, y + 13, { align: 'right', slot: 'brick.1' });
     });
   });
   return out;
@@ -250,7 +258,7 @@ function palette(): Surface {
 const outputs: [string, Surface][] = [
   ['docs/style/stylekey.png', scene().scaled(4)],
   ['docs/style/characters.png', characters().scaled(5)],
-  ['docs/style/palette.png', palette().scaled(8)],
+  ['docs/style/palette.png', palette().scaled(4)],
 ];
 for (const [path, surface] of outputs) {
   writePNG(path, surface);

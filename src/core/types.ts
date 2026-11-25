@@ -32,7 +32,10 @@ export interface Anim {
 // Art definitions
 // ---------------------------------------------------------------------------------------
 
-export type FringeSide = 'n' | 'e' | 's' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
+export type FringeSide =
+  | 'n' | 'e' | 's' | 'w'
+  | 'ne' | 'nw' | 'se' | 'sw'
+  | 'in-ne' | 'in-nw' | 'in-se' | 'in-sw';
 
 /** A ground material. Every sprite here is exactly TILE x TILE with anchor [0, 0]. */
 export interface TerrainDef {
@@ -49,6 +52,12 @@ export interface TerrainDef {
    * Soft edges. `fringe.n` is drawn ON the neighbouring tile to the north of this terrain
    * (so it shows this terrain creeping in from that tile's south edge), and so on.
    * Corner keys are for outer corners (the neighbour touches this terrain only diagonally).
+   *
+   * Inner corners round off concave bends. A tile that would receive two adjacent edge
+   * fringes at once, say both `n` and `e` (it lies north of this terrain and also east of
+   * it), gets the single `in-ne` sprite instead of that pair when one is defined. This is
+   * what lets a pond or a path corner look round instead of square. Without the inner
+   * key the renderer falls back to drawing the two edges.
    */
   fringe?: Partial<Record<FringeSide, Sprite>>;
 }
@@ -110,6 +119,10 @@ export interface CharacterDef {
   idle: Record<Dir, Sprite[]>;
   /** Walk cycle per direction (four frames recommended). */
   walk: Record<Dir, Sprite[]>;
+  /** Walk-cycle frames per second. Default 8. */
+  walkFps?: number;
+  /** Idle frames per second. Default 2. */
+  idleFps?: number;
   /** Optional extra poses, e.g. `sit`, `wave`. Scenes refer to them by key. */
   poses?: Record<string, Record<Dir, Sprite[]>>;
 }
@@ -238,6 +251,8 @@ export interface Scene {
   fps: number;
   width: number;
   height: number;
+  /** Character ids that appear in the scene, when the builder knows them. */
+  cast?: string[];
   frame(t: number): FrameState;
 }
 

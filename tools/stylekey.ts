@@ -16,6 +16,7 @@
  * and contact shadows are laid on top here, in raw palette colours.
  */
 import { art } from '../src/art';
+import { planBuilding, presetSpecs } from '../src/art/buildings';
 import { compileTheme, daylight, lutRgb, SLOTS, type Slot } from '../src/core/palette';
 import { LEGEND, type Sprite } from '../src/core/sprite';
 import { Surface } from '../src/core/surface';
@@ -168,18 +169,25 @@ function characters(): Surface {
   const CW = 20;
   const CH = 28;
   const GAP = 4;
+  const LABEL = 9;
+  // the cast wraps into rows of five people, each block labelled with its id
+  const PER_ROW = 5;
   const blockW = 6 * CW;
   const blockH = dirs.length * CH;
-  const out = new Surface(GAP + people.length * (blockW + GAP), blockH + GAP * 2).clear(col('cream.2'));
+  const rows = Math.ceil(people.length / PER_ROW);
+  const cols = Math.min(people.length, PER_ROW);
+  const out = new Surface(GAP + cols * (blockW + GAP), GAP + rows * (blockH + LABEL + GAP)).clear(col('cream.2'));
   people.forEach((def, i) => {
-    const x0 = GAP + i * (blockW + GAP);
-    out.rect(x0, GAP, 2 * CW, blockH, col('cream.1'));
-    out.rect(x0 + 2 * CW, GAP, 4 * CW, blockH, col('moss.2'));
+    const x0 = GAP + (i % PER_ROW) * (blockW + GAP);
+    const y0 = GAP + Math.floor(i / PER_ROW) * (blockH + LABEL + GAP);
+    out.rect(x0, y0, 2 * CW, blockH, col('cream.1'));
+    out.rect(x0 + 2 * CW, y0, 4 * CW, blockH, col('moss.2'));
+    drawText(out, lut, def.id, x0, y0 + blockH + 1);
     dirs.forEach((dir, j) => {
       const frames = [...def.idle[dir].slice(0, 2), ...def.walk[dir].slice(0, 4)];
       frames.forEach((s, k) => {
         const x = x0 + k * CW + CW / 2;
-        const y = GAP + j * CH + CH - 2;
+        const y = y0 + j * CH + CH - 2;
         shadow(out, x, y - 1, 5, 2);
         out.blit(s, x, y, lut);
       });
@@ -210,10 +218,13 @@ function pieces(): Surface {
   const cottage = onGround(art.props.house!.sprite, 'moss.2');
   const townhouse = onGround(art.props.townhouse!.sprite, 'moss.2');
   const ana = art.characters.ana!;
-  // cottage geometry: see buildCottage in src/art/buildings/index.ts (+2 for the margin)
+  // Find the window and the door where the building kit put them, so the crops follow the
+  // art when it changes. +2 for the margin of onGround; the crops keep a little wall around.
+  const plan = planBuilding(presetSpecs.find((s) => s.id === 'house')!);
+  const win = plan.windows[0]!;
   const cells: [string, Surface][] = [
-    ['window', crop(cottage, 9, 57, 19, 20)],
-    ['door', crop(cottage, 32, 56, 20, 27)],
+    ['window', crop(cottage, win.x, win.y, win.w + 4, win.h + 7)],
+    ['door', crop(cottage, plan.door.x, plan.door.y, plan.door.w + 4, 27)],
     ['gable roof', crop(cottage, 0, 6, 34, 26)],
     ['eave and wall', crop(cottage, 0, 38, 34, 22)],
     ['hip roof', crop(townhouse, 0, 6, 34, 26)],

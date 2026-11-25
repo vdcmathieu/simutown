@@ -319,7 +319,8 @@ export function drawBubble(out: Surface, lut: Lut, bubble: BubbleSpec): void {
   const w = Math.max(tw + PAD_X * 2, 16);
   const h = PAD_TOP + inkHeight(lines.length) + PAD_BOTTOM + (lines.some((l) => /[gjpqyç,;]/.test(l)) ? 1 : 0);
   const tipX = Math.round(clampTo(x, MARGIN, out.w - 1 - MARGIN));
-  const tipY = Math.round(clampTo(y - 1, MARGIN, out.h - 1 - MARGIN));
+  // The tail's outline ends one pixel above the head.
+  const tipY = Math.round(clampTo(y - 2, MARGIN, out.h - 1 - MARGIN));
   const bx = Math.round(clampTo(x - w / 2, edge, out.w - edge - w));
   const by = Math.round(clampTo(tipY - (kind === 'think' ? TAIL + 6 : TAIL) - h, edge, out.h - edge - h));
   const tail = tipY - (by + h);
@@ -480,7 +481,7 @@ export function drawLabel(out: Surface, lut: Lut, text: string, x: number, y: nu
   const w = tw + 8;
   const h = 3 + FONT_CAP + 3 + (hasDesc ? 1 : 0);
   const tipX = Math.round(clampTo(x, MARGIN, out.w - 1 - MARGIN));
-  const tipY = Math.round(clampTo(y, MARGIN, out.h - 1 - MARGIN));
+  const tipY = Math.round(clampTo(y - 1, MARGIN, out.h - 1 - MARGIN));
   const bx = Math.round(clampTo(x - w / 2, MARGIN, out.w - MARGIN - w));
   const by = Math.round(clampTo(tipY - 3 - h, MARGIN, out.h - MARGIN - h));
   const m = new Mask(bx - 2, by - 2, w + 4, Math.max(h, tipY - by + 1) + 4);

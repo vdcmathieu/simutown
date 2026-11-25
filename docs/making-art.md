@@ -26,7 +26,7 @@ Only `id`, `name`, `skin`, `head` and `top` are required.
 
 ```ts
 // examples/art/lena.ts - a new townsperson from named choices.
-import { art, makeCharacter } from '../../src';
+import { art, makeCharacter } from 'simutown';
 
 export const lena = makeCharacter({
   id: 'lena',
@@ -76,7 +76,7 @@ Only `id`, `width` and `door` are required.
 
 ```ts
 // examples/art/clinic.ts - a new building from a spec.
-import { art, makeBuilding } from '../../src';
+import { art, makeBuilding } from 'simutown';
 
 export const clinic = makeBuilding({
   id: 'clinic',
@@ -122,7 +122,7 @@ The letters are in `docs/style/palette.png`, in red beside each swatch, and in `
 
 ```ts
 // examples/art/hay-bale.ts - a prop drawn as a text grid, with a footprint.
-import { art, type PropDef, sprite } from '../../src';
+import { art, type PropDef, sprite } from 'simutown';
 
 // One character per pixel, one letter per palette slot (docs/style/palette.png):
 // 0 ink, r q p the ochre ramp from light to dark, v wood for the twine, . transparent.
@@ -182,7 +182,7 @@ This stone lantern shows the other parts of a prop.
 
 ```ts
 // examples/art/stone-lantern.ts - a prop with a place to stand, an emissive layer and a light.
-import { art, type PropDef, sprite } from '../../src';
+import { art, type PropDef, sprite } from 'simutown';
 
 // By day the glass is frosted cream (c, b) with one white glint (5).
 const lanternArt = `
@@ -242,9 +242,7 @@ A ground is a `TerrainDef`: a few 16 x 16 tile variants, a priority, and a fring
 
 ```ts
 // examples/art/gravel.ts - a new ground: tile variants, a priority and a fringe.
-import { art, sprite, type TerrainDef } from '../../src';
-import { straightEdge } from '../../src/art/terrain/edges';
-import { ground } from '../../src/art/terrain/ground';
+import { art, ground, sprite, straightEdge, type TerrainDef } from 'simutown';
 
 // Marks are tiny sprites stamped on a flat base colour; no ink on terrain.
 const pebble = sprite(`
@@ -279,7 +277,7 @@ art.terrain.gravel = gravel;
 
 How edges work: where two grounds meet, the one with the higher priority draws its fringe on the tile of the other.
 `fringe.n` is drawn on the neighbour to the north, so it shows this ground creeping in from that tile's south edge; corner keys (`ne`, `in-ne`, ...) round the corners.
-The helpers in `src/art/terrain/edges.ts` make the common edges: `straightEdge` (a kerb or a deck's edge), `driftEdge` (sand), and `recolorFringe(turf, ...)` (the turf edge in other colours); `ground` in `src/art/terrain/ground.ts` stamps marks on a flat tile.
+Simutown exports helpers for the common edges: `straightEdge` (a kerb or a deck's edge), `driftEdge` (sand), and `recolorFringe(turf, ...)` (the turf edge in other colours); `ground` stamps marks on a flat tile.
 The priorities of the built-in grounds, and which of them may touch, are in [the art direction](STYLE.md#which-grounds-may-touch); a new ground must say where it joins that table.
 Use it in a town by giving it a character in the legend: `legend: { ':': 'gravel' }`.
 
@@ -294,7 +292,7 @@ import './art/clinic';
 import './art/hay-bale';
 import './art/stone-lantern';
 import './art/gravel';
-import { defineTown, scene } from '../src';
+import { defineTown, scene } from 'simutown';
 ```
 
 ![Lena, the clinic, the hay bale, the stone lantern and a gravel yard at dusk](images/new-art.png)

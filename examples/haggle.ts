@@ -1,5 +1,5 @@
 // examples/haggle.ts - the worked example of docs/authoring.md: the first number anchors a deal.
-import { scene } from '../src';
+import { scene } from 'simutown';
 import { market } from './market';
 
 export default scene({ title: 'First offer', town: market, timeOfDay: 10 }, (s) => {

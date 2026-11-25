@@ -10,7 +10,16 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    // Scenes and examples import the library by its package name, as a project that
+    // installed it would; inside this repository the name points at the sources.
+    // vite.config.ts has the same mapping for the gallery and the tests.
+    "paths": {
+      "simutown": ["./src/index.ts"],
+      "simutown/node": ["./src/node/index.ts"],
+      "simutown/player": ["./src/player/index.ts"],
+      "simutown/towns": ["./src/towns/index.ts"]
+    }
   },
   "include": ["src", "tools", "scenes", "test", "web"]
 }

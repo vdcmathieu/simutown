@@ -1,5 +1,5 @@
 // examples/art/stone-lantern.ts - a prop with a place to stand, an emissive layer and a light.
-import { art, type PropDef, sprite } from '../../src';
+import { art, type PropDef, sprite } from 'simutown';
 
 // By day the glass is frosted cream (c, b) with one white glint (5).
 const lanternArt = `

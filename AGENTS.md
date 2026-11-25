@@ -18,14 +18,14 @@ Claude Code has the same steps as a skill, in `.claude/skills/simutown-scene/SKI
 2. **List the places** of the town with `describeTown`, and use the names it prints as targets:
 
    ```bash
-   pnpm tsx -e "import { describeTown } from './src'; import { willowSquare } from './src/towns/willow-square'; console.log(describeTown(willowSquare))"
+   pnpm tsx -e "import { describeTown, willowSquare } from 'simutown'; console.log(describeTown(willowSquare))"
    ```
 
    Props are not places: to reach the bakery, walk to `bakery.door`. A new setting is a small `defineTown` (see `examples/market.ts`).
 3. **Cast** by role from the townsfolk table in `docs/authoring.md` (the baker is `bo`, the children `kofi` and `lin`). The same list is `townsfolk` in `src/art/characters/index.ts`. Use only those ids: `ben` and `cy` in some `docs/scene-api.md` snippets are stand-ins.
 4. **Pick the hour.** Plain daylight runs from 9 to 16; a golden late afternoon is 17 to 18 (lamps light at 17:30); sunset 19; a blue evening 19.5 to 21; night after 21.5. See "Time of day" in `docs/authoring.md`.
-5. **Write** `scenes/<kebab-name>.ts`, default-exporting `scene({ title, town, timeOfDay }, (s) => { ... })`. Copy the shape of a scene in `scenes/` (`pnpm simutown list`) or of `examples/haggle.ts`.
-6. **Build** with `pnpm simutown info <name>`. Errors list the valid names: fix and rerun. To find when a beat starts, put `console.log('beat 3 at', s.now.toFixed(1));` in the script; `info` prints it.
+5. **Write** `scenes/<kebab-name>.ts`, default-exporting `scene({ title, town, timeOfDay }, (s) => { ... })`. `pnpm simutown new <kebab-name>` writes a commented starter; or copy the shape of a scene in `scenes/` (`pnpm simutown list`) or of `examples/haggle.ts`. Import the library as `simutown` and the town from `simutown/towns`.
+6. **Build** with `pnpm simutown info <name>`. Errors list the valid names: fix and rerun. `pnpm simutown info <name> --beats` lists when each walk, line, caption and camera move starts.
 7. **Look**: `pnpm simutown still <name> -t <seconds> -o out/<name>-<seconds>.png` for each beat, and open every PNG with your image-reading tool. Check that the people who matter are in frame and unhidden, that bubbles and labels do not overlap, and that each caption is up while its beat needs it. Repeat until every beat reads.
 8. **Render** with `pnpm simutown render <name>` (MP4 in `out/`; `-o out/<name>.gif` for a GIF), and run `pnpm check`.
 
@@ -69,8 +69,13 @@ Changes to it are additive only (new optional fields), and only the integrator m
 | `src/fixtures/` | A hand-built town and scene for developing modules in isolation. |
 | `scenes/` | Scenes: each file default-exports a `Scene`. The CLI finds them by name and the gallery lists them. |
 | `examples/` | The runnable samples shown in the docs; `test/docs.test.ts` builds them all. |
-| `tools/` | Developer scripts: contact sheets, the style key, previews, the docs check. |
+| `tools/` | Developer scripts: contact sheets, the style key, previews, the docs check, the package build and its test. |
 | `docs/` | `authoring.md` (writing scenes), `scene-api.md` (the API), `making-art.md` (the kits), `STYLE.md` (art direction). |
+| `dist/` | Built, not committed: the package (`pnpm build`) and the gallery site (`dist/web`). |
+
+The package has four entries, set in `exports` of `package.json` and built by `tools/build.ts`: `simutown` (`src/index.ts`, browser-safe), `simutown/towns`, `simutown/player` and `simutown/node` (Node only).
+Scenes and examples import the library by those names, as a project that installed it would; `tsconfig.json` and `vite.config.ts` point the names at `src/`.
+Code in `src/`, `web/`, `tools/` and `test/` uses relative imports.
 
 When several agents work at once, each one edits only the paths it was given.
 `src/core/`, `src/art/index.ts`, `src/index.ts`, `src/fixtures/` and `test/art-contract.test.ts` belong to the integrator.
@@ -78,7 +83,7 @@ If a contract is wrong or missing something, say so in your final report instead
 
 ## Rules
 
-1. **No runtime dependencies.** The engine is plain TypeScript. Dev tools (vitest, tsx, vite) are fine.
+1. **No runtime dependencies.** The engine is plain TypeScript. Dev tools (vitest, tsx, vite, esbuild) are fine.
 2. **Browser-safe core.** Nothing under `src/` may import `node:*`, except `src/node/` and `src/cli/`.
 3. **Deterministic.** No `Math.random()`, `Date.now()` or `performance.now()` in anything that decides what a frame looks like. Use a seeded generator. The same scene and time must always give the same pixels.
 4. **Whole pixels.** No sub-pixel positions, no smoothing, no anti-aliasing. Scaling is integer nearest-neighbour.
@@ -89,25 +94,29 @@ If a contract is wrong or missing something, say so in your final report instead
 ## Commands
 
 ```bash
-pnpm install                           # once per checkout or worktree
+pnpm install                           # once per checkout or worktree (also builds the package)
 pnpm check                             # typecheck + tests; must pass before every commit
-pnpm simutown --help                   # the CLI: render, still, list, info
+pnpm simutown --help                   # the CLI: render, still, info, new, list
+pnpm simutown new <name>               # a commented starter scene -> scenes/<name>.ts
 pnpm simutown info <scene>             # build a scene: duration, places, cast, or the error
+pnpm simutown info <scene> --beats     # and when each walk, line, caption and camera move starts
 pnpm simutown still <scene> -t 4       # one frame as a PNG -> out/<scene>-4s.png
 pnpm simutown render <scene>           # the film -> out/<scene>.mp4 (needs ffmpeg); -o x.gif for a GIF
 pnpm simutown list                     # the scenes in scenes/
 pnpm dev                               # the gallery: scenes and the art Atlas, at http://localhost:5173
 pnpm build:web                         # the gallery as a static site -> dist/web (embed with ?embed=<scene>)
+pnpm build                             # the package: bundles and types -> dist/ (tools/build.ts)
+pnpm test:package                      # pack it, install it in a new project, render there (needs ffmpeg)
 pnpm sheet <group>                     # contact sheet PNG of built-in art -> out/sheets/<group>.png
 pnpm still 4                           # one frame of the fixture scene -> out/still.png
 pnpm tsx tools/stylekey.ts             # regenerate the style pictures in docs/style/
 pnpm tsx tools/docs-check.ts           # check that the docs match examples/ and their links resolve
 ```
 
-`<scene>` is a name in `scenes/` (`hello`) or a path to a `.ts` file (`examples/haggle.ts`).
+`<scene>` is a name in `scenes/` (`hello`) or a path to a `.ts` or `.js` file (`examples/haggle.ts`).
 `pnpm sheet` groups: `terrain`, `nature`, `street`, `buildings`, `characters`, `ui`, `all`.
 Add `--only <text>` to filter and `--scale <n>` to zoom.
-The gallery picks up edits to a scene at once; restart `pnpm dev` after adding a new file to `scenes/`.
+The gallery picks up edits to a scene, and new files in `scenes/`, at once.
 
 ## Look at what you make
 

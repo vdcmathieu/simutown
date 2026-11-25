@@ -10,7 +10,7 @@ Think of [manim](https://www.manim.community/) for a little town of people, insp
 ## Quickstart
 
 You need [Node.js](https://nodejs.org/) (tested with version 24), [pnpm](https://pnpm.io/), and [ffmpeg](https://ffmpeg.org/) on your path for video.
-Clone the repository, then:
+To try it, clone the repository, then:
 
 ```bash
 pnpm install
@@ -22,6 +22,40 @@ The gallery plays every scene in `scenes/`, with a scrub bar, and has an Atlas o
 
 ![The hello scene](docs/media/hello.gif)
 
+## Install in your own project
+
+To write scenes in a project of your own, install Simutown from GitHub; it builds itself on the way in.
+You need Node.js 22.18 or later, and ffmpeg for video.
+
+```bash
+npm install github:vdcmathieu/simutown
+pnpm add github:vdcmathieu/simutown
+```
+
+pnpm 10 and later build a dependency from git only once you allow it: the first `pnpm add` stops and prints an `allowBuilds` entry; add it to `pnpm-workspace.yaml` and run the command again.
+
+The package comes with the `simutown` command (`npx simutown`, or `pnpm simutown`):
+
+```bash
+npx simutown new market-day              # a commented starter scene: scenes/market-day.ts, or ./market-day.ts without a scenes/ folder
+npx simutown info market-day --beats     # build it, and list when each walk, line, caption and camera move starts
+npx simutown still market-day -t 4       # one frame as a PNG, out/market-day-4s.png
+npx simutown render market-day           # the film, out/market-day.mp4
+```
+
+A scene imports the library by name:
+
+| Import | What it has |
+|---|---|
+| `simutown` | The engine, safe in a browser: `scene`, `defineTown`, `describeTown`, the renderer, the built-in art and town, and the kits `makeCharacter` and `makeBuilding`. |
+| `simutown/towns` | The built-in towns: `willowSquare`. |
+| `simutown/player` | `mount`, which plays a scene in a web page. |
+| `simutown/node` | `renderVideo`, `renderStill` and `writePNG`, to render from your own Node scripts. |
+
+The types come with it, for TypeScript set to `"moduleResolution": "bundler"` or `"nodenext"`.
+Node runs a `.ts` scene file as it is, by erasing its types, so a scene imports types with `import type` and writes relative imports with their extension (`./my-town.ts`; TypeScript accepts that with `allowImportingTsExtensions`).
+A scene can also be a plain `.js` file.
+
 ## A complete scene
 
 A scene is one TypeScript file.
@@ -29,7 +63,7 @@ This one defines a small town inline, puts two of the townsfolk in it, and has t
 
 ```ts
 // examples/good-morning.ts - the smallest complete scene: a town, two people, a few lines.
-import { defineTown, scene } from '../src';
+import { defineTown, scene } from 'simutown';
 
 // A lane between two lawns: a bakery on the north side, a bench and a tree on the south.
 const lane = defineTown({
@@ -119,10 +153,11 @@ Everything follows one [art direction](docs/STYLE.md), so new art looks like it 
 
 ## Writing your own scene
 
-Put a `.ts` file in `scenes/` that default-exports a `scene(...)`, then:
+Put a `.ts` file in `scenes/` that default-exports a `scene(...)` (`pnpm simutown new my-scene` writes a starter), then:
 
 ```bash
 pnpm simutown info my-scene            # builds it: duration, places, cast, or the error
+pnpm simutown info my-scene --beats    # and when each walk, line, caption and camera move starts
 pnpm simutown still my-scene -t 4      # one frame at 4 seconds, out/my-scene-4s.png
 pnpm simutown render my-scene          # out/my-scene.mp4
 pnpm simutown render my-scene -o out/my-scene.gif
@@ -161,7 +196,7 @@ With a bundler such as Vite, import it and the scene:
 <!-- examples/embed.html (excerpt) -->
     <div id="stage"></div>
     <script type="module">
-      import { mount } from '../src/player';
+      import { mount } from 'simutown/player';
       import scene from './good-morning';
 
       const player = mount(document.getElementById('stage'), scene, { autoplay: true, loop: true });

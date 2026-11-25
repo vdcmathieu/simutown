@@ -1,5 +1,5 @@
 // examples/art/lena.ts - a new townsperson from named choices.
-import { art, makeCharacter } from '../../src';
+import { art, makeCharacter } from 'simutown';
 
 export const lena = makeCharacter({
   id: 'lena',

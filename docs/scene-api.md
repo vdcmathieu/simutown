@@ -6,8 +6,8 @@ If the code and the page disagree, fix one of them.
 ## A scene
 
 ```ts
-import { scene } from '../src';
-import { willowSquare } from '../src/towns/willow-square';
+import { scene } from 'simutown';
+import { willowSquare } from 'simutown/towns';
 
 export default scene({ title: 'Word of mouth', town: willowSquare, timeOfDay: 10 }, (s) => {
   const ana = s.actor('ana', { at: 'cafe.door' });

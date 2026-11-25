@@ -1,5 +1,5 @@
 // examples/art/clinic.ts - a new building from a spec.
-import { art, makeBuilding } from '../../src';
+import { art, makeBuilding } from 'simutown';
 
 export const clinic = makeBuilding({
   id: 'clinic',

@@ -1,7 +1,5 @@
 // examples/art/gravel.ts - a new ground: tile variants, a priority and a fringe.
-import { art, sprite, type TerrainDef } from '../../src';
-import { straightEdge } from '../../src/art/terrain/edges';
-import { ground } from '../../src/art/terrain/ground';
+import { art, ground, sprite, straightEdge, type TerrainDef } from 'simutown';
 
 // Marks are tiny sprites stamped on a flat base colour; no ink on terrain.
 const pebble = sprite(`

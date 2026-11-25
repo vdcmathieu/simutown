@@ -5,7 +5,7 @@
  * starts each child at the group's start. Every call records timed segments and returns.
  */
 import { art as builtinArt } from '../art';
-import { type ArtRegistry, type Dir, FPS, FRAME_H, FRAME_W, type PlacedProp, type Scene, TILE } from '../core/types';
+import { type ArtRegistry, type Dir, FPS, FRAME_H, FRAME_W, type PlacedProp, type Scene, type SceneBeat, TILE } from '../core/types';
 import { blockerAt, fmtTile, inBounds, isWalkable, type Tile, tileAt, tileCenter } from '../world/grid';
 import { unknownName } from '../world/names';
 import { explainNoPath, findPath } from '../world/path';
@@ -76,6 +76,12 @@ function checkSeats(seatings: Seating[]): void {
   });
 }
 
+/** An hour of the day as a clock time: 18.5 is "18:30". */
+function clock(hour: number): string {
+  const minutes = Math.round(hour * 60);
+  return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`;
+}
+
 function checkSeconds(what: string, v: number | undefined): void {
   if (v !== undefined && !(Number.isFinite(v) && v >= 0)) throw new Error(`${what} must be a number of seconds >= 0, got ${v}.`);
 }
@@ -94,6 +100,11 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
   const recs = new Map<ActorHandle, ActorRec>();
   const byId = new Map<string, ActorRec>();
   const stack: Group[] = [{ par: false, start: 0, cursor: 0, end: 0 }];
+  /** What each call does and when, for `Scene.beats`. */
+  const beats: SceneBeat[] = [];
+  const beat = (start: number, end: number, what: string, actor?: string): void => {
+    beats.push(actor === undefined ? { start, end, what } : { start, end, actor, what });
+  };
 
   // --- clock ------------------------------------------------------------------------
 
@@ -127,6 +138,8 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     return r;
   };
   const isHandle = (x: unknown): x is ActorHandle => typeof x === 'object' && x !== null && !Array.isArray(x);
+  /** A target as a beat names it: an actor id, a place, or a tile. */
+  const named = (target: Target): string => (isHandle(target) ? target.id : typeof target === 'string' ? target : `[${target.join(', ')}]`);
 
   /** Stroll generation: extend an actor's wander with whole strolls that start before `until`. */
   const extendWander = (r: ActorRec, until: number): void => {
@@ -314,6 +327,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     const tile = standTile(o.at, t0, `s.actor('${character}')`);
     const c = tileCenter(tile.tx, tile.ty);
     const segs: ActorSeg[] = [{ kind: 'place', start: t0, x: c.x, y: c.y, dir: o.facing ?? 'down', visible: !o.hidden, opacity: 1 }];
+    beat(t0, t0, `${o.hidden ? 'waits, hidden,' : 'appears'} at ${named(o.at)}`, id);
 
     const say = (kind: 'say' | 'think' | 'shout') => (text: string, opts: SayOpts = {}) => {
       checkSeconds(`${id}.${kind} hold`, opts.hold);
@@ -321,6 +335,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
       const d = typeEnd + (opts.hold ?? T.readHold(text));
       const t = start(d);
       tl.bubbles.push({ actor: id, text, kind, start: t, typeEnd: t + typeEnd, end: t + d });
+      beat(t, t + d, `${kind}s ${JSON.stringify(text)}`, id);
       // A standing speaker gestures while the words appear.
       if (opts.gesture !== false && def.poses?.talk && !r.seat && typeEnd > 0 && body(r, t).pose === 'idle') {
         insertByStart(r.segs, { kind: 'pose', start: t, end: t + typeEnd, name: 'talk' });
@@ -378,10 +393,14 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
           const { tile, target: other } = besideActor(them, t, what, me);
           const goalPt = tileCenter(tile.tx, tile.ty);
           const face = dirBetween(goalPt, tileCenter(other.tx, other.ty));
-          advance(up + walk(tile, t, speed, face));
+          const d = up + walk(tile, t, speed, face);
+          advance(d);
+          beat(t - up, t - up + d, `walks to ${named(target)}`, id);
           return;
         }
-        advance(up + walk(standTile(target, t, what), t, speed));
+        const d = up + walk(standTile(target, t, what), t, speed);
+        advance(d);
+        beat(t - up, t - up + d, `walks to ${named(target)}`, id);
       },
       face(dir) {
         const t = start(0);
@@ -392,6 +411,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
         } else if (DIRS.includes(dir)) d = dir;
         else throw unknownName('direction', String(dir), DIRS, `(in ${id}.face; or pass an actor handle)`);
         insertByStart(r.segs, { kind: 'face', start: t, dir: d });
+        beat(t, t, `faces ${isHandle(dir) ? dir.id : d}`, id);
       },
       say: say('say'),
       think: say('think'),
@@ -402,6 +422,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
         const d = opts.hold ?? T.EMOTE_HOLD;
         const t = start(d);
         tl.emotes.push({ actor: id, name, start: t, end: t + d });
+        beat(t, t + d, `emotes ${name}`, id);
       },
       pose(name, opts = {}) {
         const poses = Object.keys(def.poses ?? {});
@@ -411,6 +432,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
         const [t, up] = begin();
         insertByStart(r.segs, { kind: 'pose', start: t, end: t + d, name });
         advance(up + d);
+        beat(t - up, t + d, `poses ${name}`, id);
       },
       sitOn(prop, seatName, opts = {}) {
         const what = `${id}.sitOn`;
@@ -444,6 +466,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
         seatings.push(seating);
         r.seat = { tile, at, pose, seating };
         advance(up + (t2 - t) + (opts.hold ?? 0));
+        beat(t - up, t2 + (opts.hold ?? 0), `sits on ${prop}.${name}`, id);
       },
       enter(prop, opts = {}) {
         const speed = checkSpeed(opts.speed);
@@ -454,6 +477,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
         insertByStart(r.segs, { kind: 'fade', start: t1, end: t1 + T.DOOR_FADE, from: 1, to: 0 });
         insertByStart(r.segs, { kind: 'visible', start: t1 + T.DOOR_FADE, visible: false, opacity: 1 });
         advance(up + w + T.DOOR_FADE);
+        beat(t - up, t1 + T.DOOR_FADE, `enters ${prop}`, id);
       },
       exit(prop) {
         const tile = door(prop, `${id}.exit`);
@@ -462,12 +486,17 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
         const c = tileCenter(tile.tx, tile.ty);
         addMove(r, { kind: 'place', start: t, x: c.x, y: c.y, dir: 'down', visible: true, opacity: 0 });
         insertByStart(r.segs, { kind: 'fade', start: t, end: t + T.DOOR_FADE, from: 0, to: 1 });
+        beat(t, t + T.DOOR_FADE, `comes out of ${prop}`, id);
       },
       hide() {
-        insertByStart(r.segs, { kind: 'visible', start: start(0), visible: false });
+        const t = start(0);
+        insertByStart(r.segs, { kind: 'visible', start: t, visible: false });
+        beat(t, t, 'hides', id);
       },
       show() {
-        insertByStart(r.segs, { kind: 'visible', start: start(0), visible: true });
+        const t = start(0);
+        insertByStart(r.segs, { kind: 'visible', start: t, visible: true });
+        beat(t, t, 'shows', id);
       },
       teleport(target) {
         rise(r, now());
@@ -475,6 +504,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
         const tile = standTile(target, t, `${id}.teleport`);
         const c = tileCenter(tile.tx, tile.ty);
         addMove(r, { kind: 'place', start: t, x: c.x, y: c.y });
+        beat(t, t, `teleports to ${named(target)}`, id);
       },
     };
     const r: ActorRec = { handle, segs };
@@ -522,21 +552,25 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
       const d = 2 * T.TITLE_FADE + (opts.hold ?? T.TITLE_HOLD);
       const t = advance(d);
       tl.titles.push({ text, ...(subtitle !== undefined ? { subtitle } : {}), start: t, end: t + d });
+      beat(t, t + d, `title ${JSON.stringify(text)}${subtitle !== undefined ? `, ${JSON.stringify(subtitle)}` : ''}`);
     },
     caption(text, opts = {}) {
       checkSeconds('s.caption hold', opts.hold);
       const t = advance(opts.hold ?? 0);
       captions.push({ text, start: t, end: opts.hold !== undefined ? t + opts.hold : Infinity, fadeIn: true });
+      beat(t, t + (opts.hold ?? 0), `caption ${JSON.stringify(text)}`);
     },
     clearCaption() {
       const t = advance(0);
       captions.push({ text: null, start: t, end: t, fadeIn: false });
+      beat(t, t, 'caption cleared');
     },
     camera: {
       cut(target, opts = {}) {
         checkZoom(opts.zoom);
         const t = advance(0);
         insertByStart(tl.camera, { kind: 'cut', start: t, target: camTarget(target, 's.camera.cut', t), ...(opts.zoom ? { zoom: opts.zoom } : {}) });
+        beat(t, t, `camera cuts to ${named(target)}${opts.zoom ? ` at zoom ${opts.zoom}` : ''}`);
       },
       pan(target, opts = {}) {
         checkZoom(opts.zoom);
@@ -544,10 +578,13 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
         const d = opts.duration ?? T.PAN;
         const t = advance(d);
         insertByStart(tl.camera, { kind: 'pan', start: t, end: t + d, target: camTarget(target, 's.camera.pan'), ...(opts.zoom ? { zoom: opts.zoom } : {}) });
+        beat(t, t + d, `camera pans to ${named(target)}${opts.zoom ? ` at zoom ${opts.zoom}` : ''}`);
       },
       follow(actor) {
         const id = actor === null ? null : rec(actor, 's.camera.follow').handle.id;
-        insertByStart(tl.camera, { kind: 'follow', start: advance(0), actor: id });
+        const t = advance(0);
+        insertByStart(tl.camera, { kind: 'follow', start: t, actor: id });
+        beat(t, t, id === null ? 'camera stops following' : `camera follows ${id}`);
       },
     },
     timeOfDay(hour, opts = {}) {
@@ -556,16 +593,19 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
       const d = opts.duration ?? 0;
       const t = advance(d);
       addRamp(tl.hours, { start: t, end: t + d, to: hour });
+      beat(t, t + d, `time of day ${d > 0 ? 'turns' : 'set'} to ${clock(hour)}`);
     },
     label(target, text) {
       const key = labelKey(target, 's.label');
       const t = advance(0);
       labels.push({ ...key, text, start: t, end: Infinity });
+      beat(t, t, `label ${JSON.stringify(text)} on ${named(target)}`);
     },
     unlabel(target) {
       const key = labelKey(target, 's.unlabel');
       const t = advance(0);
       labels.push({ ...key, text: null, start: t, end: t });
+      beat(t, t, `label removed from ${named(target)}`);
     },
     link(a, b, opts = {}) {
       checkSeconds('s.link hold', opts.hold);
@@ -573,6 +613,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
       const d = T.LINK_GROW + (opts.hold ?? T.LINK_HOLD);
       const t = advance(d);
       tl.links.push({ from, to, start: t, grow: T.LINK_GROW, end: t + d, ...(opts.slot ? { slot: opts.slot } : {}) });
+      beat(t, t + d, `link from ${from} to ${to}`);
     },
     ring(actor, opts = {}) {
       checkSeconds('s.ring hold', opts.hold);
@@ -580,6 +621,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
       const d = T.RING_GROW + (opts.hold ?? T.RING_HOLD);
       const t = advance(d);
       tl.rings.push({ actor: id, start: t, grow: T.RING_GROW, end: t + d, ...(opts.slot ? { slot: opts.slot } : {}) });
+      beat(t, t + d, `ring around ${id}`);
     },
     focus(actors, opts = {}) {
       checkSeconds('s.focus duration', opts.duration);
@@ -587,12 +629,14 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
       const d = opts.duration ?? T.FOCUS_RAMP;
       const t = advance(d);
       addRamp(tl.focus, { start: t, end: t + d, to: 1, actors: ids });
+      beat(t, t + d, `focus on ${ids.join(', ')}`);
     },
     unfocus(opts = {}) {
       checkSeconds('s.unfocus duration', opts.duration);
       const d = opts.duration ?? T.FOCUS_RAMP;
       const t = advance(d);
       unfocusRamps.add(addRamp(tl.focus, { start: t, end: t + d, to: 0, actors: [] }));
+      beat(t, t + d, 'focus off');
     },
     fadeIn(seconds) {
       checkSeconds('s.fadeIn', seconds);
@@ -600,12 +644,14 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
       const t = advance(d);
       // Fading in from the very start means the scene opens on ink.
       insertByStart(tl.fades, { start: t, end: t + d, from: 1, to: 0 });
+      beat(t, t + d, 'fade in');
     },
     fadeOut(seconds) {
       checkSeconds('s.fadeOut', seconds);
       const d = seconds ?? T.FADE;
       const t = advance(d);
       addRamp(tl.fades, { start: t, end: t + d, to: 1 });
+      beat(t, t + d, 'fade out');
     },
     wander(actor, opts) {
       const r = rec(actor, 's.wander');
@@ -619,6 +665,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
       const around = standTile(opts.around, t, 's.wander');
       const rng = createRng(`${seed}/${opts.seed ?? ''}/${r.handle.id}/${t}`);
       r.wander = { start: t, around, radius, speed, rng, free: t };
+      beat(t, t, `wanders around ${named(opts.around)}`, r.handle.id);
     },
   };
 
@@ -658,6 +705,8 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     height: FRAME_H,
     cast: [...new Set(tl.actors.map((a) => a.character))],
     art,
+    // A stable sort: calls that start together stay in script order.
+    beats: beats.sort((a, b) => a.start - b.start),
     frame: (t: number) => frameAt(tl, t),
   };
 }

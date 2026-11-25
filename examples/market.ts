@@ -1,5 +1,5 @@
 // examples/market.ts - a small market square, used by the worked example in docs/authoring.md.
-import { defineTown } from '../src';
+import { defineTown } from 'simutown';
 
 export const market = defineTown({
   name: 'Market Square',

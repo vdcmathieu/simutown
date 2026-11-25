@@ -123,7 +123,7 @@ const square: PropSpec[] = [
   { kind: 'planter', at: [16, 9] },
   { kind: 'crate', at: [9, 9] },
   { kind: 'barrel', at: [10, 9] },
-  { kind: 'bin', at: [14, 11] },
+  { kind: 'bin', at: [18, 15] },
   { kind: 'bin', at: [33, 15] },
   // under the willow
   { kind: 'flowers-white', at: [18, 13] },
@@ -148,8 +148,8 @@ const lamps: PropSpec[] = [
   { kind: 'lamp', at: [35, 8], id: 'lamp.library' },
   { kind: 'lamp', at: [42, 8], id: 'lamp.shop' },
   // the square
-  { kind: 'lamp', at: [13, 11], id: 'lamp.square-nw' },
-  { kind: 'lamp', at: [34, 11], id: 'lamp.square-ne' },
+  { kind: 'lamp', at: [13, 12], id: 'lamp.square-nw' },
+  { kind: 'lamp', at: [34, 12], id: 'lamp.square-ne' },
   { kind: 'lamp', at: [14, 16], id: 'lamp.square-sw' },
   { kind: 'lamp', at: [33, 16], id: 'lamp.square-se' },
   { kind: 'lamp', at: [22, 17], id: 'lamp.gate-west' },
@@ -329,16 +329,16 @@ export const willowSquareHomes: Record<string, string> = {
   pia: 'cottage',
   bo: 'bakery',
   zara: 'shop',
+  otto: 'townhouse',
   mira: 'townhouse',
   emil: 'townhouse',
-  yuki: 'townhouse',
   raj: 'red-house',
   noor: 'red-house',
   lin: 'red-house',
   idris: 'brick-house',
   kofi: 'brick-house',
   tomas: 'farmhouse',
-  otto: 'farmhouse',
+  yuki: 'farmhouse',
 };
 
 /** The door tile of each building in `willowSquareHomes`. */

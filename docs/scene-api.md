@@ -67,8 +67,8 @@ There is no randomness and no hidden state, so the same script always gives the 
 A `target` or `at` is a place name (`'cafe.door'`), a tile `[tx, ty]`, or an actor handle.
 For `at`, `walkTo` and `teleport`, an actor handle means a free tile next to that actor.
 
-The camera zoom is a whole number: 1 shows a 480 x 270 pixel view, 2 shows half that.
-The view never leaves the town: near an edge it stops, and a town smaller than the view is centred.
+The camera zoom is a whole number from 1 to 16: 1 shows a 480 x 270 pixel view, 2 shows half that.
+The view never leaves the town, down to the last pixel the renderer draws: near an edge it stops, and a town smaller than the view is centred.
 
 ## Actor handle
 
@@ -143,6 +143,7 @@ A tile is solid when its terrain is solid or a prop's footprint covers it; a foo
 Each prop's own places are exposed as `<id>.<place>`, for example `cafe.door`.
 A prop's `id` defaults to its kind; several unnamed props of one kind become `lamp-1`, `lamp-2`, and so on.
 Unknown terrain characters and ids, unknown prop kinds, props outside the map or overlapping each other, duplicate names, and places on solid tiles are errors, and the message lists what is valid.
+Prop and place coordinates must be whole tiles: `[1.5, 1]` is an error.
 
 Helpers, all from `src/world`:
 

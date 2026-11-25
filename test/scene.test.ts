@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { blank } from '../src/core/sprite';
 import type { ArtRegistry, CharacterDef, Dir, FrameState } from '../src/core/types';
 import { type ActorHandle, scene, type SceneBuilder, timing } from '../src/scene';
+import { cameraFor } from '../src/render/camera';
 import { defineTown, isWalkable, tileAt, tileCenter } from '../src/world';
 
 const sp = blank(16, 16);
@@ -391,7 +392,8 @@ describe('camera', () => {
       s.camera.cut([30, 20]);
     }, big);
     expect(sc.frame(0.5).camera).toEqual({ x: 240, y: 135, zoom: 1 });
-    expect(sc.frame(1.5).camera).toEqual({ x: 960 - 120, y: 573, zoom: 2 });
+    // At zoom 2 the view is 240 x 135: centre 572 puts its rounded top at 505 and bottom at 640.
+    expect(sc.frame(1.5).camera).toEqual({ x: 960 - 120, y: 572, zoom: 2 });
     expect(sc.frame(2).camera).toEqual({ x: 30 * 16 + 8, y: 20 * 16, zoom: 2 });
   });
 
@@ -532,7 +534,8 @@ describe('errors an author can act on', () => {
     ).toThrow(/already an actor "ana". Give the second one an id/);
     expect(err((s) => s.link({} as ActorHandle, {} as ActorHandle))).toThrow(/expected an actor handle returned by s.actor\(\)/);
     expect(err((s) => s.wait(-1))).toThrow(/s.wait must be a number of seconds >= 0/);
-    expect(err((s) => s.camera.cut('plaza', { zoom: 1.5 }))).toThrow(/zoom must be a whole number >= 1/);
+    expect(err((s) => s.camera.cut('plaza', { zoom: 1.5 }))).toThrow(/zoom must be a whole number from 1 to 16/);
+    expect(err((s) => s.camera.pan('plaza', { zoom: 17 }))).toThrow(/from 1 to 16, got 17/);
     expect(err((s) => s.timeOfDay(25))).toThrow(/between 0 and 24/);
     expect(
       err((s) => {
@@ -607,5 +610,121 @@ describe('a longer scene with three actors', () => {
     expect(f.fade).toBe(1);
     expect(f.caption).toBeUndefined();
     expect(f.focus).toEqual({ actors: ['ana', 'ben', 'cy'], amount: 1 });
+  });
+});
+
+describe('regressions from review', () => {
+  it('a wander stops at once when the actor gets a later instruction', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: [12, 8] });
+      s.wander(a, { around: [12, 8], radius: 3, speed: 0.2 });
+      s.wait(3);
+      a.say('stop', { hold: 5 });
+    });
+    const at = (t: number) => actor(sc.frame(t), 'ana')!;
+    expect(at(6).pose).toBe('idle');
+    expect([at(6).x, at(6).y]).toEqual([at(3).x, at(3).y]);
+    expect([at(9).x, at(9).y]).toEqual([at(3).x, at(3).y]);
+  });
+
+  it('ramps start from the value at their start in scene time, not call order', () => {
+    const sc = make((s) => {
+      s.together(() => {
+        s.sequence(() => {
+          s.wait(2);
+          s.timeOfDay(0, { duration: 2 });
+        });
+        s.timeOfDay(20, { duration: 1 });
+      });
+    });
+    expect(sc.frame(1.99).timeOfDay).toBeCloseTo(20);
+    expect(sc.frame(2).timeOfDay).toBeCloseTo(20);
+    expect(sc.frame(3).timeOfDay).toBeCloseTo(10);
+    expect(sc.frame(4).timeOfDay).toBe(0);
+  });
+
+  it('the bubble shown is the latest in scene time, and it cuts off the earlier one', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: 'west' });
+      s.together(() => {
+        s.sequence(() => {
+          s.wait(1);
+          a.say('later', { hold: 2 });
+        });
+        a.say('earlier', { hold: 5 });
+      });
+    });
+    expect(sc.frame(0.5).bubbles.map((b) => b.text)).toEqual(['earlier']);
+    expect(sc.frame(1.5).bubbles.map((b) => b.text)).toEqual(['later']);
+    expect(sc.frame(4).bubbles).toEqual([]);
+  });
+
+  it('a redirected walk never steps back to the tile centre behind the actor', () => {
+    // At 0.85 s Ana is 2 px past the centre of tile [2, 8], heading east, when she is sent further east.
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: [0, 8] });
+      s.together(() => {
+        a.walkTo([10, 8]);
+        s.sequence(() => {
+          s.wait(0.85);
+          a.walkTo([12, 8]);
+        });
+      });
+    });
+    expect(actor(sc.frame(0.85), 'ana')!.x).toBe(center(2, 8).x + 2);
+    let prev = -Infinity;
+    for (let t = 0; t <= sc.duration; t += 1 / 60) {
+      const x = actor(sc.frame(t), 'ana')!.x;
+      expect(x).toBeGreaterThanOrEqual(prev);
+      prev = x;
+    }
+    expect(actor(sc.frame(sc.duration), 'ana')!.x).toBe(center(12, 8).x);
+  });
+
+  it('frames are copies: changing one never changes the next', () => {
+    const sc = make((s) => {
+      const a = s.actor('ana', { at: 'west' });
+      s.label('plaza', 'here');
+      s.focus(a);
+      s.wait(1);
+    });
+    const f = sc.frame(1);
+    f.focus!.actors.length = 0;
+    (f.annotations![0] as { at: { x: number } }).at.x = -1;
+    const g = sc.frame(1);
+    expect(g.focus!.actors).toEqual(['ana']);
+    expect(g.annotations![0]).toMatchObject({ at: center(10, 8) });
+  });
+
+  it('the rounded view the renderer draws stays inside the town at every zoom', () => {
+    const targets: [number, number][] = [[0, 0], [59, 39], [0, 39], [59, 0], [30, 20], [7, 33], [52, 3]];
+    for (let zoom = 1; zoom <= 16; zoom++) {
+      const sc = make((s) => {
+        for (const tile of targets) {
+          s.camera.cut(tile, { zoom });
+          s.wait(1);
+        }
+      }, big);
+      for (let i = 0; i < targets.length; i++) {
+        const cam = cameraFor(sc.frame(i + 0.5).camera, sc.width, sc.height);
+        expect(cam.x0).toBeGreaterThanOrEqual(0);
+        expect(cam.y0).toBeGreaterThanOrEqual(0);
+        expect(cam.x0 + cam.w).toBeLessThanOrEqual(960);
+        expect(cam.y0 + cam.h).toBeLessThanOrEqual(640);
+      }
+    }
+  });
+
+  it('thousands of camera calls neither overflow the stack nor slow frames down', () => {
+    const sc = make((s) => {
+      // Only the first cut sets the zoom; every later one carries it forward.
+      for (let i = 0; i < 5000; i++) {
+        s.camera.cut([i % 60, 20], i === 0 ? { zoom: 2 } : {});
+        s.wait(0.01);
+      }
+      s.camera.pan([30, 20], { duration: 1 });
+    }, big);
+    expect(() => sc.frame(49)).not.toThrow();
+    expect(sc.frame(sc.duration).camera).toEqual({ x: 30 * 16 + 8, y: 320, zoom: 2 });
   });
 });

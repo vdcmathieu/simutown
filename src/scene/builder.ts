@@ -10,7 +10,7 @@ import { blockerAt, fmtTile, inBounds, isWalkable, type Tile, tileAt, tileCenter
 import { unknownName } from '../world/names';
 import { explainNoPath, findPath } from '../world/path';
 import { createRng, type Rng } from '../world/random';
-import { type ActorSeg, bodyAt, type Body, type CamTarget, dirBetween, emptyTimeline, frameAt, insertByStart, type Pt, rampAt, type Timeline } from './timeline';
+import { type ActorSeg, bodyAt, type Body, type CamTarget, cutWalk, dirBetween, emptyTimeline, frameAt, insertByStart, type Pt, type Ramp, settleByKey, settleCamera, settleRamps, type Timeline } from './timeline';
 import * as T from './timing';
 import type { ActorHandle, ActorOpts, SceneBuilder, SceneOpts, Target } from './types';
 
@@ -141,7 +141,10 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     const w = r.wander;
     if (!w || t < w.start) return;
     extendWander(r, t);
-    r.segs = r.segs.filter((s) => !(s.kind === 'walk' && s.wander && s.start >= t));
+    // Strolls not yet started are dropped; the one under way stops where the actor is at t.
+    r.segs = r.segs
+      .filter((s) => !(s.kind === 'walk' && s.wander && s.start >= t))
+      .map((s) => (s.kind === 'walk' && s.wander && s.end > t ? cutWalk(s, t) : s));
     r.wander = undefined;
   };
 
@@ -161,9 +164,13 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
   const walkSeg = (b: Body, goal: Tile, t0: number, speed: number): (ActorSeg & { kind: 'walk' }) | null => {
     const path = findPath(town, tileAt(b.x, b.y), goal);
     if (!path) return null;
+    const centres = path.map((p) => tileCenter(p.tx, p.ty));
+    // Mid-step, the start tile's centre may lie behind the actor on the way to the next one:
+    // skip it rather than step back to it.
+    const [c0, c1] = centres;
+    if (c0 && c1 && (c0.x - b.x) * (c1.x - b.x) + (c0.y - b.y) * (c1.y - b.y) < 0) centres.shift();
     const points: Pt[] = [{ x: b.x, y: b.y }];
-    for (const p of path) {
-      const c = tileCenter(p.tx, p.ty);
+    for (const c of centres) {
       const last = points[points.length - 1]!;
       if (c.x !== last.x || c.y !== last.y) points.push(c);
     }
@@ -231,7 +238,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
   };
 
   const checkZoom = (zoom: number | undefined): void => {
-    if (zoom !== undefined && !(Number.isInteger(zoom) && zoom >= 1)) throw new Error(`Camera zoom must be a whole number >= 1, got ${zoom}.`);
+    if (zoom !== undefined && !(Number.isInteger(zoom) && zoom >= 1 && zoom <= 16)) throw new Error(`Camera zoom must be a whole number from 1 to 16, got ${zoom}.`);
   };
 
   // --- actor handles ------------------------------------------------------------------
@@ -252,7 +259,6 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
       const typeEnd = T.typeTime(text);
       const d = typeEnd + (opts.hold ?? T.readHold(text));
       const t = start(d);
-      for (const b of tl.bubbles) if (b.actor === id && b.start < t && b.end > t) b.end = t;
       tl.bubbles.push({ actor: id, text, kind, start: t, typeEnd: t + typeEnd, end: t + d });
     };
     /** Reserve time for a call on this actor and stop any wander at its start. */
@@ -374,9 +380,14 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
 
   // --- the builder --------------------------------------------------------------------
 
-  const addRamp = <R extends { start: number; end: number; from: number; to: number }>(list: R[], initial: number, item: Omit<R, 'from'>): void => {
-    insertByStart(list, { ...item, from: rampAt(list, item.start, initial) } as R);
+  /** A ramp that starts from wherever the value is at its start; `settleRamps` fills that in at the end. */
+  const addRamp = <R extends Ramp>(list: R[], item: Omit<R, 'from'>): R => {
+    const ramp = { ...item, from: Number.NaN } as R;
+    insertByStart(list, ramp);
+    return ramp;
   };
+  /** Unfocus ramps keep dimming whoever was focused before them, found once the script is done. */
+  const unfocusRamps = new Set<Ramp>();
   const actorIds = (actors: ActorHandle | ActorHandle[], what: string): string[] =>
     (Array.isArray(actors) ? actors : [actors]).map((a) => rec(a, what).handle.id);
   const labelKey = (target: Target, what: string): { actor?: string; at?: Pt } => {
@@ -385,8 +396,9 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     if (!tile) throw placeError(target as string);
     return { at: tileCenter(tile.tx, tile.ty) };
   };
-  const sameKey = (a: { actor?: string; at?: Pt }, b: { actor?: string; at?: Pt }): boolean =>
-    a.actor !== undefined ? a.actor === b.actor : !!b.at && a.at!.x === b.at.x && a.at!.y === b.at.y;
+  /** Captions and labels as calls made them; `text: null` is a clear. Settled in scene time at the end. */
+  const captions: { text: string | null; start: number; end: number; fadeIn: boolean }[] = [];
+  const labels: { actor?: string; at?: Pt; text: string | null; start: number; end: number }[] = [];
 
   const s: SceneBuilder = {
     get now() {
@@ -408,18 +420,11 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     caption(text, opts = {}) {
       checkSeconds('s.caption hold', opts.hold);
       const t = advance(opts.hold ?? 0);
-      let fadeIn = true;
-      for (const c of tl.captions) {
-        if (c.start <= t && c.end > t) {
-          c.end = t;
-          fadeIn = false;
-        }
-      }
-      insertByStart(tl.captions, { text, start: t, end: opts.hold !== undefined ? t + opts.hold : Infinity, fadeIn });
+      captions.push({ text, start: t, end: opts.hold !== undefined ? t + opts.hold : Infinity, fadeIn: true });
     },
     clearCaption() {
       const t = advance(0);
-      for (const c of tl.captions) if (c.start <= t && c.end > t) c.end = t;
+      captions.push({ text: null, start: t, end: t, fadeIn: false });
     },
     camera: {
       cut(target, opts = {}) {
@@ -444,18 +449,17 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
       checkSeconds('s.timeOfDay duration', opts.duration);
       const d = opts.duration ?? 0;
       const t = advance(d);
-      addRamp(tl.hours, hour0, { start: t, end: t + d, to: hour });
+      addRamp(tl.hours, { start: t, end: t + d, to: hour });
     },
     label(target, text) {
       const key = labelKey(target, 's.label');
       const t = advance(0);
-      for (const l of tl.labels) if (sameKey(key, l) && l.start <= t && l.end > t) l.end = t;
-      tl.labels.push({ ...key, text, start: t, end: Infinity });
+      labels.push({ ...key, text, start: t, end: Infinity });
     },
     unlabel(target) {
       const key = labelKey(target, 's.unlabel');
       const t = advance(0);
-      for (const l of tl.labels) if (sameKey(key, l) && l.start <= t && l.end > t) l.end = t;
+      labels.push({ ...key, text: null, start: t, end: t });
     },
     link(a, b, opts = {}) {
       checkSeconds('s.link hold', opts.hold);
@@ -476,15 +480,13 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
       const ids = actorIds(actors, 's.focus');
       const d = opts.duration ?? T.FOCUS_RAMP;
       const t = advance(d);
-      addRamp(tl.focus, 0, { start: t, end: t + d, to: 1, actors: ids });
+      addRamp(tl.focus, { start: t, end: t + d, to: 1, actors: ids });
     },
     unfocus(opts = {}) {
       checkSeconds('s.unfocus duration', opts.duration);
       const d = opts.duration ?? T.FOCUS_RAMP;
       const t = advance(d);
-      let actors: string[] = [];
-      for (const f of tl.focus) if (f.start <= t) actors = f.actors;
-      addRamp(tl.focus, 0, { start: t, end: t + d, to: 0, actors });
+      unfocusRamps.add(addRamp(tl.focus, { start: t, end: t + d, to: 0, actors: [] }));
     },
     fadeIn(seconds) {
       checkSeconds('s.fadeIn', seconds);
@@ -497,7 +499,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
       checkSeconds('s.fadeOut', seconds);
       const d = seconds ?? T.FADE;
       const t = advance(d);
-      addRamp(tl.fades, 0, { start: t, end: t + d, to: 1 });
+      addRamp(tl.fades, { start: t, end: t + d, to: 1 });
     },
     wander(actor, opts) {
       const r = rec(actor, 's.wander');
@@ -516,10 +518,28 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
   script(s);
   if (stack.length !== 1) throw new Error('Internal error: unbalanced together/sequence groups.');
   tl.duration = stack[0]!.cursor;
+  // Everything is collected and sorted by scene time: now resolve what depends on what came before.
+  settleRamps(tl.hours, hour0);
+  settleRamps(tl.fades, 0);
+  settleRamps(tl.focus, 0);
+  // A bubble, emote, caption or label ends when the next one for the same speaker or spot starts.
+  tl.bubbles = settleByKey(tl.bubbles, (b) => b.actor);
+  tl.emotes = settleByKey(tl.emotes, (e) => e.actor);
+  tl.captions = settleByKey(captions, () => '', (c) => (c.fadeIn = false))
+    .filter((c) => c.text !== null)
+    .map((c) => ({ ...c, text: c.text! }));
+  tl.labels = settleByKey(labels, (l) => l.actor ?? `${l.at!.x},${l.at!.y}`)
+    .filter((l) => l.text !== null)
+    .map((l) => ({ ...l, text: l.text! }));
+  tl.focus.forEach((f, i) => {
+    if (unfocusRamps.has(f)) f.actors = i > 0 ? tl.focus[i - 1]!.actors : [];
+  });
   for (const r of recs.values()) {
     extendWander(r, tl.duration);
     tl.actors.find((a) => a.id === r.handle.id)!.segs = r.segs;
   }
+  // Needs the final actor tracks: camera segments may point at actors.
+  settleCamera(tl);
 
   return {
     title: opts.title,

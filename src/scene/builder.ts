@@ -164,9 +164,13 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
   const walkSeg = (b: Body, goal: Tile, t0: number, speed: number): (ActorSeg & { kind: 'walk' }) | null => {
     const path = findPath(town, tileAt(b.x, b.y), goal);
     if (!path) return null;
+    const centres = path.map((p) => tileCenter(p.tx, p.ty));
+    // Mid-step, the start tile's centre may lie behind the actor on the way to the next one:
+    // skip it rather than step back to it.
+    const [c0, c1] = centres;
+    if (c0 && c1 && (c0.x - b.x) * (c1.x - b.x) + (c0.y - b.y) * (c1.y - b.y) < 0) centres.shift();
     const points: Pt[] = [{ x: b.x, y: b.y }];
-    for (const p of path) {
-      const c = tileCenter(p.tx, p.ty);
+    for (const c of centres) {
       const last = points[points.length - 1]!;
       if (c.x !== last.x || c.y !== last.y) points.push(c);
     }

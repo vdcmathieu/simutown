@@ -657,7 +657,7 @@ describe('regressions from review', () => {
     expect(sc.frame(4).bubbles).toEqual([]);
   });
 
-  it.fails('a redirected walk never steps back to the tile centre behind the actor', () => {
+  it('a redirected walk never steps back to the tile centre behind the actor', () => {
     // At 0.85 s Ana is 2 px past the centre of tile [2, 8], heading east, when she is sent further east.
     const sc = make((s) => {
       const a = s.actor('ana', { at: [0, 8] });

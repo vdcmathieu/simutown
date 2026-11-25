@@ -14,6 +14,7 @@
  */
 import type { Sprite } from '../core/sprite';
 import type { FringeSide, TerrainDef, Town } from '../core/types';
+import { hash2 } from './hash';
 
 export interface FringeDraw {
   /** Id of the terrain that creeps in. */
@@ -47,6 +48,12 @@ const INNER: readonly { side: FringeSide; a: Edge; b: Edge }[] = [
   { side: 'in-sw', a: 's', b: 'w' },
 ];
 
+/** One sprite for a fringe side: arrays are interchangeable looks, picked by tile position. */
+function pick(entry: Sprite | Sprite[] | undefined, tx: number, ty: number): Sprite | undefined {
+  if (!Array.isArray(entry)) return entry;
+  return entry.length === 0 ? undefined : entry[hash2(tx, ty) % entry.length];
+}
+
 function terrainAt(town: Town, tx: number, ty: number): string | undefined {
   if (tx < 0 || ty < 0 || tx >= town.w || ty >= town.h) return undefined;
   return town.terrain[ty * town.w + tx];
@@ -61,7 +68,7 @@ function fringesOf(town: Town, id: string, def: TerrainDef, tx: number, ty: numb
   const inner: FringeDraw[] = [];
   for (const { side, a, b } of INNER) {
     if (!touching.has(a) || !touching.has(b)) continue;
-    const sprite = def.fringe?.[side];
+    const sprite = pick(def.fringe?.[side], tx, ty);
     for (const edge of [a, b]) {
       const count = bends.get(edge) ?? { all: 0, covered: 0 };
       count.all++;
@@ -73,11 +80,11 @@ function fringesOf(town: Town, id: string, def: TerrainDef, tx: number, ty: numb
   const out: FringeDraw[] = [];
   for (const { side } of EDGES) {
     const bend = bends.get(side);
-    const sprite = def.fringe?.[side];
+    const sprite = pick(def.fringe?.[side], tx, ty);
     if (touching.has(side) && sprite && !(bend && bend.covered === bend.all)) out.push({ terrain: id, side, sprite });
   }
   for (const { side, dx, dy } of OUTER) {
-    const sprite = def.fringe?.[side];
+    const sprite = pick(def.fringe?.[side], tx, ty);
     if (sprite && is(dx, dy) && !is(dx, 0) && !is(0, dy)) out.push({ terrain: id, side, sprite });
   }
   return [...out, ...inner];

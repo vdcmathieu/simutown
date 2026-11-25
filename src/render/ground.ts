@@ -44,6 +44,13 @@ export function frameAt(count: number, fps: number, t: number): number {
 
 /** The look of one terrain tile at time `t`: the animation frame, or a variant hashed from (tx, ty). */
 export function terrainSprite(def: TerrainDef, tx: number, ty: number, t: number): Sprite | undefined {
+  const many = def.anims?.filter((a) => a.frames.length > 0);
+  if (many && many.length > 0) {
+    const h = hash2(tx, ty);
+    const a = many[h % many.length]!;
+    // each tile starts at its own phase so neighbours do not shimmer in step
+    return a.frames[frameAt(a.frames.length, a.fps, t + ((h >>> 8) % 97) / a.fps)];
+  }
   const frames = def.anim?.frames;
   if (frames && frames.length > 0) return frames[frameAt(frames.length, def.anim!.fps, t)];
   if (def.variants.length === 0) return undefined;
@@ -69,7 +76,8 @@ export function buildGround(town: Town, art: ArtRegistry, lut: Lut, warn: WarnOn
       surface.blit(tile, tx * TILE, ty * TILE, lut);
       const fringes = fringesFor(town, art.terrain, tx, ty).map((f) => f.sprite);
       for (const f of fringes) surface.blit(f, tx * TILE, ty * TILE, lut);
-      if (def!.anim && def!.anim.frames.length > 1) animated.push({ tx, ty, def: def!, fringes });
+      const moving = (def!.anim?.frames.length ?? 0) > 1 || (def!.anims ?? []).some((a) => a.frames.length > 1);
+      if (moving) animated.push({ tx, ty, def: def!, fringes });
     }
   }
   return { surface, animated };

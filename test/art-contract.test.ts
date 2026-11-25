@@ -12,8 +12,9 @@ describe('terrain', () => {
   for (const [key, def] of Object.entries(art.terrain)) {
     it(`${key} is well formed`, () => {
       expect(def.id).toBe(key);
-      const looks = [...def.variants, ...(def.anim?.frames ?? []), ...Object.values(def.fringe ?? {})];
-      expect(def.variants.length + (def.anim?.frames.length ?? 0)).toBeGreaterThan(0);
+      const animFrames = [...(def.anim?.frames ?? []), ...(def.anims ?? []).flatMap((a) => a.frames)];
+      const looks = [...def.variants, ...animFrames, ...Object.values(def.fringe ?? {}).flat()];
+      expect(def.variants.length + animFrames.length).toBeGreaterThan(0);
       for (const s of looks) {
         expect(size(s)).toBe(`${TILE}x${TILE}`);
         expect([s.ax, s.ay]).toEqual([0, 0]);

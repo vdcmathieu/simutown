@@ -240,7 +240,10 @@ export async function run(argv: string[], io: CliIO): Promise<number> {
       case 'list': {
         const files = sceneFiles(root);
         if (files.length === 0) {
-          io.out('No scenes in scenes/ yet. "simutown new <name>" writes a starter scene.');
+          io.out(
+            `No scenes in ${show(join(root, 'scenes'))}/ yet. "simutown new <name>" writes a starter scene there ` +
+              '(or here, without a scenes/ folder); a scene file anywhere else renders by its path.',
+          );
           return 0;
         }
         let failed = 0;

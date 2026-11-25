@@ -45,7 +45,7 @@ describe('overlays', () => {
         bubbles: [{ actor: 'a', text: 'Hi', kind: 'think', reveal: 1 }],
         annotations: [
           { kind: 'label', actor: 'a', text: 'knows', opacity: 0.8 },
-          { kind: 'label', at: { x: 10, y: 12 }, text: 'cafe', opacity: 1 },
+          { kind: 'label', at: { x: 10, y: 40 }, text: 'cafe', opacity: 1 },
         ],
       }),
       out,
@@ -54,7 +54,7 @@ describe('overlays', () => {
     const labels = vi.mocked(ui.drawLabel).mock.calls.map((c) => c.slice(2));
     expect(labels).toEqual([
       ['knows', 40, 16, 0.8], // above the 8-pixel emote and a gap
-      ['cafe', 10, 12, 1],
+      ['cafe', 10, 16, 1], // `at` is a spot on the ground: lifted by a character's height
     ]);
     const bubble = vi.mocked(ui.drawBubble).mock.calls[0]![2];
     expect(bubble.x).toBe(40);

@@ -65,7 +65,8 @@ export function drawOverlays(out: Surface, lut: Lut, art: ArtRegistry, state: Fr
       drawLabel(out, lut, n.text, at[0], at[1], n.opacity);
       at[1] -= art.font.height + LABEL_PAD + GAP;
     } else if (n.at) {
-      const [x, y] = toScreen(cam, n.at.x, n.at.y);
+      // `at` is a spot on the ground: lift the tag to where a head would be
+      const [x, y] = toScreen(cam, n.at.x, n.at.y - CHAR_H);
       drawLabel(out, lut, n.text, x, y, n.opacity);
     }
   }

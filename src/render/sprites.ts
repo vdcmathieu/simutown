@@ -30,9 +30,10 @@ export interface Drawable {
   id: number;
 }
 
-/** Frames per second for actor poses. Walk cycles are four frames, so two steps a second. */
-const POSE_FPS: Record<string, number> = { idle: 2, walk: 8 };
-const DEFAULT_POSE_FPS = 6;
+/** Frames per second when a character does not say: `walkFps`, `idleFps`, and every extra pose. */
+const WALK_FPS = 8;
+const IDLE_FPS = 2;
+const POSE_FPS = 6;
 /** An actor this close to the view is kept even when off screen: its shadow may reach in. */
 const CAST_REACH = 48;
 
@@ -61,16 +62,18 @@ export function propSprite(def: PropDef, t: number): Sprite {
 /** The sprite an actor shows, from its pose, direction and `animTime`. Unknown poses fall back to idle. */
 export function actorSprite(def: CharacterDef, a: ActorState, warn: WarnOnce): Sprite | undefined {
   let set = a.pose === 'walk' ? def.walk : a.pose === 'idle' ? def.idle : def.poses?.[a.pose];
+  let fps = a.pose === 'walk' ? (def.walkFps ?? WALK_FPS) : a.pose === 'idle' ? (def.idleFps ?? IDLE_FPS) : POSE_FPS;
   if (!set) {
     warn(
       `pose:${def.id}:${a.pose}`,
       `character "${def.id}" has no pose "${a.pose}", using idle. Poses: ${listNames(['idle', 'walk', ...Object.keys(def.poses ?? {})])}`,
     );
     set = def.idle;
+    fps = def.idleFps ?? IDLE_FPS;
   }
   const frames = set[a.dir] ?? set.down;
   if (!frames || frames.length === 0) return undefined;
-  return frames[frameAt(frames.length, POSE_FPS[a.pose] ?? DEFAULT_POSE_FPS, a.animTime)];
+  return frames[frameAt(frames.length, fps, a.animTime)];
 }
 
 /** True when the sprite's box, grown by `margin` pixels, touches the view. */

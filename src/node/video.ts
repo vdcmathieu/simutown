@@ -12,7 +12,7 @@ import type { Writable } from 'node:stream';
 import { Surface } from '../core/surface';
 import type { Renderer, Scene } from '../core/types';
 import { frameCount } from '../player/clock';
-import { createRenderer, type RendererOpts } from '../render';
+import { type RendererOpts, rendererFor } from '../render';
 import { writePNG } from './png';
 
 /** The containers `renderVideo` can write, picked from the file extension. */
@@ -183,7 +183,7 @@ function write(stream: Writable, chunk: Uint8Array): Promise<void> {
 export async function renderVideo(scene: Scene, path: string, opts: VideoOpts = {}): Promise<VideoResult> {
   const started = performance.now();
   const plan = planVideo(scene, path, opts);
-  const renderer = opts.renderer ?? createRenderer(scene.town, opts);
+  const renderer = opts.renderer ?? rendererFor(scene, opts);
   const bin = ffmpegBinary(opts);
   mkdirSync(dirname(path), { recursive: true });
   // ffmpeg writes to a sibling; it replaces `path` only on success, so a failed export
@@ -274,7 +274,7 @@ export function renderStill(scene: Scene, t: number, path: string, opts: StillOp
     throw new Error(`scale must be a whole number from 1 to 16, got ${scale}`);
   }
   const frame = new Surface(scene.width, scene.height);
-  (opts.renderer ?? createRenderer(scene.town, opts)).render(scene.frame(t), frame);
+  (opts.renderer ?? rendererFor(scene, opts)).render(scene.frame(t), frame);
   const out = scale === 1 ? frame : frame.scaled(scale);
   writePNG(path, out);
   return { path, width: out.w, height: out.h };

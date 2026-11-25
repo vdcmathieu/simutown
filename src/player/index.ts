@@ -15,7 +15,7 @@
 import { daylight, type Theme } from '../core/palette';
 import { Surface } from '../core/surface';
 import type { Renderer, Scene } from '../core/types';
-import { createRenderer } from '../render';
+import { rendererFor } from '../render';
 import { advance, fitScale, formatTime, frameIndex } from './clock';
 import { applyThemeVars } from './theme';
 
@@ -122,7 +122,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, attrs: R
 export function mount(target: HTMLElement, scene: Scene, opts: PlayerOpts = {}): Player {
   injectStyle();
   const theme = opts.theme ?? daylight;
-  const renderer = opts.renderer ?? createRenderer(scene.town, { theme });
+  const renderer = opts.renderer ?? rendererFor(scene, { theme });
   const { width: W, height: H, duration, fps } = scene;
 
   // --- DOM -------------------------------------------------------------------------------

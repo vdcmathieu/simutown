@@ -657,6 +657,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     width: FRAME_W,
     height: FRAME_H,
     cast: [...new Set(tl.actors.map((a) => a.character))],
+    art,
     frame: (t: number) => frameAt(tl, t),
   };
 }

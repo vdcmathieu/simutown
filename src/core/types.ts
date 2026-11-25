@@ -282,6 +282,8 @@ export interface Scene {
   height: number;
   /** Character ids that appear in the scene, when the builder knows them. */
   cast?: string[];
+  /** The art the scene was built with. Renderers draw the scene with it; default: the built-in art. */
+  art?: ArtRegistry;
   frame(t: number): FrameState;
 }
 

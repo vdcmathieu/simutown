@@ -11,20 +11,20 @@ import { willowSquare } from '../src/towns/willow-square';
 
 export default scene({ title: 'Word of mouth', town: willowSquare, timeOfDay: 10 }, (s) => {
   const ana = s.actor('ana', { at: 'cafe.door' });
-  const ben = s.actor('ben', { at: 'fountain.south', facing: 'left' });
+  const bo = s.actor('bo', { at: 'fountain.south', facing: 'left' });
 
   s.title('Word of mouth', 'How news travels in a small town');
   s.camera.cut(ana, { zoom: 2 });
   s.caption('Ana has news.');
 
-  ana.walkTo(ben);                        // pathfinds, stops next to Ben, facing him
+  ana.walkTo(bo);                        // pathfinds, stops next to Bo, facing him
   ana.say('Party at the cafe on Friday!');
   s.together(() => {                      // everything in here starts at the same moment
-    ben.emote('surprise');
-    s.link(ana, ben);                     // a dotted line: information passing
+    bo.emote('surprise');
+    s.link(ana, bo);                     // a dotted line: information passing
     s.camera.pan('plaza', { duration: 2, zoom: 1 });
   });
-  s.label(ben, 'knows');
+  s.label(bo, 'knows');
   s.wait(1);
   s.fadeOut();
 });
@@ -96,9 +96,9 @@ Any call on a wandering actor ends the wander at that moment.
 Start an actor with `hidden: true` at a door, then `exit` the building, to have them come out later:
 
 ```ts
-const cy = s.actor('cy', { at: 'cafe.door', hidden: true });
+const kofi = s.actor('kofi', { at: 'cafe.door', hidden: true });
 s.wait(2);
-cy.exit('cafe');
+kofi.exit('cafe');
 ```
 
 Seats belong to props: the built-in `bench` has `left` and `right`.

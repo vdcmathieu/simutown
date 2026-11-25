@@ -108,3 +108,5 @@ export function createRenderer(town: Town, opts: RendererOpts = {}): Renderer {
     },
   };
 }
+
+export { rendererFor, renderFrame } from './scene';

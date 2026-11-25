@@ -12,6 +12,7 @@ Scenes, towns, the CLI, the gallery and the player all read it.
 There are two ways to add to it:
 
 - **For one scene or a few**, make the art in a file of your own and register it at run time: `art.characters.lena = lena`. The scene imports that file before it uses the new id. This is what the samples on this page do.
+- **Without touching the built-in registry**, build your own (`const mine = { ...art, characters: { ...art.characters, lena } }`) and pass it to both `defineTown(spec, mine)` and `scene({ ..., art: mine }, ...)`. The film, the stills and the player all draw the scene with the art it was built with.
 - **For good**, add it to the built-in art under `src/art/`: a person to the cast in `src/art/characters/index.ts`, a building spec to `src/art/buildings/presets.ts`, a prop to `src/art/street/` or `src/art/nature/`, a ground to `src/art/terrain/`. Then `pnpm sheet` draws it and `pnpm check` tests its size and anchor (`test/art-contract.test.ts`).
 
 `scene()` and `defineTown()` take an `art` option of their own, but only to check names: the renderers of the CLI and the gallery always draw from the shared registry.

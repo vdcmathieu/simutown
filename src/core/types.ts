@@ -117,6 +117,13 @@ export interface PropDef {
    * "<propId>.<place>".
    */
   places?: Record<string, { dx: number; dy: number }>;
+  /**
+   * Named seats, for props people sit on. Each is where the sitter's feet go, in pixels
+   * from the prop's anchor point (x to the right, y down the screen), and the way they
+   * face (default 'down'). A sitter with y greater than 0 is drawn in front of the prop.
+   * Scenes use them through `actor.sitOn(prop, seat)`.
+   */
+  seats?: Record<string, { x: number; y: number; dir?: Dir }>;
   /** Drawn on the ground under every actor (rugs, flower beds, road markings). */
   flat?: boolean;
   /**
@@ -145,6 +152,8 @@ export interface CharacterDef {
   idleFps?: number;
   /** Optional extra poses, e.g. `sit`, `wave`. Scenes refer to them by key. */
   poses?: Record<string, Record<Dir, Sprite[]>>;
+  /** Frames per second for extra poses, by pose key. Default 6 for any pose not listed. */
+  poseFps?: Record<string, number>;
 }
 
 export interface Glyph {

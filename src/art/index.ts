@@ -11,6 +11,8 @@ export { buildings, characters, emotes, font, natureProps, streetProps, terrain 
 // The kits scene authors use to make their own art.
 export { makeBuilding } from './buildings';
 export type { BuildingSpec } from './buildings';
+export { CHARACTER_OPTIONS, makeCharacter, person, townsfolk } from './characters';
+export type { CharacterSpec, PersonSpec, Townsperson } from './characters';
 
 /** The built-in art: everything Simutown can draw out of the box. */
 export const art: ArtRegistry = {

@@ -135,6 +135,8 @@ export const streetProps: Record<string, PropDef> = {
     sprite: benchArt,
     footprint: { w: 2, h: 1 },
     places: { left: { dx: 0, dy: 1 }, right: { dx: 1, dy: 1 } },
+    // feet land 2 px in front of the bench's base line, so the sitter is drawn over the seat
+    seats: { left: { x: 8, y: 2 }, right: { x: 24, y: 2 } },
   },
   fountain: {
     id: 'fountain',

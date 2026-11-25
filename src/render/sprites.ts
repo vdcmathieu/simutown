@@ -62,7 +62,7 @@ export function propSprite(def: PropDef, t: number): Sprite {
 /** The sprite an actor shows, from its pose, direction and `animTime`. Unknown poses fall back to idle. */
 export function actorSprite(def: CharacterDef, a: ActorState, warn: WarnOnce): Sprite | undefined {
   let set = a.pose === 'walk' ? def.walk : a.pose === 'idle' ? def.idle : def.poses?.[a.pose];
-  let fps = a.pose === 'walk' ? (def.walkFps ?? WALK_FPS) : a.pose === 'idle' ? (def.idleFps ?? IDLE_FPS) : POSE_FPS;
+  let fps = a.pose === 'walk' ? (def.walkFps ?? WALK_FPS) : a.pose === 'idle' ? (def.idleFps ?? IDLE_FPS) : (def.poseFps?.[a.pose] ?? POSE_FPS);
   if (!set) {
     warn(
       `pose:${def.id}:${a.pose}`,

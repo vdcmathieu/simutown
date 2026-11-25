@@ -625,7 +625,7 @@ describe('regressions from review', () => {
     expect([at(9).x, at(9).y]).toEqual([at(3).x, at(3).y]);
   });
 
-  it.fails('ramps start from the value at their start in scene time, not call order', () => {
+  it('ramps start from the value at their start in scene time, not call order', () => {
     const sc = make((s) => {
       s.together(() => {
         s.sequence(() => {

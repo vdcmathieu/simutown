@@ -90,6 +90,16 @@ export function insertByStart<T extends { start: number }>(list: T[], item: T): 
   list.splice(i, 0, item);
 }
 
+/**
+ * Fill in every ramp whose `from` is NaN with the value at its start: `initial` for the first,
+ * else where the previous ramp (in start order) stands at that moment.
+ */
+export function settleRamps(ramps: Ramp[], initial: number): void {
+  ramps.forEach((r, i) => {
+    if (Number.isNaN(r.from)) r.from = i === 0 ? initial : rampAt(ramps.slice(0, i), r.start, initial);
+  });
+}
+
 /** The value of a list of ramps at time t (the last ramp that has started wins). */
 export function rampAt(ramps: Ramp[], t: number, initial: number): number {
   let r: Ramp | undefined;

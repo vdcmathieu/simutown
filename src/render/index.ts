@@ -56,13 +56,17 @@ export function createRenderer(town: Town, opts: RendererOpts = {}): Renderer {
   const lights = collectLights([...flat, ...standing], lut);
   const townShadows = createTownShadows(mapW, mapH, standing);
   const townOcclusion = createTownOcclusion(mapW, mapH, lights, standing);
-  let view: View | undefined;
+  // flat props that glow do so wherever the ground shows (owner id 0)
+  const flatGlow = flat.filter((p) => p.def.emissive).map((prop) => ({ prop, x: prop.x, y: prop.y, id: 0 }));
+  // one set of buffers per view size, so cutting between zoom levels allocates nothing
+  const views = new Map<string, View>();
 
   return {
     render(state: FrameState, out: Surface): void {
       const cam = cameraFor(state.camera, out.w, out.h);
-      if (!view || view.w !== cam.w || view.h !== cam.h) view = createView(cam.w, cam.h);
-      const v = view;
+      const size = `${cam.w}x${cam.h}`;
+      let v = views.get(size);
+      if (!v) views.set(size, (v = createView(cam.w, cam.h)));
       v.x0 = cam.x0;
       v.y0 = cam.y0;
       const t = Number.isFinite(state.t) ? state.t : 0;
@@ -90,7 +94,10 @@ export function createRenderer(town: Town, opts: RendererOpts = {}): Renderer {
         }
       }
       gradePass(v, c, mapW, mapH, flatLight);
-      if (c.lamps > 0) drawEmissive(v, list, lut, c.lamps);
+      if (c.lamps > 0) {
+        drawEmissive(v, flatGlow, lut, c.lamps);
+        drawEmissive(v, list, lut, c.lamps);
+      }
 
       // overlays may point at any actor that has a real position, drawn or not
       const actors = new Map<string, ActorState>();

@@ -255,9 +255,9 @@ export function castActorOcclusion(v: View, lights: Light[], list: Drawable[]): 
 /**
  * Draw the emissive layers at full palette brightness, on top of the graded frame.
  * A glowing pixel only shows where its prop is the front-most thing, so a person standing
- * in front of a lit window still covers it.
+ * in front of a lit window still covers it. Flat props pass id 0: they glow where the ground shows.
  */
-export function drawEmissive(v: View, list: Drawable[], lut: Lut, amount: number): void {
+export function drawEmissive(v: View, list: Pick<Drawable, 'prop' | 'x' | 'y' | 'id'>[], lut: Lut, amount: number): void {
   const a = Math.round(Math.max(0, Math.min(1, amount)) * 256);
   if (a === 0) return;
   const d = v.color;

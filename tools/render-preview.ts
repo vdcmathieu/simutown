@@ -2,11 +2,12 @@
  * Render the synthetic preview town (tools/render-art.ts) to PNGs, to judge the renderer by eye.
  *
  *   pnpm tsx tools/render-preview.ts [--theme dusk|sunny] [--scale 2] [--t 1.3]
- *                                    [--time-of-day 19:30] [--zoom 2] [--annotate]
+ *                                    [--time-of-day 19:30] [--zoom 2] [--annotate] [--focus 0.5]
  *                                    [--crop x,y,w,h] [--strip] [--out out/render]
  *
  * With no time given it writes the four review hours (12:00, 18:00, 19:30, 23:00).
- * `--annotate` adds a ring, a link and focus dimming. `--crop` cuts a region of the native
+ * `--annotate` adds rings, links and focus dimming (`--focus` sets how much, 0 for none).
+ * `--crop` cuts a region of the native
  * frame (in pixels) before scaling, for a close look. `--strip` writes one sheet with every
  * second hour of the day, to check that the moods flow into each other.
  */
@@ -26,6 +27,7 @@ const hourArg = takeOption(args, '--time-of-day');
 const zoom = Number(takeOption(args, '--zoom') ?? 1);
 const crop = takeOption(args, '--crop')?.split(',').map(Number);
 const outDir = takeOption(args, '--out') ?? 'out/render';
+const focus = Number(takeOption(args, '--focus') ?? 1);
 const annotate = takeFlag(args, '--annotate');
 const strip = takeFlag(args, '--strip');
 
@@ -72,7 +74,7 @@ export function previewFrame(time: number, hour: number): FrameState {
       { kind: 'link', from: 'ana', to: 'ben', progress: 1 },
       { kind: 'label', actor: 'ana', text: 'knows', opacity: 1 },
     ];
-    state.focus = { actors: ['ana', 'ben', 'fay'], amount: 1 };
+    state.focus = { actors: ['ana', 'ben', 'fay'], amount: focus };
   }
   return state;
 }

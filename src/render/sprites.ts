@@ -33,6 +33,8 @@ export interface Drawable {
 /** Frames per second for actor poses. Walk cycles are four frames, so two steps a second. */
 const POSE_FPS: Record<string, number> = { idle: 2, walk: 8 };
 const DEFAULT_POSE_FPS = 6;
+/** An actor this close to the view is kept even when off screen: its shadow may reach in. */
+const CAST_REACH = 48;
 
 /** Split a town's props into flat ones (part of the ground) and standing ones. Unknown kinds are skipped. */
 export function resolveProps(town: Town, art: ArtRegistry, warn: WarnOnce): { flat: StaticProp[]; standing: StaticProp[] } {
@@ -71,10 +73,11 @@ export function actorSprite(def: CharacterDef, a: ActorState, warn: WarnOnce): S
   return frames[frameAt(frames.length, POSE_FPS[a.pose] ?? DEFAULT_POSE_FPS, a.animTime)];
 }
 
-function visible(v: View, s: Sprite, x: number, y: number): boolean {
+/** True when the sprite's box, grown by `margin` pixels, touches the view. */
+function visible(v: View, s: Sprite, x: number, y: number, margin = 0): boolean {
   const left = x - s.ax;
   const top = y - s.ay;
-  return left < v.x0 + v.w && top < v.y0 + v.h && left + s.w > v.x0 && top + s.h > v.y0;
+  return left - margin < v.x0 + v.w && top - margin < v.y0 + v.h && left + s.w + margin > v.x0 && top + s.h + margin > v.y0;
 }
 
 /** Draw the flat props that are in view straight onto the ground. */
@@ -108,7 +111,7 @@ export function collectDrawables(v: View, standing: StaticProp[], art: ArtRegist
     const sprite = actorSprite(def, actor, warn);
     const x = Math.round(actor.x);
     const y = Math.round(actor.y);
-    if (!sprite || !(alpha > 0) || !Number.isFinite(x + y) || !visible(v, sprite, x, y)) continue;
+    if (!sprite || !(alpha > 0) || !Number.isFinite(x + y) || !visible(v, sprite, x, y, CAST_REACH)) continue;
     list.push({ sprite, x, y, alpha, actor, id: 0 });
   }
   const seq = new Map(list.map((d, i) => [d, i]));

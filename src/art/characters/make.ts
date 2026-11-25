@@ -82,7 +82,7 @@ export interface CharacterSpec {
   accent?: ClothColor;
   /**
    * Extras. `glasses`; a `scarf` and a `bag` (a satchel on a strap) in the colour given;
-   * a `cane`, held in one hand and put away to carry things.
+   * a `cane`, held in one hand and put away to sit down or to carry things.
    */
   accessories?: { glasses?: boolean; scarf?: ClothColor; bag?: ClothColor; cane?: boolean };
   /** Walk-cycle frames per second. Default 8, or 10 for a child's quicker steps. */
@@ -207,7 +207,9 @@ export function makeCharacter(spec: CharacterSpec): CharacterDef {
   const head = (view: 'down' | 'up' | 'right'): Grid => {
     const plain = (g: Grid, shade: string) => (accent ? g : mapChars(g, { R: shade }));
     let g = plain(HEADS[headName][view], 'D');
-    if (hatKind) g = overTall(g, plain(HATS[hatKind][view], 'Z'));
+    // a headscarf shows a strip of hair at the brow: on a bald head it shows skin instead
+    const hairless = headName === 'bald' || headName === 'balding';
+    if (hatKind) g = overTall(g, mapChars(plain(HATS[hatKind][view], 'Z'), hairless ? { H: 'S' } : {}));
     if (spec.beard) g = overTall(g, BEARD[view]);
     if (acc.glasses) g = overTall(g, GLASSES[view]);
     if (scarf) g = overTall(g, SCARF[family][view]);

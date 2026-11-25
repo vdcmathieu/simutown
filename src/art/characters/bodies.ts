@@ -36,7 +36,7 @@ interface Uppers {
   swingB: Grid;
   /** The waving arm is missing: the `wave` over-layers draw it in front of the head. */
   armless: Grid;
-  /** One hand raised, mid-sentence. */
+  /** Side only: one hand held out, mid-sentence. The front view uses `armless` and the `talk` over-layer. */
   talk: Grid;
   /** Both hands on a crate. */
   carry: Grid;
@@ -58,11 +58,15 @@ interface ViewSet {
   skirt: Lowers;
 }
 
-/** Everything drawn for one body shape. `wave` grids are 24 rows: the whole box. */
+/**
+ * Everything drawn for one body shape. `wave` and `talk` are raised arms, drawn after the
+ * head so that long hair cannot hide them: 24 rows, the whole box.
+ */
 export interface BodySet {
   front: ViewSet;
   side: ViewSet;
   wave: { front: [Grid, Grid]; side: [Grid, Grid] };
+  talk: { front: Grid };
   /** How far the body sinks in a step and on a seat. */
   stepDrop: number;
   sitDrop: number;
@@ -95,13 +99,7 @@ const ADULT_FRONT_UPPER: Uppers = {
     ..0S0cccccc0....
     ...00wwwwww0....
   `),
-  talk: at(1, `
-    ...0TxnnnnxT00..
-    ..0TTxbbbbxTTS0.
-    ..0aUccccccUT0..
-    ..0S0cccccc00...
-    ...00wwwwww0....
-  `),
+  talk: emptyGrid(BODY_H),
   // The crate shows its lid: one light row on top, two rows of front.
   carry: at(1, `
     ...0TxnnnnxT0...
@@ -305,10 +303,20 @@ const ADULT_WAVE_SIDE: [Grid, Grid] = [
   `, 12, 24),
 ];
 
+// Talking: the forearm comes up beside the shoulder, the hand at chin height.
+const ADULT_TALK_FRONT = grid(`
+  .............0..
+  ............0S0.
+  ............0a0.
+  ...........0T0..
+  ............0...
+`, 13, 24);
+
 const ADULT: BodySet = {
   front: { upper: ADULT_FRONT_UPPER, legs: ADULT_FRONT_LEGS, skirt: ADULT_FRONT_SKIRT },
   side: { upper: ADULT_SIDE_UPPER, legs: ADULT_SIDE_LEGS, skirt: ADULT_SIDE_SKIRT },
   wave: { front: ADULT_WAVE_FRONT, side: ADULT_WAVE_SIDE },
+  talk: { front: ADULT_TALK_FRONT },
   stepDrop: 1,
   sitDrop: 2,
 };
@@ -334,11 +342,7 @@ const CHILD_FRONT_UPPER: Uppers = {
     ...0aUccccU0....
     ...0S0wwww0.....
   `),
-  talk: at(4, `
-    ....0xnnnnx00...
-    ...0aUccccUS0...
-    ...0S0wwww00....
-  `),
+  talk: emptyGrid(BODY_H),
   carry: at(4, `
     ....0xnnnnx0....
     ...0a000000a0...
@@ -513,10 +517,18 @@ const CHILD_WAVE_SIDE: [Grid, Grid] = [
   `, 15, 24),
 ];
 
+const CHILD_TALK_FRONT = grid(`
+  ............0...
+  ...........0S0..
+  ...........aa0..
+  ...........00...
+`, 16, 24);
+
 const CHILD: BodySet = {
   front: { upper: CHILD_FRONT_UPPER, legs: CHILD_FRONT_LEGS, skirt: CHILD_FRONT_SKIRT },
   side: { upper: CHILD_SIDE_UPPER, legs: CHILD_SIDE_LEGS, skirt: CHILD_SIDE_SKIRT },
   wave: { front: CHILD_WAVE_FRONT, side: CHILD_WAVE_SIDE },
+  talk: { front: CHILD_TALK_FRONT },
   stepDrop: 0,
   sitDrop: 1,
 };

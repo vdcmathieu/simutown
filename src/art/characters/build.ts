@@ -55,6 +55,8 @@ interface Recipe {
   flip?: boolean;
   /** Which frame of the waving arm to add. */
   wave?: 0 | 1;
+  /** Add the raised forearm of the talk pose (front and back views). */
+  gesture?: boolean;
 }
 
 const STAND: Recipe = { upper: 'stand', lower: 'stand' };
@@ -72,12 +74,13 @@ const FRONT: Record<'idle' | 'walk' | PoseName, Recipe[]> = {
   ],
   sit: [...rep(6, { upper: 'stand', lower: 'sit', sink: 'sit' } as Recipe), ...rep(6, { upper: 'stand', lower: 'sit', sink: 'sit', nod: 1 } as Recipe)],
   wave: [...rep(2, { upper: 'armless', lower: 'stand', wave: 0 } as Recipe), ...rep(2, { upper: 'armless', lower: 'stand', wave: 1 } as Recipe)],
-  talk: [...rep(3, { upper: 'talk', lower: 'stand' } as Recipe), ...rep(3, SETTLED)],
+  talk: [...rep(3, { upper: 'armless', lower: 'stand', gesture: true } as Recipe), ...rep(3, SETTLED)],
   carry: [...rep(3, { upper: 'carry', lower: 'stand' } as Recipe), ...rep(3, { upper: 'carry', lower: 'stand', nod: 1 } as Recipe)],
 };
 
 const SIDE: typeof FRONT = {
   ...FRONT,
+  talk: [...rep(3, { upper: 'talk', lower: 'stand' } as Recipe), ...rep(3, SETTLED)],
   walk: [
     { upper: 'swingA', lower: 'stepA', sink: 'step' },
     STAND,
@@ -91,7 +94,7 @@ const SIDE: typeof FRONT = {
 const BACK: typeof FRONT = {
   ...FRONT,
   wave: [...rep(2, { upper: 'armless', lower: 'stand', wave: 0, flip: true } as Recipe), ...rep(2, { upper: 'armless', lower: 'stand', wave: 1, flip: true } as Recipe)],
-  talk: [...rep(3, { upper: 'talk', lower: 'stand', flip: true } as Recipe), ...rep(3, SETTLED)],
+  talk: [...rep(3, { upper: 'armless', lower: 'stand', gesture: true, flip: true } as Recipe), ...rep(3, SETTLED)],
   carry: [...rep(3, STAND), ...rep(3, SETTLED)],
 };
 
@@ -119,10 +122,9 @@ function drawFrame(parts: Parts, view: View, pose: string, r: Recipe): Sprite {
   let box = over(emptyGrid(CHAR_H), body, stoop, CHAR_H - BODY_H);
   const head = view === 'front' ? parts.head.down : view === 'back' ? parts.head.up : parts.head.right;
   box = over(box, head, 0, shape.headDy + headDrop);
-  if (r.wave !== undefined) {
-    const arm = view === 'side' ? set.wave.side[r.wave] : set.wave.front[r.wave];
-    box = over(box, mapChars(r.flip ? mirror(arm) : arm, zones), stoop, bodyDrop);
-  }
+  // a raised arm goes on last, in front of the head
+  const arm = r.gesture ? set.talk.front : r.wave === undefined ? undefined : view === 'side' ? set.wave.side[r.wave] : set.wave.front[r.wave];
+  if (arm) box = over(box, mapChars(r.flip ? mirror(arm) : arm, zones), stoop, bodyDrop);
   try {
     return sprite(box.join('\n'), { legend: parts.legend, anchor: [CHAR_W / 2, CHAR_H] });
   } catch (err) {

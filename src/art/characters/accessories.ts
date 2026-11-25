@@ -61,11 +61,11 @@ export const BAG: Record<'adult' | 'child', BodyLayer> = {
   },
 };
 
-// A walking stick in the hand that does not wave: on the viewer's left from the front. It stands
-// on the ground while the body bobs, and the arm that holds it does not swing.
-const CANE_FRONT_ADULT = at(2, `
+// A walking stick in the hand that does not wave: on the viewer's left from the front.
+// The hand rests on its top. It stands on the ground while the body bobs, and the arm
+// that holds it does not swing.
+const CANE_FRONT_ADULT = at(3, `
   .0..............
-  0O0.............
   0OSS............
   0O00............
   0O0.............
@@ -75,9 +75,8 @@ const CANE_FRONT_ADULT = at(2, `
   000.............
 `);
 
-const CANE_FRONT_CHILD = at(4, `
+const CANE_FRONT_CHILD = at(5, `
   ..0.............
-  .0O0............
   .0OSS...........
   .0O00...........
   .0O0............
@@ -85,16 +84,16 @@ const CANE_FRONT_CHILD = at(4, `
   .000............
 `);
 
-const CANE_HIDDEN = { front: ['carry'], back: ['carry'], side: ['wave', 'talk', 'carry'] } as const;
+// Put away to sit down and to carry; from the side also to wave and talk, where the raised hand would cross it.
+const CANE_HIDDEN = { front: ['sit', 'carry'], back: ['sit', 'carry'], side: ['sit', 'wave', 'talk', 'carry'] } as const;
 
 /** The cane, for the adult bodies and for the child. */
 export const CANE: Record<'adult' | 'child', BodyLayer> = {
   adult: {
     front: CANE_FRONT_ADULT,
     back: mirror(CANE_FRONT_ADULT),
-    side: at(2, `
+    side: at(3, `
       .............0..
-      ............0O0.
       ..........aSSO0.
       ...........00O0.
       ............0O0.
@@ -110,9 +109,8 @@ export const CANE: Record<'adult' | 'child', BodyLayer> = {
   child: {
     front: CANE_FRONT_CHILD,
     back: mirror(CANE_FRONT_CHILD),
-    side: at(4, `
+    side: at(5, `
       ............0...
-      ...........0O0..
       .........aSSO0..
       ..........00O0..
       ...........0O0..

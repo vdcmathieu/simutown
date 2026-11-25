@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { streetProps } from '../src/art';
+import { slotIndex } from '../src/core/palette';
 import { TILE } from '../src/core/types';
 
 const REQUIRED = [
@@ -27,6 +28,26 @@ describe('street props', () => {
     });
   }
 
+  it('standing props have a closed ink outline inside their box', () => {
+    const INK = slotIndex('steel.0');
+    for (const [id, def] of Object.entries(streetProps)) {
+      if (id.startsWith('fence')) continue; // fence rails must run off the box to join
+      for (const s of [def.sprite, ...(def.anim?.frames ?? [])]) {
+        const at = (x: number, y: number) => (x < 0 || y < 0 || x >= s.w || y >= s.h ? -1 : s.px[y * s.w + x]!);
+        for (let y = 0; y < s.h; y++) {
+          for (let x = 0; x < s.w; x++) {
+            const v = at(x, y);
+            if (v === 0 || v === INK) continue;
+            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+              expect(at(x + dx, y + dy), `${id}: colour at ${x},${y} touches nothing`).not.toBe(0);
+              expect(at(x + dx, y + dy), `${id}: colour at ${x},${y} on the box edge`).not.toBe(-1);
+            }
+          }
+        }
+      }
+    }
+  });
+
   it('the lamp keeps its glowing glass and its light', () => {
     const lamp = streetProps.lamp!;
     expect(lamp.emissive).toBeDefined();
@@ -48,12 +69,19 @@ describe('street props', () => {
     const col = (x: number) => Array.from({ length: h.h }, (_, y) => h.px[y * h.w + x]);
     expect(col(0)).toEqual(col(h.w - 1));
     expect(col(0).some((v) => v !== 0)).toBe(true);
-    // Posts sit at the same height in both, and the vertical rail reaches up exactly to
-    // the base of the post one tile above, without covering it.
+    // Posts sit at the same height in both, and the vertical rail reaches up to just under
+    // the base line of the post one tile above, without covering its ink.
     const v = streetProps['fence-v']!.sprite;
     const top = (s: typeof v) => Math.floor([...s.px].findIndex((p) => p !== 0) / s.w);
     const bottom = (s: typeof v) => Math.floor([...s.px].findLastIndex((p) => p !== 0) / s.w);
     expect(bottom(v) - v.h).toBe(bottom(h) - h.h);
-    expect(top(v)).toBe(bottom(v) - TILE);
+    expect(top(v)).toBe(bottom(v) - TILE + 1);
+    // Runs end on a post: the end pieces have rails on one side only, and the top of a
+    // vertical run has no rail going up.
+    const hasInk = (s: typeof v, x: number) => Array.from({ length: s.h }, (_, y) => s.px[y * s.w + x]).some((p) => p !== 0);
+    expect(hasInk(streetProps['fence-h-left']!.sprite, 0)).toBe(false);
+    expect(hasInk(streetProps['fence-h-left']!.sprite, 15)).toBe(true);
+    expect(hasInk(streetProps['fence-h-right']!.sprite, 15)).toBe(false);
+    expect(top(streetProps['fence-v-top']!.sprite)).toBeGreaterThan(top(v));
   });
 });

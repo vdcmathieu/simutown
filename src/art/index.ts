@@ -8,6 +8,10 @@ import { emotes, font } from './ui';
 
 export { buildings, characters, emotes, font, natureProps, streetProps, terrain };
 
+// The kits scene authors use to make their own art.
+export { makeBuilding } from './buildings';
+export type { BuildingSpec } from './buildings';
+
 /** The built-in art: everything Simutown can draw out of the box. */
 export const art: ArtRegistry = {
   terrain,

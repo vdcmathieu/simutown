@@ -212,6 +212,23 @@ describe('the example scenes together', () => {
     for (let n = 2; n <= 10; n++) expect(shown.get(n)!, `number ${n} after ${n - 1}`).toBeGreaterThanOrEqual(shown.get(n - 1)!);
   });
 
+  it('word of mouth shows the three in the park apart, so they can be counted', () => {
+    let seen = 0;
+    for (let i = 0; i <= Math.ceil(wordOfMouth.duration * FPS); i++) {
+      const f = wordOfMouth.frame(i / FPS);
+      if (!f.caption?.text.startsWith('Three in the park')) continue;
+      seen++;
+      const three = ['kofi', 'lin', 'yuki'].map((id) => f.actors.find((a) => a.id === id)!);
+      for (const a of three) {
+        expect(onScreen(f, a.x, a.y, 0), `${a.id} in frame at ${f.t.toFixed(2)}s`).toBe(true);
+        for (const b of three) {
+          if (a.id < b.id) expect(Math.hypot(a.x - b.x, a.y - b.y), `${a.id} and ${b.id} at ${f.t.toFixed(2)}s`).toBeGreaterThanOrEqual(TILE);
+        }
+      }
+    }
+    expect(seen).toBeGreaterThan(FPS * 3);
+  });
+
   it('day and night runs the clock from before dawn to late evening', () => {
     expect(dayAndNight.frame(0).timeOfDay).toBeLessThan(6);
     expect(dayAndNight.frame(dayAndNight.duration / 3).timeOfDay).toBeGreaterThan(9);

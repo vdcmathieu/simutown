@@ -238,11 +238,12 @@ export default scene({ title: 'Word of mouth', town: willowSquare, timeOfDay: 10
     [bo, [21, 15], 'right'],
     [mira, [25, 15], 'left'],
     [raj, [19, 15], 'right'],
-    [otto, [18, 16], 'right'],
+    // by his bench, clear of the bin
+    [otto, [17, 16], 'right'],
     [yuki, [20, 14], 'right'],
-    // behind the flower cart
-    [tomas, [26, 14], 'left'],
-    [zara, [27, 14], 'left'],
+    // either side of the flower cart, clear of the barrel
+    [zara, [26, 16], 'left'],
+    [tomas, [28, 14], 'left'],
   ];
   s.clearCaption();
   s.together(() => {

@@ -32,12 +32,15 @@ interface Film {
 }
 
 const FILMS: Film[] = [
-  // Ana's welcome, with the morning square behind her
-  { name: 'hello', still: 10, gif: { scale: 2, fps: 12 } },
-  // the party: all ten numbered around the fountain, under the last caption
-  { name: 'word-of-mouth', still: 53.2, gif: { scale: 2, fps: 10 } },
-  // dusk: lamps and windows on, the last people heading home
-  { name: 'day-and-night', still: 19.6, gif: { scale: 2, fps: 10 } },
+  // Ana's welcome, with the children at the fountain. The GIF opens on the morning square: the pan
+  // through the dawn before it changes every pixel of every frame, and would double the file.
+  { name: 'hello', still: 11, gif: { scale: 2, fps: 12, from: 3, to: -0.8 } },
+  // The party: all ten numbered and ringed around the fountain, under the last caption. The GIF
+  // leaves out the fade in and the fade out, and loops from the party back to the title card.
+  { name: 'word-of-mouth', still: 52.55, gif: { scale: 2, fps: 10, from: 0.5, to: -1 } },
+  // Dusk: lamps and windows on, the last people heading home. The light changes the whole picture
+  // all day long, so this GIF is at x1; it loops from the night straight into the next dawn.
+  { name: 'day-and-night', still: 19.5, gif: { scale: 1, fps: 12, from: 0.8, to: -1 } },
 ];
 
 const args = process.argv.slice(2);

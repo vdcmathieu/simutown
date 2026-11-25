@@ -17,9 +17,18 @@ export function advance(
   return { t: duration, ended: true };
 }
 
+/**
+ * How many frames `seconds` of scene take at `fps`: frame i shows time i / fps, and a
+ * frame is included when it starts before the end, so a 1.01 s clip at 30 fps has 31.
+ * The one definition both export and playback use. At least 1.
+ */
+export function frameCount(seconds: number, fps: number): number {
+  return Math.max(1, Math.ceil(seconds * fps - 1e-6));
+}
+
 /** The index of the frame shown at time `t`. Playback and export agree on it. */
 export function frameIndex(t: number, fps: number, duration: number): number {
-  const last = Math.max(0, Math.ceil(duration * fps) - 1);
+  const last = frameCount(duration, fps) - 1;
   return Math.min(last, Math.max(0, Math.floor(t * fps + 1e-6)));
 }
 

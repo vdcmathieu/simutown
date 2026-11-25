@@ -6,11 +6,12 @@
  * nearest neighbour and encodes it. Nothing is smoothed anywhere.
  */
 import { spawn } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
-import { dirname, extname } from 'node:path';
+import { mkdirSync, renameSync, rmSync } from 'node:fs';
+import { basename, dirname, extname, join } from 'node:path';
 import type { Writable } from 'node:stream';
 import { Surface } from '../core/surface';
 import type { Renderer, Scene } from '../core/types';
+import { frameCount } from '../player/clock';
 import { createRenderer, type RendererOpts } from '../render';
 import { writePNG } from './png';
 
@@ -104,8 +105,8 @@ export function planVideo(scene: Scene, path: string, opts: VideoOpts = {}): Vid
     throw new Error(`to must be at most the scene's duration (${scene.duration}s), got ${to}`);
   }
   if (to <= from) throw new Error(`the range is empty: from ${from}s to ${to}s`);
-  // Frame i shows time from + i / fps. Round so 8s at 30fps is exactly 240 frames.
-  const count = Math.max(1, Math.round((to - from) * fps));
+  // Frame i shows time from + i / fps; the count is shared with the player.
+  const count = frameCount(to - from, fps);
   const times = Array.from({ length: count }, (_, i) => from + i / fps);
   return { format, scale, fps, times, width: scene.width * scale, height: scene.height * scale };
 }
@@ -185,8 +186,40 @@ export async function renderVideo(scene: Scene, path: string, opts: VideoOpts = 
   const renderer = opts.renderer ?? createRenderer(scene.town, opts);
   const bin = ffmpegBinary(opts);
   mkdirSync(dirname(path), { recursive: true });
+  // ffmpeg writes to a sibling; it replaces `path` only on success, so a failed export
+  // never leaves half a file behind or destroys a good one already there.
+  const ext = extname(path);
+  const partial = join(dirname(path), `${basename(path, ext)}.partial${ext}`);
+  try {
+    await encode(scene, renderer, plan, bin, partial, path, opts);
+    renameSync(partial, path);
+  } catch (e) {
+    rmSync(partial, { force: true });
+    throw e;
+  }
+  return {
+    path,
+    format: plan.format,
+    frames: plan.times.length,
+    fps: plan.fps,
+    width: plan.width,
+    height: plan.height,
+    duration: plan.times.length / plan.fps,
+    elapsedMs: performance.now() - started,
+  };
+}
 
-  const proc = spawn(bin, ffmpegArgs(plan, scene.width, scene.height, path), {
+/** Render every planned frame into ffmpeg, which writes `file`. Errors name `path`. */
+async function encode(
+  scene: Scene,
+  renderer: Renderer,
+  plan: VideoPlan,
+  bin: string,
+  file: string,
+  path: string,
+  opts: VideoOpts,
+): Promise<void> {
+  const proc = spawn(bin, ffmpegArgs(plan, scene.width, scene.height, file), {
     stdio: ['pipe', 'ignore', 'pipe'],
   });
   let stderr = '';
@@ -202,6 +235,7 @@ export async function renderVideo(scene: Scene, path: string, opts: VideoOpts = 
   proc.stdin.on('error', () => {});
 
   const frame = new Surface(scene.width, scene.height);
+  let piping = false;
   try {
     // Wait until the process has really started, so a missing binary fails before rendering.
     await new Promise<void>((resolve, reject) => {
@@ -212,27 +246,21 @@ export async function renderVideo(scene: Scene, path: string, opts: VideoOpts = 
       const t = plan.times[i]!;
       renderer.render(scene.frame(t), frame);
       // Copy: the pipe may hold on to the chunk after write() returns, and `frame` is reused.
+      piping = true;
       await write(proc.stdin, Buffer.from(frame.data));
+      piping = false;
       opts.onProgress?.({ frame: i + 1, frames: plan.times.length, t });
     }
     proc.stdin.end();
   } catch (e) {
     proc.kill('SIGKILL');
     const code = await exited; // rejects with the missing-ffmpeg error if it never started
+    // A scene, renderer or progress callback that throws keeps its own error.
+    if (!piping) throw e;
     throw new Error(`ffmpeg stopped while writing ${path} (exit ${code}):\n${stderr.trim() || String(e)}`);
   }
   const code = await exited;
   if (code !== 0) throw new Error(`ffmpeg failed to write ${path} (exit ${code}):\n${stderr.trim()}`);
-  return {
-    path,
-    format: plan.format,
-    frames: plan.times.length,
-    fps: plan.fps,
-    width: plan.width,
-    height: plan.height,
-    duration: plan.times.length / plan.fps,
-    elapsedMs: performance.now() - started,
-  };
 }
 
 /** Render the frame at time `t` to a PNG, upscaled (default x4, 1920x1080). No ffmpeg needed. */

@@ -12,7 +12,7 @@
  * The player fills the width of its target. Give the target a height (a slide, an iframe,
  * fullscreen) and the picture fits inside it, letterboxed, with the controls below.
  */
-import { dusk, type Theme } from '../core/palette';
+import { daylight, type Theme } from '../core/palette';
 import { Surface } from '../core/surface';
 import type { Renderer, Scene } from '../core/types';
 import { createRenderer } from '../render';
@@ -121,7 +121,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, attrs: R
 /** Mount a player for `scene` inside `target`. */
 export function mount(target: HTMLElement, scene: Scene, opts: PlayerOpts = {}): Player {
   injectStyle();
-  const theme = opts.theme ?? dusk;
+  const theme = opts.theme ?? daylight;
   const renderer = opts.renderer ?? createRenderer(scene.town, { theme });
   const { width: W, height: H, duration, fps } = scene;
 

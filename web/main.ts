@@ -4,21 +4,22 @@
  *   #/atlas[/<group>] the built-in art, by id
  * and `?embed=<name>` for a bare player in an iframe.
  */
-import { dusk } from '../src/core/palette';
+import { daylight } from '../src/core/palette';
 import { applyThemeVars } from '../src/player';
 import { atlasView, scrollToSection } from './atlas';
 import { h } from './dom';
-import { embedView, scenesView } from './scenes';
+import { embedView, sceneEntriesReady, scenesView } from './scenes';
 
 // Colours come from the palette at runtime, so the site follows it when it changes.
-applyThemeVars(document.documentElement, dusk);
+applyThemeVars(document.documentElement, daylight);
 
 const app = document.getElementById('app')!;
 const params = new URLSearchParams(location.search);
 const embed = params.get('embed');
+const entries = await sceneEntriesReady;
 
 if (embed !== null) {
-  embedView(app, embed, params);
+  embedView(app, embed, params, entries);
 } else {
   const links = {
     scenes: h('a', { href: '#/scenes' }, 'Scenes'),
@@ -49,7 +50,7 @@ if (embed !== null) {
     // Moving between atlas sections only scrolls; anything else redraws the view.
     if (key === 'atlas' && lastView === 'atlas') return scrollToSection(arg);
     cleanup?.();
-    cleanup = key === 'atlas' ? atlasView(main) : scenesView(main, arg);
+    cleanup = key === 'atlas' ? atlasView(main) : scenesView(main, arg, entries);
     lastView = key;
     document.title = key === 'atlas' ? 'Atlas · Simutown' : 'Scenes · Simutown';
     if (key === 'atlas') scrollToSection(arg);

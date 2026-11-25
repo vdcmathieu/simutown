@@ -2,32 +2,17 @@
  * The Scenes view: every module in scenes/*.ts, each playable in the player.
  * New files in scenes/ appear here on their own (import.meta.glob).
  */
-import type { Scene } from '../src/core/types';
-import { assertScene, describeScene, mount, type Player } from '../src/player';
+import { describeScene, mount, type Player } from '../src/player';
 import { h } from './dom';
+import { loadSceneEntries, type SceneEntry } from './scene-loader';
 
-/** One entry of scenes/: a valid scene, or the error explaining why it is not. */
-export type SceneEntry = { name: string; file: string } & ({ scene: Scene; error?: undefined } | { scene?: undefined; error: string });
-
-const modules = import.meta.glob<{ default?: unknown }>('../scenes/*.ts', { eager: true });
-
-/** All scenes in scenes/, sorted by file name. */
-export const sceneEntries: SceneEntry[] = Object.entries(modules)
-  .map(([path, mod]): SceneEntry => {
-    const file = path.replace(/^\.\.\//, '');
-    const name = file.replace(/^scenes\//, '').replace(/\.ts$/, '');
-    try {
-      return { name, file, scene: assertScene(mod.default, file) };
-    } catch (e) {
-      return { name, file, error: (e as Error).message };
-    }
-  })
-  .sort((a, b) => a.name.localeCompare(b.name));
+/** Every scene in scenes/, loaded lazily and each on its own (see scene-loader.ts). */
+export const sceneEntriesReady: Promise<SceneEntry[]> = loadSceneEntries(import.meta.glob('../scenes/*.ts'));
 
 const secs = (s: number) => `${Number(s.toFixed(1))} s`;
 
 /** Render the Scenes view for `selected` into `main`. Returns a cleanup function. */
-export function scenesView(main: HTMLElement, selected: string | undefined): () => void {
+export function scenesView(main: HTMLElement, selected: string | undefined, sceneEntries: SceneEntry[]): () => void {
   const current = sceneEntries.find((e) => e.name === selected) ?? sceneEntries.find((e) => e.scene);
   let player: Player | undefined;
 
@@ -63,7 +48,7 @@ export function scenesView(main: HTMLElement, selected: string | undefined): () 
       h('dl', { class: 'facts' },
         fact('Length', `${secs(info.duration)} · ${info.frames} frames at ${info.fps} fps`),
         fact('Town', `${info.town.name}, ${info.town.w} × ${info.town.h} tiles, ${info.town.props} props`),
-        fact('Cast', info.cast.map((c) => c.id).join(', ') || 'nobody'),
+        fact('Cast', info.cast.join(', ') || 'nobody'),
         fact('Render', h('code', {}, `pnpm simutown render ${current.file}`)),
         fact('Embed', h('code', {}, `<iframe src="${embedUrl(current.name)}"></iframe>`)),
       ),
@@ -97,7 +82,7 @@ function embedUrl(name: string): string {
 }
 
 /** The bare player for iframes and slides: `?embed=<name>[&autoplay=0][&controls=0]`. */
-export function embedView(root: HTMLElement, name: string, params: URLSearchParams): void {
+export function embedView(root: HTMLElement, name: string, params: URLSearchParams, sceneEntries: SceneEntry[]): void {
   document.body.classList.add('embed');
   const entry = sceneEntries.find((e) => e.name === name);
   if (!entry?.scene) {

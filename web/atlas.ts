@@ -4,16 +4,17 @@
  * a new character, prop, tile, emote or glyph appears without touching this file.
  */
 import { art } from '../src/art';
-import { compileTheme, dusk, lutRgb, type Slot } from '../src/core/palette';
+import { compileTheme, daylight, lutRgb, type Slot } from '../src/core/palette';
 import type { Sprite } from '../src/core/sprite';
 import { Surface } from '../src/core/surface';
 import type { CharacterDef, Dir, PropDef, TerrainDef } from '../src/core/types';
 import { h } from './dom';
 
-const lut = compileTheme(dusk);
+const lut = compileTheme(daylight);
 const DIRS: Dir[] = ['down', 'left', 'right', 'up'];
-/** Character frames have no fps of their own; the renderer stub steps them at 6 per second. */
-const WALK_FPS = 6;
+/** Frame rates when a character does not set its own (the CharacterDef defaults). */
+const WALK_FPS = 8;
+const IDLE_FPS = 2;
 
 interface Anim {
   canvas: HTMLCanvasElement;
@@ -90,7 +91,7 @@ function characterItem(def: CharacterDef): HTMLElement {
   const poses = Object.entries(def.poses ?? {});
   return item(
     def.id,
-    [strip('walk', def.walk, WALK_FPS), strip('idle', def.idle, 2), ...poses.map(([k, set]) => strip(k, set, WALK_FPS))],
+    [strip('walk', def.walk, def.walkFps ?? WALK_FPS), strip('idle', def.idle, def.idleFps ?? IDLE_FPS), ...poses.map(([k, set]) => strip(k, set, def.walkFps ?? WALK_FPS))],
     [def.name, `${def.walk.down.length}-frame walk`, poses.length ? `poses: ${poses.map(([k]) => k).join(', ')}` : 'no extra poses'],
     'wide',
   );

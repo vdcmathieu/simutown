@@ -3,6 +3,7 @@
  * the web gallery both use it, so a broken scene file fails the same way everywhere.
  */
 import type { Scene } from '../core/types';
+import { frameCount } from './clock';
 
 /**
  * Return `value` as a Scene, or throw an error that says what is wrong and how to fix it.
@@ -53,23 +54,26 @@ export interface SceneInfo {
   width: number;
   height: number;
   town: { name: string; w: number; h: number; props: number; places: string[] };
-  /** Everyone who appears, in order of first appearance. */
-  cast: { id: string; character: string }[];
+  /** Character ids that appear: `scene.cast` when declared, else found by sampling. */
+  cast: string[];
 }
 
 /**
- * Describe a scene. Scenes do not declare their cast, so it is found by sampling
- * `frame(t)` every `step` seconds (default: every frame, capped at 2000 samples).
+ * Describe a scene. The cast comes from `scene.cast` when the scene declares it;
+ * otherwise it is found by sampling `frame(t)` every `step` seconds (default: every
+ * frame, capped at 2000 samples), in order of first appearance.
  */
 export function describeScene(scene: Scene, step?: number): SceneInfo {
-  const frames = Math.round(scene.duration * scene.fps);
-  const dt = step ?? Math.max(1 / scene.fps, scene.duration / 2000);
-  const cast = new Map<string, string>();
-  const n = Math.floor(scene.duration / dt + 1e-9);
-  for (let i = 0; i <= n; i++) {
-    for (const a of scene.frame(Math.min(i * dt, scene.duration)).actors) {
-      if (!cast.has(a.id)) cast.set(a.id, a.character);
+  const frames = frameCount(scene.duration, scene.fps);
+  let cast = scene.cast;
+  if (!cast) {
+    const seen = new Set<string>();
+    const dt = step ?? Math.max(1 / scene.fps, scene.duration / 2000);
+    const n = Math.floor(scene.duration / dt + 1e-9);
+    for (let i = 0; i <= n; i++) {
+      for (const a of scene.frame(Math.min(i * dt, scene.duration)).actors) seen.add(a.character);
     }
+    cast = [...seen];
   }
   const { town } = scene;
   return {
@@ -80,6 +84,6 @@ export function describeScene(scene: Scene, step?: number): SceneInfo {
     width: scene.width,
     height: scene.height,
     town: { name: town.name, w: town.w, h: town.h, props: town.props.length, places: Object.keys(town.places ?? {}) },
-    cast: [...cast].map(([id, character]) => ({ id, character })),
+    cast: [...cast],
   };
 }

@@ -87,7 +87,7 @@ export async function loadScene(path: string): Promise<Scene> {
   try {
     mod = (await import(pathToFileURL(path).href)) as { default?: unknown };
   } catch (e) {
-    throw new Error(`Could not load ${path}:\n${e instanceof Error ? e.message : String(e)}`);
+    throw new Error(`could not load ${relative(process.cwd(), path) || path}: ${e instanceof Error ? e.message : String(e)}`);
   }
   return assertScene(mod.default, relative(process.cwd(), path) || path);
 }
@@ -198,7 +198,7 @@ export async function run(argv: string[], io: CliIO): Promise<number> {
             `  frame     ${i.width}x${i.height} (x4 = ${i.width * 4}x${i.height * 4})`,
             `  town      ${i.town.name}, ${i.town.w}x${i.town.h} tiles, ${i.town.props} props`,
             `  places    ${i.town.places.join(', ') || 'none'}`,
-            `  cast      ${i.cast.map((c) => (c.id === c.character ? c.id : `${c.id} (${c.character})`)).join(', ') || 'nobody'}`,
+            `  cast      ${i.cast.join(', ') || 'nobody'}`,
           ].join('\n'),
         );
         return 0;

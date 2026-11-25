@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { dusk } from '../src/core/palette';
+import { daylight } from '../src/core/palette';
 import { tinyScene } from '../src/fixtures/tiny';
 import { advance, fitScale, formatTime, frameIndex } from '../src/player/clock';
 import { assertScene, describeScene } from '../src/player/scene-info';
@@ -39,8 +39,15 @@ describe('player clock', () => {
 describe('scene info', () => {
   it('accepts the fixture and finds its cast', () => {
     const info = describeScene(assertScene(tinyScene, 'tiny'));
-    expect(info.cast).toEqual([{ id: 'ana', character: 'ana' }]);
+    expect(info.cast).toEqual(['ana']);
     expect(info.frames).toBe(240);
+  });
+
+  it('uses the declared cast when the scene has one, without sampling', () => {
+    let calls = 0;
+    const scene = { ...tinyScene, cast: ['ben', 'ana'], frame: (t: number) => (calls++, tinyScene.frame(t)) };
+    expect(describeScene(scene).cast).toEqual(['ben', 'ana']);
+    expect(calls).toBe(0);
   });
 
   it('lists every problem with a broken scene', () => {
@@ -51,9 +58,9 @@ describe('scene info', () => {
 
 describe('theme vars', () => {
   it('exposes every slot and the UI roles from the theme, not from hard-coded colours', () => {
-    const v = themeVars(dusk);
-    expect(v['--st-steel-0']).toBe(dusk.colors['steel.0'].toLowerCase());
-    expect(v['--st-paper']).toBe(dusk.colors['cream.2'].toLowerCase());
+    const v = themeVars(daylight);
+    expect(v['--st-steel-0']).toBe(daylight.colors['steel.0'].toLowerCase());
+    expect(v['--st-paper']).toBe(daylight.colors['cream.2'].toLowerCase());
     expect(v['--st-skin-a-1']).toMatch(/^#[0-9a-f]{6}$/);
   });
 });

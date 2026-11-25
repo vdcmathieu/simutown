@@ -8,20 +8,22 @@
  * are added per frame.
  */
 import type { Sprite } from '../core/sprite';
+import { TILE } from '../core/types';
 import type { Drawable, StaticProp } from './sprites';
 import type { View } from './view';
 
 /**
  * Call `plot(wx, wy)` for every ground pixel under the sheared silhouette of sprite `s`
- * anchored at world (x, y). A pixel may be reported more than once.
+ * anchored at world (x, y). A pixel may be reported more than once. Rows higher than
+ * `maxHeight` pixels above the base cast as if they were at `maxHeight`.
  */
-export function projectSilhouette(s: Sprite, x: number, y: number, kx: number, ky: number, plot: (wx: number, wy: number) => void): void {
+export function projectSilhouette(s: Sprite, x: number, y: number, kx: number, ky: number, plot: (wx: number, wy: number) => void, maxHeight = Infinity): void {
   // tall shears skip rows unless each sprite row is laid down in several sub-steps
   const steps = Math.max(1, Math.ceil(Math.max(Math.abs(kx), Math.abs(ky))));
   const left = x - s.ax;
   const base = y - 1;
   for (let sy = 0; sy < s.h; sy++) {
-    const height = Math.max(0, s.ay - 1 - sy);
+    const height = Math.min(maxHeight, Math.max(0, s.ay - 1 - sy));
     for (let step = 0; step < steps; step++) {
       const h = height + step / steps;
       const dx = Math.round(h * kx);
@@ -31,6 +33,16 @@ export function projectSilhouette(s: Sprite, x: number, y: number, kx: number, k
       }
     }
   }
+}
+
+/**
+ * How tall a prop stands, for casting. A building drawn in three-quarter view shows its roof
+ * receding behind the front wall: the top of the sprite is depth, not height. One tile of
+ * sprite is taken off for every tile of footprint depth beyond the first.
+ */
+export function castHeight(p: StaticProp): number {
+  const depth = Math.max(1, p.def.footprint?.h ?? 1);
+  return Math.max(TILE, p.def.sprite.ay - (depth - 1) * TILE);
 }
 
 /** The static shadow mask of every standing prop, town-sized, for one shear. */
@@ -49,9 +61,10 @@ export function createTownShadows(w: number, h: number, props: StaticProp[]): To
     mask = new Uint8Array(w * h);
     const m = mask;
     for (const p of props) {
-      projectSilhouette(p.def.sprite, p.x, p.y, kx, ky, (wx, wy) => {
+      const plot = (wx: number, wy: number): void => {
         if (wx >= 0 && wy >= 0 && wx < w && wy < h) m[wy * w + wx] = 255;
-      });
+      };
+      projectSilhouette(p.def.sprite, p.x, p.y, kx, ky, plot, castHeight(p));
     }
     if (cache.size >= CACHE_SIZE) cache.delete(cache.keys().next().value!);
     cache.set(key, mask);

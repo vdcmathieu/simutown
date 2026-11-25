@@ -26,47 +26,54 @@ export interface Condition {
   shadowRgb: [number, number, number];
   /** 0..1: how lit the lamps and windows are. 0 by day. */
   lamps: number;
+  /**
+   * 0..1: how much the lamps' glow shows on its surroundings. A lamp that has just come on
+   * in golden sunlight barely changes the ground; the same lamp at night owns it.
+   */
+  glow: number;
 }
 
 /** hour, tint slot, tint amount, brightness, saturation, lift */
 type GradeKey = readonly [number, Slot, number, number, number, number];
 
 const GRADE: readonly GradeKey[] = [
-  [0, 'steel.2', 1, 0.6, 0.8, 0.06],
-  [4.75, 'steel.2', 1, 0.6, 0.8, 0.06],
-  [5.75, 'steel.3', 0.9, 0.78, 0.85, 0.04],
+  [0, 'steel.2', 1.5, 0.56, 0.45, 0.05],
+  [4.75, 'steel.2', 1.5, 0.56, 0.45, 0.05],
+  [5.75, 'steel.3', 1.3, 0.8, 0.6, 0.03],
   [6.75, 'ochre.3', 0.4, 0.98, 1, 0],
   [9, 'cream.2', 0, 1, 1, 0],
   [16, 'cream.2', 0, 1, 1, 0],
   [18, 'ochre.2', 0.42, 1.03, 1, 0],
-  [19, 'plum.1', 0.4, 0.9, 0.95, 0],
-  [19.5, 'steel.3', 0.85, 0.8, 0.88, 0.03],
-  [21, 'steel.2', 1, 0.6, 0.8, 0.06],
-  [24, 'steel.2', 1, 0.6, 0.8, 0.06],
+  [19, 'plum.1', 0.25, 0.97, 0.9, 0],
+  [19.5, 'steel.3', 1.5, 0.86, 0.55, 0.02],
+  [21.5, 'steel.2', 1.5, 0.56, 0.45, 0.05],
+  [24, 'steel.2', 1.5, 0.56, 0.45, 0.05],
 ];
 
 /** hour, kx, ky, alpha. The sun sets (alpha 0) before the short moon shadow fades in. */
 const SHADOW: readonly (readonly [number, number, number, number])[] = [
-  [0, -0.3, 0.2, 0.16],
-  [5.4, -0.3, 0.2, 0.16],
-  [5.8, -0.3, 0.2, 0],
-  [5.81, -1.9, 0.2, 0],
-  [6.6, -1.6, 0.22, 0.2],
-  [9, -0.45, 0.3, 0.24],
-  [12, 0.2, 0.32, 0.24],
-  [16, 0.5, 0.3, 0.24],
-  [18, 1.35, 0.24, 0.3],
-  [19, 1.9, 0.2, 0.2],
-  [19.25, 2, 0.2, 0],
-  [19.26, -0.3, 0.2, 0],
-  [19.75, -0.3, 0.2, 0.16],
-  [24, -0.3, 0.2, 0.16],
+  [0, -0.3, 0.28, 0.16],
+  [5.4, -0.3, 0.28, 0.16],
+  [5.8, -0.3, 0.28, 0],
+  [5.81, -1.7, 0.4, 0],
+  [6.6, -1.4, 0.4, 0.2],
+  [9, -0.45, 0.38, 0.24],
+  [12, 0.2, 0.4, 0.24],
+  [16, 0.5, 0.38, 0.24],
+  [18, 1.2, 0.42, 0.3],
+  [19, 1.7, 0.4, 0.2],
+  [19.25, 1.8, 0.4, 0],
+  [19.26, -0.3, 0.28, 0],
+  [19.75, -0.3, 0.28, 0.16],
+  [24, -0.3, 0.28, 0.16],
 ];
 
 /** Lamps come on around 17:30 and go off around 06:30, each over a quarter of an hour. */
 const LAMPS_ON = 17.5;
 const LAMPS_OFF = 6.5;
 const LAMPS_RAMP = 0.25;
+/** The glow reaches full strength once the ambient light has dropped by this share. */
+const GLOW_DARKNESS = 0.3;
 
 /** A colour scaled so that its largest channel is 1: its hue without its brightness. */
 export function normalized(c: RGB): [number, number, number] {
@@ -125,6 +132,8 @@ export function conditionAt(hour: number, lut: Lut): Condition {
   const sat = lerp(a.sat, b.sat, gt);
   const [sa, sb, st] = bracket(SHADOW, h);
   const ink = lutRgb(lut, 'steel.0');
+  const lamps = lampsAt(h);
+  const ambient = (mul[0] * 77 + mul[1] * 150 + mul[2] * 29) / 256;
   return {
     mul,
     sat,
@@ -135,7 +144,8 @@ export function conditionAt(hour: number, lut: Lut): Condition {
     shadowKy: Math.round(lerp(sa[2], sb[2], st) * 16) / 16,
     shadowAlpha: lerp(sa[3], sb[3], st),
     shadowRgb: [0, 1, 2].map((i) => ink[i]! * Math.min(1, mul[i]!)) as [number, number, number],
-    lamps: lampsAt(h),
+    lamps,
+    glow: lamps * Math.max(0, Math.min(1, (1 - ambient) / GLOW_DARKNESS)),
   };
 }
 
@@ -151,5 +161,6 @@ export function flatCondition(): Condition {
     shadowAlpha: 0,
     shadowRgb: [0, 0, 0],
     lamps: 0,
+    glow: 0,
   };
 }

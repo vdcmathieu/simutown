@@ -21,15 +21,24 @@ const LEVELS = 5;
 /** Share of each band that is a dithered transition into the next; the rest is flat. */
 const DITHER = 0.6;
 /** How strongly a light's colour tints what it lights (0 = white light). */
-const TINT = 0.55;
-/** Brightness of lit surfaces relative to daylight. */
-const GAIN = 1.08;
+const TINT = 0.7;
+/** Saturation of lit surfaces: lamplight washes colours out a little, so lit grass turns gold, not lime. */
+const LIT_SAT = 0.6;
 /** A little of the light's own colour added on top, strongest near the source. */
-const BLOOM = 34;
-/** Blend toward the lit colour at full glow. */
-const REACH = 0.92;
+const BLOOM = 56;
+/**
+ * Blend toward the lit colour for each band, from none to the hottest. The first step is
+ * the biggest, so the rim of a pool is a clear edge and not a haze.
+ */
+const BAND_WEIGHT = [0, 0.26, 0.46, 0.64, 0.8, 0.94];
 /** Share of a light's pool that a caster's shadow removes. */
 const OCCLUSION = 0.9;
+
+/** The band weights read as a smooth curve, for flat-lit actors. `scaled` is 0..LEVELS. */
+function bandWeight(scaled: number): number {
+  const level = Math.min(LEVELS - 1, Math.floor(scaled));
+  return BAND_WEIGHT[level]! + (BAND_WEIGHT[level + 1]! - BAND_WEIGHT[level]!) * (scaled - level);
+}
 
 /**
  * Per-drawable flat light, four floats per owner id: r, g, b and a flag (non-zero means
@@ -52,12 +61,15 @@ export function gradePass(v: View, c: Condition, mapW: number, mapH: number, fla
   const shadowA = c.shadowAlpha / 255;
   const shadows = shadowA > 0;
   if (identity && !shadows && !flat) return;
+  // in plain daylight only shadowed pixels change: skip the rest quickly
+  const shadeOnly = identity && !flat;
   for (let y = 0; y < h; y++) {
     const wy = v.y0 + y;
     const rowInMap = wy >= 0 && wy < mapH;
     const bayerRow = (wy & 3) << 2;
     for (let x = 0; x < w; x++) {
       const i = y * w + x;
+      if (shadeOnly && shade[i] === 0) continue;
       const o = owner[i]!;
       const wx = v.x0 + x;
       if (o === 0 && !(rowInMap && wx >= 0 && wx < mapW)) continue;
@@ -94,7 +106,7 @@ export function gradePass(v: View, c: Condition, mapW: number, mapH: number, fla
           kg = flat[o * 4 + 1]!;
           kb = flat[o * 4 + 2]!;
           k = kr > kg ? (kr > kb ? kr : kb) : kg > kb ? kg : kb;
-          weight = k > 1 ? 1 : k;
+          weight = bandWeight((k > 1 ? 1 : k) * LEVELS);
         } else {
           kr = glow[i * 3]!;
           kg = glow[i * 3 + 1]!;
@@ -108,7 +120,7 @@ export function gradePass(v: View, c: Condition, mapW: number, mapH: number, fla
             let level = Math.floor(scaled);
             // flat bands with a dithered seam: only the middle of each step is mixed
             if ((scaled - level - 0.5) / DITHER + 0.5 > (BAYER4[bayerRow | (wx & 3)]! + 0.5) / 16) level++;
-            weight = level / LEVELS;
+            weight = BAND_WEIGHT[level]!;
           }
         }
         if (weight > 0) {
@@ -117,14 +129,11 @@ export function gradePass(v: View, c: Condition, mapW: number, mapH: number, fla
           const tg = kg * inv;
           const tb = kb * inv;
           const bloom = BLOOM * weight;
-          // the art's colour under this light; light only ever adds, so never go below the grade
-          const litR = ar * (1 - TINT + TINT * tr) * GAIN + tr * bloom;
-          const litG = ag * (1 - TINT + TINT * tg) * GAIN + tg * bloom;
-          const litB = ab * (1 - TINT + TINT * tb) * GAIN + tb * bloom;
-          const a = weight * REACH;
-          if (litR > r) r += (litR - r) * a;
-          if (litG > g) g += (litG - g) * a;
-          if (litB > b) b += (litB - b) * a;
+          const lum = (ar * 77 + ag * 150 + ab * 29) >> 8;
+          // blend toward the art's own colour as it looks under this light
+          r += ((lum + (ar - lum) * LIT_SAT) * (1 - TINT + TINT * tr) + tr * bloom - r) * weight;
+          g += ((lum + (ag - lum) * LIT_SAT) * (1 - TINT + TINT * tg) + tg * bloom - g) * weight;
+          b += ((lum + (ab - lum) * LIT_SAT) * (1 - TINT + TINT * tb) + tb * bloom - b) * weight;
         }
       }
       d[p] = r;

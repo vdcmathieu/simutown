@@ -49,8 +49,8 @@ export function createRenderer(town: Town, opts: RendererOpts = {}): Renderer {
   const lighting = opts.lighting !== false;
   const warn = createWarner(opts.warn ?? ((m) => console.warn(m)));
 
-  const mapW = Math.max(1, town.w * TILE);
-  const mapH = Math.max(1, town.h * TILE);
+  const mapW = Math.max(0, town.w * TILE);
+  const mapH = Math.max(0, town.h * TILE);
   const ground = buildGround(town, art, lut, warn);
   const { flat, standing } = resolveProps(town, art, warn);
   const lights = collectLights([...flat, ...standing], lut);
@@ -78,21 +78,23 @@ export function createRenderer(town: Town, opts: RendererOpts = {}): Renderer {
       drawSprites(v, list, lut);
 
       let flatLight: FlatLight | undefined;
-      if (c.lamps > 0 && lights.length > 0) {
-        accumulateGlow(v, lights, t, c.lamps);
+      if (c.glow > 0 && lights.length > 0) {
+        accumulateGlow(v, lights, t, c.glow);
         copyTownMask(v.occlusion, v, townOcclusion(), mapW, mapH);
         castActorOcclusion(v, lights, list);
         flatLight = new Float32Array((list.length + 1) * 4);
         for (const d of list) {
           if (!d.actor) continue;
-          flatLight.set(actorGlow(lights, d.x, d.y, t, c.lamps), d.id * 4);
+          flatLight.set(actorGlow(lights, d.x, d.y, t, c.glow), d.id * 4);
           flatLight[d.id * 4 + 3] = 1;
         }
       }
       gradePass(v, c, mapW, mapH, flatLight);
       if (c.lamps > 0) drawEmissive(v, list, lut, c.lamps);
 
-      const actors = new Map<string, ActorState>(state.actors.map((a) => [a.id, a]));
+      // overlays may point at any actor that has a real position, drawn or not
+      const actors = new Map<string, ActorState>();
+      for (const a of state.actors) if (Number.isFinite(a.x + a.y)) actors.set(a.id, a);
       if (state.focus) dimUnfocused(v, list, state.focus, lut);
       if (state.annotations) drawAnnotations(v, state.annotations, actors, lut, t, warn);
 

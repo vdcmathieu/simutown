@@ -11,7 +11,7 @@
 import { type Lut, lutRgb } from '../core/palette';
 import { normalized } from './conditions';
 import { hash01 } from './hash';
-import { projectSilhouette } from './shadows';
+import { castHeight, projectSilhouette } from './shadows';
 import type { Drawable, StaticProp } from './sprites';
 import type { View } from './view';
 
@@ -22,7 +22,9 @@ const POOL_SQUASH = 0.6;
 /** How far the pool's centre sits below the base line, as a share of the radius. */
 const POOL_DROP = 0.2;
 /** Peak pool brightness relative to the halo's. */
-const POOL_GAIN = 0.85;
+const POOL_GAIN = 0.9;
+/** Below 1, the falloff bulges: the middle of a glow stays bright and the rim drops away. */
+const FALLOFF = 0.8;
 /** Height on an actor, above the feet, where halo light is sampled. */
 const CHEST = 12;
 
@@ -65,13 +67,13 @@ export function poolAt(l: LightShape, wx: number, wy: number): number {
   const dx = (wx - l.x) / l.radius;
   const dy = (wy - (l.gy + l.radius * POOL_DROP)) / (l.radius * POOL_SQUASH);
   const d = Math.sqrt(dx * dx + dy * dy);
-  return d >= 1 ? 0 : l.pool * (1 - d);
+  return d >= 1 ? 0 : l.pool * (1 - d) ** FALLOFF;
 }
 
 /** Halo intensity of a light at a world point. */
 export function haloAt(l: LightShape, wx: number, wy: number): number {
   const d = Math.hypot(wx - l.x, wy - l.y) / (l.radius * HALO);
-  return d >= 1 ? 0 : 1 - d;
+  return d >= 1 ? 0 : (1 - d) ** FALLOFF;
 }
 
 /** The intensity footprint of a light whose source sits at (0, 0). */
@@ -205,14 +207,16 @@ function lampShear(l: Light, fx: number, fy: number): [number, number] | undefin
 
 /** Lay one caster's lamp shadows into a mask: each pixel records the pool light it blocks. */
 function castOcclusion(lights: Light[], d: { sprite: Drawable['sprite']; x: number; y: number }, fx: number, strength: number, owner: StaticProp | undefined, put: (wx: number, wy: number, value: number) => void): void {
+  const maxHeight = owner ? castHeight(owner) : Infinity;
   for (const l of lights) {
     if (l.prop === owner) continue;
     const shear = lampShear(l, fx, d.y);
     if (!shear) continue;
-    projectSilhouette(d.sprite, d.x, d.y, shear[0], shear[1], (wx, wy) => {
+    const plot = (wx: number, wy: number): void => {
       const k = poolAt(l, wx + 0.5, wy + 0.5);
       if (k > 0) put(wx, wy, Math.round(k * 255 * strength));
-    });
+    };
+    projectSilhouette(d.sprite, d.x, d.y, shear[0], shear[1], plot, maxHeight);
   }
 }
 

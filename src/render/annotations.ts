@@ -17,6 +17,8 @@ const RING_RY = 5;
 /** Distance between link dots, and how fast they march toward the target, in pixels (per second). */
 const LINK_GAP = 6;
 const LINK_SPEED = 9;
+/** How far above a head a link starts and ends. */
+const LINK_CLEAR = 4;
 /** Default colour of rings and links: the lightest paper tone. */
 const DEFAULT_SLOT: Slot = 'cream.2';
 
@@ -78,11 +80,11 @@ function drawRing(v: View, a: ActorState, progress: number, slot: Slot, lut: Lut
 function drawLink(v: View, from: ActorState, to: ActorState, progress: number, slot: Slot, lut: Lut, t: number): void {
   const [r, g, b] = lutRgb(lut, slot);
   const [ir, ig, ib] = lutRgb(lut, 'steel.0');
-  const mid = Math.round(CHAR_H * 0.6);
+  // from just above one head to just above the other, so the dots never cover a face
   const x0 = Math.round(from.x);
-  const y0 = Math.round(from.y) - mid;
+  const y0 = Math.round(from.y) - CHAR_H - LINK_CLEAR;
   const x1 = Math.round(to.x);
-  const y1 = Math.round(to.y) - mid;
+  const y1 = Math.round(to.y) - CHAR_H - LINK_CLEAR;
   const span = Math.hypot(x1 - x0, y1 - y0);
   if (span < 1) return;
   // a quadratic curve lifted in the middle, walked in small steps to measure its length

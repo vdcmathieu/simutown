@@ -12,7 +12,7 @@ Where a picture and a written rule disagree, the rule wins and the picture has a
 | File | What it shows |
 |------|---------------|
 | `docs/style/stylekey.png` | A corner of Willow Square, at x4. Every reference sprite in context. |
-| `docs/style/characters.png` | Every frame of the reference townsfolk. Rows: down, left, right, up. Columns: 2 idle frames on paving, 4 walk frames on grass. |
+| `docs/style/characters.png` | The idle and walk frames of the whole cast, five people to a row, each labelled with its id. In each block, rows: down, left, right, up; columns: 2 idle frames on paving, 4 walk frames on grass. |
 | `docs/style/pieces.png` | The approved repeat pieces at x8: window, door, roof corners, turf edge, shores, the tree, a person standing and stepping. Copy these pixels, not this prose. |
 | `docs/style/palette.png` | The palette, one row per ramp, dark to light. Each swatch carries its slot name and, in red, its letter in a sprite grid. |
 
@@ -119,17 +119,30 @@ Any prop with a flat surface below eye level shows that surface: a bench its sea
   Highlights are small (a lip, a glint, a 1-pixel rim on a leaf lobe); shade may be broader on the lower right.
 - **Flat colour.** No gradients, no dithering, no anti-aliasing, no pillow shading.
 - **No cast shadows in sprites.** The renderer draws them: a flat ink ellipse at about 22% under every person and standing prop, and a 2-pixel strip along the base of a building. The style key shows the midday version.
-- **Calm ground.** A grass tile carries two or three small marks (a `moss.1` tuft, a `moss.3` blade), never a speckle. Large areas must stay quiet so that people stand out.
+- **Calm ground.** A grass tile carries nought, one or two small marks (a `moss.1` tuft, a `moss.3` blade), a little over one on average, never a speckle. Large areas must stay quiet so that people stand out.
 - **No visible grid.** A material that covers many tiles needs at least three variants whose marks sit on different rows and columns. Check the mixed view of `pnpm sheet terrain`: no seams, no repeat that draws the eye.
 - **No faces by accident.** Two marks side by side on a round shape read as eyes. Leave round shapes plain.
 
 ## Ground
 
-- `grass` has three variants; the renderer mixes them by tile position.
+- `grass` has eight variants, each with nought, one or two marks, and no two marks across the variants share a row and a column; the renderer mixes them by tile position.
+  `meadow` is the same lawn with about one wild flower a tile, and meets grass without an edge.
 - `cobble` is the town's pale paving, for squares and streets. A tile opens with a full course of stones, so a road never starts on a half-cut row. About one glint per tile.
 - `dirt` is a trodden footpath: flat `cream.0` with at most three marks per tile (a `wood.2` scuff, a `cream.1` pebble). It may be one tile wide, and it should wander: turn it every two or three tiles.
 - A door that opens onto a lawn gets the `stepping-stones` flat prop, one tile per step. Never pave a one-tile spur to a door.
-- Edges are fringes: thin pieces that a higher-priority terrain draws on its neighbours. Priorities are `dirt` 0, `cobble` 1, `grass` 2, water 3.
+- Edges are fringes: thin pieces that a higher-priority terrain draws on its neighbours. There are twelve grounds (`src/art/terrain/index.ts`), from low to high priority:
+
+  | Priority | Ground | Its edge |
+  |---|---|---|
+  | 0 | `dirt` | none of its own |
+  | 1 | `cobble` | none of its own |
+  | 2 | `road`, grey flagstones | a kerb line on cobble and dirt |
+  | 3 | `soil`, a garden bed | a crumbling dark border on road, cobble and dirt |
+  | 4 | `grass`, `meadow` | the turf edge on everything below; none between the two |
+  | 5 | `tall-grass` | the turf edge one tone deeper |
+  | 6 | `water`, `basin` | the pond's bank, the basin's stone rim |
+  | 7 | `sand` | shallow tongues closed by a line of wet sand, over land and into water |
+  | 8 | `plank`, `plank-v` | a straight wooden edge with a 2-pixel front face, over anything |
 - **The turf edge.** Grass creeps over paving and dirt in lumps 1, 2 and 3 pixels deep, in runs of uneven length. Never a regular wave: it reads as battlements.
   Each side has three interchangeable strips, which the renderer picks per tile, so a long edge does not repeat every 16 pixels. Every strip starts and ends 2 pixels deep, so any strip joins any other.
   One line of darker green closes the edge: `moss.1` where it faces the light (north and west), `moss.0` where it faces away. Inner corners (`in-ne` and friends) add a wedge of grass that rounds the bend.
@@ -137,17 +150,25 @@ Any prop with a flat surface below eye level shows that surface: a bench its sea
 ### Which grounds may touch
 
 A fringe exists only where the table says yes; any other pair meets in a hard, ugly seam.
+"Grass kinds" means `grass`, `meadow` and `tall-grass`.
 
-| | `cobble` | `dirt` | `water` | `basin` |
-|---|---|---|---|---|
-| `grass` | yes: turf edge | yes: turf edge | yes: the pond's bank | yes, in a garden |
-| `cobble` | | end-on only | no | yes: the stone rim |
-| `dirt` | | | no | no |
-| `water` | | | | no |
+| Ground | May touch |
+|---|---|
+| `grass`, `meadow` | everything; they meet each other without an edge |
+| `tall-grass` | `grass`, `meadow`, `dirt`, `cobble`, `road`, `soil`, `water`, `sand`, `plank` |
+| `dirt` | grass kinds, `soil`, `sand`, `plank`; `cobble` and `road` end-on only |
+| `cobble` | grass kinds, `road` (the kerb), `soil`, `basin` (the stone rim), `sand`, `plank` |
+| `road` | grass kinds, `cobble`, `soil`, `basin`, `sand`, `plank` |
+| `soil` | grass kinds, `dirt`, `cobble`, `road`, `plank` |
+| `water` | grass kinds (the bank), `sand` (a beach), `plank` |
+| `basin` | `cobble`, `road`, `grass`, `meadow` |
+| `sand` | grass kinds, `water`, `dirt`, `cobble`, `road`, `plank` |
+| `plank`, `plank-v` | everything but `basin` |
 
 - "End-on only": a dirt path may run into paving across the width of the path. Dirt and paving never run side by side.
 - Where the table says no, put at least one tile of grass between the two.
-- New terrain (sand, flower bed, planks) must say which row and column of this table it joins, and bring the fringe for it.
+- **A deck starts one tile inland.** A boardwalk or bridge of `plank` that reaches over water starts one tile inland on each bank, so the bank runs under it.
+- New terrain must say which row of this table it joins, and bring the fringe for it.
 
 ## Water
 
@@ -155,13 +176,17 @@ A fringe exists only where the table says yes; any other pair meets in a hard, u
 - Water shimmers slowly: each variant is a 4-frame animation in `anims`, at 2 frames a second, in which the ripples slide 2 pixels to the right and back. Ripples keep 2 pixels clear of the tile's sides so the slide never splits one. Nothing else in the water moves.
 - **Shores curve.** The water spills 8 pixels into its neighbours, outer corners are quarter discs, and the `in-*` pieces round the tip of land where the shore turns inwards. Lay a pond as a blob: step its outline one tile at a time, keep it at least two tiles across everywhere, and avoid a straight shore longer than four tiles.
 - **`water` is a natural pond**, for meadows and parks: grass, a 1-pixel `moss.0` lip, then the water. Along the north and west banks the land throws a 2-pixel `sky.0` shadow on the water; along the south and east banks there is a 1-pixel `sky.2` line of foam instead.
-- **`basin` is the same water in a rim of pale stone**, for squares and gardens: a `steel.2` outer line, a 3-pixel `steel.4` top with `steel.3` joints, shadow and foam as above. Basins are rectangles with rounded corners and sit on paving.
+- **`basin` is the same water in a rim of pale stone**, for squares and gardens: a `steel.2` outer line, a 3-pixel `steel.4` top with `steel.3` joints, shadow and foam as above. A basin is a rectangle with rounded corners, set in paving (`cobble`, `road`) or in a lawn (`grass`, `meadow`), and nowhere else.
 - Lily pads and reeds are flat props placed on water tiles, away from the shore pieces.
 
 ## People
 
-People are built by the kit in `src/art/characters/kit.ts`: a shared body in role letters, plus three head grids per person (facing down, up and right; left is right mirrored).
+People are made with `makeCharacter` (`src/art/characters/make.ts`), from named choices: a body shape, a skin tone, a hair style and colour, a hat, a top, a bottom, shoes, one accent and a few accessories.
+It assembles a shared body, drawn once per shape in role letters, with three head grids (facing down, up and right; left is right mirrored), and returns every frame: a 2-frame idle, a 4-frame walk, and the poses `sit`, `wave`, `talk` and `carry`.
+A wrong choice throws an error that lists the valid ones, and `CHARACTER_OPTIONS` lists them all.
+Draw a new head or hat in `heads.ts`, or a new body in `bodies.ts`, only when the choices cannot make the person; everyone else is a few lines of spec.
 
+- **Four builds.** `adult` is the standard body. `broad` is the same height and two pixels wider across the shoulders (two columns repeated). `child` is three rows shorter under the same big head, does not sink in a step (the head bobs and one foot lifts) and walks at 10 frames a second. `elder` is the adult body with the head carried one pixel lower and, from the side, one pixel further forward; give an elder a cane, and the hand that holds it stops swinging.
 - **Two heads tall.** The head, hair included, is 12 rows; the body is 10. Do not grow the body to add detail.
   In the kit, a head grid is 14 rows: 2 spare rows on top for a bun or a hat, then the 12 rows of the head, the last of which is the chin's ink line. A body grid is 11 rows: 1 row that the chin covers, then the 10 rows of the body. Together they fill the 24-row box, overlapping by that one row.
 - **Faces.** Two ink eyes, each 1 pixel wide and 2 tall, on rows 9 and 10 of the box, at columns 5 and 10 when facing the viewer.
@@ -180,15 +205,17 @@ People are built by the kit in `src/art/characters/kit.ts`: a shared body in rol
   Black hair has a base and a light only: never map a hair role to `steel.0`, because ink is not a fill.
   The light is a short sheen on the upper-left of the crown. Keep the back of a head plain: a streak and a dot there read as a face.
 - **Silhouette first.** Each person must be recognisable as a black shape: a bun, a straw hat, long hair, a chin tuft, a skirt.
-  Hair and hats may use the two rows above the head and may hang over the shoulders.
+  Hair may use the two rows above the head and may hang over the shoulders.
+- **Hats go over the hair.** A hat is an overlay on a hair style: it erases what it covers (a bun under a cap), and hair that hangs below it (long hair, plaits, white hair over the ears) still shows. The kit has a straw hat, a peaked cap, a beret, a headscarf and a tall chef's hat. A headscarf wraps under the chin and shows a strip of hair at the brow, or of skin on a bald head. A hat band or badge takes the accent colour.
 - **Colour second.** One strong colour for the top, a different one for the legs, and at most one small accent (a ribbon, a hat band). Avoid `moss.2` and `cream.1` in clothes: they are the ground.
 - **Bodies are plain.** No buttons, belts or pockets. A sleeve is separated from the chest by one pixel of the top's shade.
-- **Facial hair stays small.** A beard is a tuft on the chin, 4 pixels wide and 2 tall, with a row of skin above it and skin on both sides; from the side it is 2 pixels at the chin. A wider or higher patch of white reads as a grin or a mask. A sideburn is 1 pixel wide and 2 tall.
+- **Facial hair stays small.** A beard is a chin tuft that hangs below the chin, never a patch on the face: facing the viewer, 4 pixels of hair on the chin's line, then 2 pixels of the hair's shade under them, closed in ink, with a full row of skin between the tuft and the cheeks. From the side it is 2 pixels at the point of the chin. A wider or higher patch of white reads as a grin or a mask.
 - **Idle** is two frames: the head settles by 1 pixel on the second.
 - **Walk** is four frames: step, stand, other step, stand.
   A step must change the silhouette, or it reads as jitter on a projector.
   Facing the viewer or away: the head and body drop 1 pixel, the landing foot is 3 pixels wide and low, the other leg stays in its own column and ends one row higher, and the arms swing against the legs (one hand 2 pixels up, the other 1 pixel down).
-  Facing sideways: the front foot reaches ahead on a baseline 1 pixel above the ground, the back foot stays on the ground behind, and the hand swings out past the body, in front on one stride and behind on the other.
+  Facing sideways, the two strides alternate which leg leads. On the first, the far leg reaches ahead with its foot lifted 1 pixel off the ground, the near foot stays planted behind, and the hand swings out in front of the body. On the second, the near leg leads and is planted, the far foot lifts behind, and the hand swings out behind.
+  Facing the viewer, the second step is the first mirrored.
 - All three skin tones are in the reference cast; keep it that way as the cast grows.
 
 ## Buildings
@@ -215,8 +242,14 @@ A building is a roof, a wall and a plinth, assembled from small pieces (see `src
 
 - Walls are `cream.2` plaster, or `ochre.3` for a pale yellow house, with a `cream.1` shadow 4 pixels deep under the eave and a `steel` plinth.
 - A cottage has a `wood` timber frame: a beam under the eave and posts at the corners and beside the door, each 4 pixels wide.
-- A plain plastered house marks its storeys with a 2-pixel string course and may hang `teal` or `plum` shutters beside the upstairs windows.
+- Three more materials show a few joints, never a full grid, on the light tone of their ramp:
+  - **brick**: `brick.2` in a running bond of 4-pixel courses, with only a few bricks drawn, far apart, in `brick.1`; the eave's shadow is `brick.1`.
+  - **stone**: pale dressed blocks about 10 by 6 in `steel.4`, part of the joints drawn in `steel.3`; the eave's shadow is `steel.3`.
+  - **planks**: upright `wood.2` boards 6 pixels wide, a `wood.1` line between them; the eave's shadow is `wood.1`.
+- A house of two storeys marks them with a 2-pixel string course in its material's light and shade (a second beam on a timber frame), and may hang `teal` or `plum` shutters beside the upstairs windows.
 - **Doors** are painted a strong colour or left in varnished wood, with inset panels (shade on the top and left of a panel, light on the bottom and right) and a brass knob in `ochre.2`.
+- **A door stands on a whole tile**, so that a person walking in lines up with it: a single door is centred on the middle of a tile, a double door covers two whole tiles. A door needs a tile clear of each corner, so the narrowest building is three tiles. The walkable tile in front of the door is the building's `door` place.
+- **The footprint is the ground the building really covers**, which is less than its picture: the wall is pure height, and the roof is partly height and partly depth. It is as wide as the sprite, so nobody walks through a wall or squeezes past a corner, and one to three tiles deep, counted up from the base line: as deep as it can be while the ridge still hides a person standing on the first free row behind it (at most 2 pixels of hair show). Two storeys, or one storey under a 44-pixel roof, give 3 tiles; a lower roof on one storey gives 2. So a person who walks behind a building disappears behind the roof line and comes back into view at either end, and nobody ever stands on a roof.
 - **Windows** by day are `sky.1` glass with a `sky.0` shadow along the top of each pane and a small `sky.2` glint, in a `wood.0` frame.
   A window box of flowers is welcome on the ground floor.
 
@@ -238,9 +271,10 @@ They are built from the same pieces and the same rules; each gets one feature th
 - **The lit rim is thin.** `moss.2` is the grass colour, so a wide band of it inside the outline reads as lawn and the canopy dissolves. The sunlit rim is 1 pixel inside the ink along the upper-left silhouette, never more than 2, with a few `moss.3` pixels at the top-left tips.
 - **The outline is always closed**, all the way round the canopy and the trunk.
 - No dots, ovals or dashes inside a lobe.
+  The fruit tree's apples are the one exception: 2x2 fruit in `brick`, spread over the lobes so that no two sit close together side by side, where they would read as eyes.
 - A hedge or a bush follows the same recipe.
 - Trunks are short and fat: `wood.2`, `wood.1`, `wood.0` in three vertical bands from left to right, darker where the canopy shades them.
-- **Flowers come in clusters of one colour**: poppies (`brick.1`), daisies (`steel.5`), buttercups (`ochre.2`), pinks (`rose.1`), each with a contrasting heart and a few `moss.1` leaves.
+- **Flowers come in clusters of one colour**: poppies (`brick.1`), daisies (`steel.5`), buttercups (`ochre.2`), pinks (`rose.1`), cornflowers (`sky.1`) and violets (`plum.1`), each with a contrasting heart and a few `moss.1` leaves. There are two drawings, a tight cluster and a looser one set lower in the tile, so that two patches side by side are not twins; a new colour is a recolour of one of them.
 - Flowers, lily pads and stepping stones are flat props: no ink, no footprint, drawn under people.
 - A flat prop made of stone or wood sits on a base of its own dark tone along its lower edge (stepping stones: `cream.1` on `cream.0`), or it floats over the lawn.
 
@@ -249,7 +283,9 @@ They are built from the same pieces and the same rules; each gets one feature th
 - A fence is waist-high on a person: 10 to 12 pixels, never taller than a body.
 - Posts are 4 pixels wide with their outline and rounded on top; two rails, each 2 pixels tall, `wood.2` with a `wood.1` underside. No 1-pixel rails or pickets.
 - Rails leave both sides of the tile on the same rows, so segments join without a seam. A run ends on a post.
-- A hedge follows the tree recipe: flat `moss.1`, a 1-pixel lit rim along the top-left, a `moss.0` underside, a closed ink outline.
+- **Assembling a fence.** An east-west run is `fence-h-left`, any number of `fence-h`, then `fence-h-right`, so it starts and ends on a post. A north-south run is `fence-v` pieces under a `fence-v-top`, or under any horizontal piece where two runs meet at a corner.
+- A hedge follows the tree recipe: flat `moss.1`, a 1-pixel lit rim along the top-left, a `moss.0` underside, a closed ink outline. It is clipped and chest-high: 12 pixels thick, rising 10, so we see 8 rows of its top, a scalloped `moss.0` line where the top overhangs, then the front face down to a shaded foot.
+- **Assembling a hedge.** An east-west row is `hedge-h-l`, any number of `hedge-h`, then `hedge-h-r`. A north-south row is `hedge` at the north end, then `hedge-v` for every tile below it; each piece covers the front face of the one above. A corner at the north end of a north-south row is `hedge-h-l` or `hedge-h-r` with `hedge-v` below it; a corner at the south end is `hedge-sw` (the row turns east) or `hedge-se` (it turns west). `hedge` alone is a clipped block.
 - Anything that repeats along a street (fence, hedge, wall, kerb) needs an end piece and must look right three tiles long and ten tiles long.
 
 ## Daylight, dusk and night
@@ -260,6 +296,8 @@ The renderer will also offer dusk and night moods by darkening and tinting the f
 - Any prop that can glow keeps an `emissive` sprite of the same size and anchor, plus `lights`.
 - The day sprite shows the thing unlit: window glass in `sky`, lamp glass in `cream`.
 - The emissive sprite repaints only the glass: `ochre.2` with an `ochre.3` core. Window bars and frames stay out of it, so they read dark against the glow.
+  Two things besides glass may glow: drawn-back curtains, a pelmet along the top of the glass and a drape 2 pixels wide down each side in `ochre.1`, as cloth lit from behind (`lit: 'curtains'` in `makeBuilding`); and a clock face, whose dial turns `ochre.3` while its hands stay dark.
+  Mix `warm`, `curtains` and `dark` windows along a street: with all three, it feels inhabited.
 - `pnpm sheet` shows both versions side by side. Check that the lit one feels warm and inhabited.
 
 ## Do and do not

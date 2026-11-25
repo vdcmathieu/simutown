@@ -528,6 +528,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     fps: FPS,
     width: FRAME_W,
     height: FRAME_H,
+    cast: [...new Set(tl.actors.map((a) => a.character))],
     frame: (t: number) => frameAt(tl, t),
   };
 }

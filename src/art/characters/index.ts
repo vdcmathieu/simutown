@@ -1,211 +1,256 @@
+/**
+ * The townsfolk of Willow Square, and the kit that makes them.
+ *
+ *   import { characters, townsfolk, makeCharacter } from './art/characters';
+ *
+ * `characters` is the registry the renderer and scenes use. `townsfolk` describes the same
+ * people in words, so a scene author can cast without seeing the picture. To add someone,
+ * call `makeCharacter` (see make.ts for the options) and register the result under its id.
+ */
 import type { CharacterDef } from '../../core/types';
-import { person } from './kit';
+import { type CharacterSpec, makeCharacter } from './make';
 
-// The reference townsfolk of Willow Square. Keep the id `ana` (fixtures and tests use it).
-// See kit.ts for the role letters.
+export { makeCharacter, CHARACTER_OPTIONS, type CharacterSpec } from './make';
+export { person, type PersonSpec } from './kit';
+export { POSES, type PoseName, type BodyLayer } from './build';
+export { CLOTH, HAIR, SKINS, type ClothColor, type ClothName, type HairColor, type SkinTone } from './colors';
+export { HATS, HEADS, type HatName, type HeadName } from './heads';
+export type { ShapeName } from './bodies';
+export type { BottomKind, SleeveKind, TopKind } from './outfits';
 
-const ana = person({
-  id: 'ana',
-  name: 'Ana',
-  legend: {
-    S: 'skin.a.1', K: 'skin.a.0', B: 'rose.1',
-    H: 'wood.1', D: 'wood.0', L: 'wood.2',
-    T: 'teal.1', U: 'teal.0',
-    P: 'plum.0', Q: 'steel.1',
-    F: 'wood.0',
-    R: 'rose.0', // the ribbon under her bun
-  },
-  head: {
-    down: `
-      ......0000......
-      .....0HLHH0.....
-      ....00RRRR00....
-      ...0HHHHHHHH0...
-      ..0HLLHHHHHHH0..
-      .0HLHHHHHHHHHH0.
-      .0HHHHHHHHHHHD0.
-      .0HHHSSHHHSSHD0.
-      .0HHSSSSSSSSHD0.
-      .0HSS0SSSS0SSD0.
-      .0HSS0SSSS0SSD0.
-      ..0SBSSSSSSBS0..
-      ...0SSSSSSSS0...
-      ....00000000....
-    `,
-    up: `
-      ......0000......
-      .....0HLHH0.....
-      ....00RRRR00....
-      ...0HHHHHHHH0...
-      ..0HLLHHHHHHH0..
-      .0HLHHHHHHHHHH0.
-      .0HHHHHHHHHHHD0.
-      .0HHHHHHHHHHHD0.
-      .0HHHHHHHHHHHD0.
-      .0HHHHHHHHHHDD0.
-      .0DHHHHHHHHDDD0.
-      ..0DDHHHHDDDD0..
-      ...0DDDDDDDD0...
-      ....00000000....
-    `,
-    right: `
-      ......0000......
-      .....0HLHH0.....
-      ....00RRRR00....
-      ...0HHHHHHHH0...
-      ..0HLLHHHHHHH0..
-      .0HLHHHHHHHHHH0.
-      .0HHHHHHHHHHHH0.
-      .0HHHHHHHHSSHH0.
-      .0DHHHHHSSSSSS0.
-      .0DHHHHSSSS0SS0.
-      .0DDHHHSSSS0SS0.
-      ..0DDHSSSSSSB0..
-      ...0DDSSSSSS0...
-      ....00000000....
-    `,
-  },
-});
+/** A townsperson in words: who they are and how to recognise them. */
+export interface Townsperson {
+  /** Key in `characters`, and what a scene passes to `s.actor()`. */
+  id: string;
+  name: string;
+  /** Their job or place in the town, e.g. 'baker'. */
+  role: string;
+  /** How they look, in one sentence: build, hair or hat, clothes, what they carry. */
+  description: string;
+}
 
-const tomas = person({
-  id: 'tomas',
-  name: 'Tomas',
-  legend: {
-    S: 'skin.c.1', K: 'skin.c.0', B: 'rose.0',
-    H: 'steel.5', D: 'steel.4', L: 'steel.5',
-    T: 'sky.1', U: 'sky.0',
-    P: 'wood.1', Q: 'wood.0',
-    F: 'steel.1',
-    // straw hat: light, base, shade, and a plain brown band
-    Y: 'ochre.3', A: 'ochre.2', Z: 'ochre.1', R: 'wood.1',
-  },
-  // His chin tuft hangs a row below the chin, so the head grids are 15 rows tall.
-  // It is 4 pixels wide with skin on both sides: any wider and it reads as a grin.
-  head: {
-    down: `
-      ................
-      .....000000.....
-      ....0YYAAAA0....
-      ...0RRRRRRRR0...
-      .00YYAAAAAAAZ00.
-      0YAAAAAAAAAAAAZ0
-      .00000000000000.
-      ..0HSSSSSSSSH0..
-      ..0SSSSSSSSSS0..
-      ..0SS0SSSS0SS0..
-      ..0SS0SSSS0SS0..
-      ..0SBSSSSSSBS0..
-      ...0SSHHHHSS0...
-      ....00HHHH00....
-      ......0000......
-    `,
-    up: `
-      ................
-      .....000000.....
-      ....0YYAAAA0....
-      ...0RRRRRRRR0...
-      .00YYAAAAAAAZ00.
-      0YAAAAAAAAAAAAZ0
-      .00000000000000.
-      ..0SHHHHHHHHS0..
-      ..0SHHHHHHHDS0..
-      ..0SSDDDDDDSS0..
-      ..0SSSSSSSSSS0..
-      ..0SSSSSSSSSS0..
-      ...0KKKKKKKK0...
-      ....00000000....
-      ................
-    `,
-    right: `
-      ................
-      .....000000.....
-      ....0YYAAAA0....
-      ...0RRRRRRRR0...
-      .00YYAAAAAAAZ00.
-      0YAAAAAAAAAAAAZ0
-      .00000000000000.
-      ..0SHSSSSSSSS0..
-      ..0SHSSSSSSSS0..
-      ..0SSSSSSS0SS0..
-      ..0SSSSSSS0SS0..
-      ..0SSSSSSSSBS0..
-      ...0SSSSSSHH0...
-      ....000000HH0...
-      ..........00....
-    `,
-  },
-});
+interface Entry {
+  role: string;
+  description: string;
+  spec: CharacterSpec;
+}
 
-const mira = person({
-  id: 'mira',
-  name: 'Mira',
-  body: 'dress',
-  legend: {
-    S: 'skin.b.1', K: 'skin.b.0', B: 'rose.1',
-    H: 'steel.1', L: 'steel.2', // black hair is base and light only
-    T: 'steel.5', U: 'steel.4',
-    P: 'rose.1', Q: 'rose.0',
-    F: 'brick.0',
+// Keep the ids `ana`, `tomas` and `mira`: fixtures, tests and the style key use them.
+const CAST: Entry[] = [
+  {
+    role: 'neighbour',
+    description: 'A young woman with a brown bun tied with a pink ribbon, a teal jumper and dark purple trousers.',
+    spec: {
+      id: 'ana',
+      name: 'Ana',
+      skin: 'a',
+      head: 'bun',
+      hair: 'brown',
+      top: { kind: 'shirt', color: 'teal', sleeves: 'long' },
+      bottom: { kind: 'trousers', color: 'indigo' },
+      accent: 'rose.0',
+    },
   },
-  // long hair: the head grids run past row 14 and hang over the shoulders
-  head: {
-    down: `
-      ................
-      ................
-      ....00000000....
-      ...0HHHHHHHH0...
-      ..0HLLHHHHHHH0..
-      .0HLHHHHHHHHHH0.
-      .0HHHHHHHHHHHH0.
-      .0HHHHSSSSHHHH0.
-      .0HHSSSSSSSSHH0.
-      .0HSS0SSSS0SSH0.
-      .0HSS0SSSS0SSH0.
-      .0HSBSSSSSSBSH0.
-      .0HH0SSSSSS0HH0.
-      .0HH00000000HH0.
-      .0HH0......0HH0.
-      ..00........00..
-    `,
-    up: `
-      ................
-      ................
-      ....00000000....
-      ...0HHHHHHHH0...
-      ..0HLLHHHHHHH0..
-      .0HLHHHHHHHHHH0.
-      .0HHHHHHHHHHHH0.
-      .0HHHHHHHHHHHH0.
-      .0HHHHHHHHHHHH0.
-      .0HHHHHHHHHHHH0.
-      .0HHHHHHHHHHHH0.
-      .0HHHHHHHHHHHH0.
-      .0HHHHHHHHHHHH0.
-      .0HHHHHHHHHHHH0.
-      .0HHHHHHHHHHHH0.
-      ..0HHHHHHHHHH0..
-      ...0000000000...
-    `,
-    right: `
-      ................
-      ................
-      ....00000000....
-      ...0HHHHHHHH0...
-      ..0HLLHHHHHHH0..
-      .0HLHHHHHHHHHH0.
-      .0HHHHHHHHHHHH0.
-      .0HHHHHHHHHSSH0.
-      .0HHHHHHHSSSSS0.
-      .0HHHHHHSSS0SS0.
-      .0HHHHHHSSS0SS0.
-      .0HHHHHHSSSSSB0.
-      .0HHHHHHSSSSS0..
-      .0HHHHH0000000..
-      ..0HHHH0........
-      ..0HHHH0........
-      ...0000.........
-    `,
+  {
+    role: 'gardener',
+    description: 'An older man with dark skin, a wide straw hat, white hair over the ears and a small white chin tuft, in a blue shirt and brown trousers.',
+    spec: {
+      id: 'tomas',
+      name: 'Tomas',
+      skin: 'c',
+      head: 'balding',
+      hair: 'white',
+      hat: { kind: 'straw-hat' },
+      beard: true,
+      top: { kind: 'shirt', color: 'blue', sleeves: 'long' },
+      bottom: { kind: 'trousers', color: 'brown' },
+      shoes: 'charcoal',
+      accent: 'brown',
+    },
   },
-});
+  {
+    role: 'florist',
+    description: 'A young woman with long straight black hair over her shoulders, a white blouse and a pink skirt.',
+    spec: {
+      id: 'mira',
+      name: 'Mira',
+      skin: 'b',
+      head: 'long',
+      hair: 'black',
+      top: { kind: 'shirt', color: 'white', sleeves: 'long' },
+      bottom: { kind: 'skirt', color: 'pink' },
+      shoes: 'maroon',
+    },
+  },
+  {
+    role: 'baker',
+    description: 'A broad man in a tall white chef\'s hat and a white apron over a yellow shirt, with a ginger chin tuft.',
+    spec: {
+      id: 'bo',
+      name: 'Bo',
+      body: 'broad',
+      skin: 'a',
+      head: 'short',
+      hair: 'ginger',
+      hat: { kind: 'chef-hat' },
+      beard: true,
+      top: { kind: 'apron', color: 'yellow' },
+      bottom: { kind: 'trousers', color: 'slate' },
+    },
+  },
+  {
+    role: 'teacher',
+    description: 'A woman with a black bob and glasses, in a purple jumper and a grey skirt.',
+    spec: {
+      id: 'yuki',
+      name: 'Yuki',
+      skin: 'a',
+      head: 'bob',
+      hair: 'black',
+      top: { kind: 'sweater', color: 'purple' },
+      bottom: { kind: 'skirt', color: 'grey' },
+      shoes: 'charcoal',
+      accessories: { glasses: true },
+    },
+  },
+  {
+    role: 'child',
+    description: 'A small boy with dark skin and spiky black hair, in an orange T-shirt and blue shorts.',
+    spec: {
+      id: 'kofi',
+      name: 'Kofi',
+      body: 'child',
+      skin: 'c',
+      head: 'spiky',
+      hair: 'black',
+      top: { kind: 'shirt', color: 'orange' },
+      bottom: { kind: 'shorts', color: 'navy' },
+      shoes: 'red',
+    },
+  },
+  {
+    role: 'child',
+    description: 'A small girl with two long brown plaits tied in yellow, in a red pinafore over a white shirt.',
+    spec: {
+      id: 'lin',
+      name: 'Lin',
+      body: 'child',
+      skin: 'b',
+      head: 'braids',
+      hair: 'brown',
+      top: { kind: 'overalls', color: 'white' },
+      bottom: { kind: 'skirt', color: 'red' },
+      accent: 'yellow',
+    },
+  },
+  {
+    role: 'elder',
+    description: 'A stooped old man who walks with a cane: bald on top with white hair over the ears, glasses, a long tan coat.',
+    spec: {
+      id: 'otto',
+      name: 'Otto',
+      body: 'elder',
+      skin: 'a',
+      head: 'balding',
+      hair: 'white',
+      top: { kind: 'coat', color: 'tan' },
+      bottom: { kind: 'trousers', color: 'charcoal' },
+      accessories: { glasses: true, cane: true },
+    },
+  },
+  {
+    role: 'postal worker',
+    description: 'A man in a blue peaked cap and a blue uniform with a yellow collar, a brown satchel on a strap across his chest.',
+    spec: {
+      id: 'raj',
+      name: 'Raj',
+      skin: 'b',
+      head: 'short',
+      hair: 'black',
+      hat: { kind: 'cap', color: 'blue' },
+      top: { kind: 'uniform', color: 'blue' },
+      bottom: { kind: 'trousers', color: 'navy' },
+      shoes: 'charcoal',
+      accent: 'yellow',
+      accessories: { bag: 'brown' },
+    },
+  },
+  {
+    role: 'shopkeeper',
+    description: 'A woman with dark skin and a big cloud of black curls, in a cream apron over a red shirt and a grey-blue skirt.',
+    spec: {
+      id: 'zara',
+      name: 'Zara',
+      skin: 'c',
+      head: 'curls',
+      hair: 'black',
+      top: { kind: 'apron', color: 'red', apron: 'cream' },
+      bottom: { kind: 'skirt', color: 'slate' },
+    },
+  },
+  {
+    role: 'student',
+    description: 'A young man with a brown quiff, a green jumper, a yellow scarf and a grey-blue satchel.',
+    spec: {
+      id: 'emil',
+      name: 'Emil',
+      skin: 'a',
+      head: 'quiff',
+      hair: 'brown',
+      top: { kind: 'sweater', color: 'green' },
+      bottom: { kind: 'trousers', color: 'tan' },
+      accessories: { scarf: 'yellow', bag: 'slate' },
+    },
+  },
+  {
+    role: 'doctor',
+    description: 'A woman in a teal headscarf and glasses, wearing a long white coat over navy trousers.',
+    spec: {
+      id: 'noor',
+      name: 'Noor',
+      skin: 'b',
+      head: 'short',
+      hair: 'black',
+      hat: { kind: 'headscarf', color: 'teal' },
+      top: { kind: 'coat', color: 'white' },
+      bottom: { kind: 'trousers', color: 'navy' },
+      shoes: 'charcoal',
+      accessories: { glasses: true },
+    },
+  },
+  {
+    role: 'carpenter',
+    description: 'A broad man with dark skin and a black flat-top, in brown overalls over a cream shirt.',
+    spec: {
+      id: 'idris',
+      name: 'Idris',
+      body: 'broad',
+      skin: 'c',
+      head: 'flattop',
+      hair: 'black',
+      top: { kind: 'overalls', color: 'cream' },
+      bottom: { kind: 'trousers', color: 'brown' },
+      shoes: 'charcoal',
+    },
+  },
+  {
+    role: 'painter',
+    description: 'A woman in a red beret over a ginger ponytail, with a grey-blue jumper and a yellow skirt.',
+    spec: {
+      id: 'pia',
+      name: 'Pia',
+      skin: 'a',
+      head: 'ponytail',
+      hair: 'ginger',
+      hat: { kind: 'beret', color: 'red' },
+      top: { kind: 'sweater', color: 'slate' },
+      bottom: { kind: 'skirt', color: 'yellow' },
+    },
+  },
+];
 
-export const characters: Record<string, CharacterDef> = { ana, tomas, mira };
+/** The built-in townsfolk, by id. */
+export const characters: Record<string, CharacterDef> = Object.fromEntries(CAST.map((e) => [e.spec.id, makeCharacter(e.spec)]));
+
+/** The same people in words, in the order of `characters`: cast from this without seeing the picture. */
+export const townsfolk: Townsperson[] = CAST.map((e) => ({ id: e.spec.id, name: e.spec.name, role: e.role, description: e.description }));

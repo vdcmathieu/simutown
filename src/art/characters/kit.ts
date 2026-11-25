@@ -1,5 +1,8 @@
 /**
- * The character kit: a shared body, and a head per person.
+ * The character kit, low level: a shared body, and a head per person.
+ *
+ * Most people are made with `makeCharacter` (make.ts), which picks everything by name.
+ * `person()` is the layer under it, for a townsperson with a hand-drawn head.
  *
  * A townsperson is two heads tall. The head (hair or hat included) is a grid 16 wide and
  * 14 tall, the body a 16x11 grid; the head is drawn over the body, so its chin hides the
@@ -14,250 +17,77 @@
  *   T top         U top shade
  *   P trousers or skirt    Q their shade
  *   F shoes
+ *   E apron       G apron shade    R the one accent: a ribbon, a hat band, a collar
+ *   A hat         Y hat light      Z hat shade
+ *   V scarf       W scarf shade    M bag        N bag shade
+ *   C glasses frame   J lens
+ *   X O I  a wooden thing in the hands (light, base, shade): the crate of `carry`, a cane
  *
- * A head may use more roles of its own (a hat, a moustache); the person's legend names
- * them. `0` is ink, as everywhere.
+ * A head may also use plain palette characters (`q`, `5`, ...) for a one-off detail.
+ * `0` is ink, as everywhere.
  */
-import { flipX, sprite, type Legend, type Sprite } from '../../core/sprite';
-import { CHAR_H, CHAR_W, type CharacterDef, type Dir } from '../../core/types';
+import type { Slot } from '../../core/palette';
+import type { Legend } from '../../core/sprite';
+import type { CharacterDef } from '../../core/types';
+import type { ShapeName } from './bodies';
+import { build, type BodyLayer } from './build';
+import { grid } from './grid';
+import { type BottomKind, type SleeveKind, type TopKind, type View, type ZoneMap, zonesFor } from './outfits';
 
-/** A head grid is at least this tall; long hair or a beard may hang lower, over the body. */
-const HEAD_H = 14;
-const BODY_H = 11;
+/** Roles the shared body always needs. */
+const BODY_ROLES = ['S', 'K', 'T', 'U', 'P', 'Q', 'F'] as const;
 
-// --- bodies ----------------------------------------------------------------------------
-// The step frames sit one pixel lower than the standing frame: that is the walking bob.
-
-const FRONT_STAND = `
-  ................
-  ...0TTTTTTTT0...
-  ..0TTTTTTTTTT0..
-  ..0TUTTTTTTUT0..
-  ..0S0TTTTTT0S0..
-  ...00UUUUUU00...
-  ....0PPPPPP0....
-  ....0PPQQPP0....
-  ....0PP00PP0....
-  ....0FF00FF0....
-  ....000..000....
-`;
-
-// A step: the viewer's left foot lands big and low, the right leg is a row shorter in its
-// own column, and the arms swing against the legs (one hand high, the other low). Mirror it for the other step.
-const FRONT_STEP = `
-  ................
-  ................
-  ...0TTTTTTTT0...
-  ..0STTTTTTTTT0..
-  ..00UTTTTTTUT0..
-  ...0UTTTTTT0T0..
-  ....0UUUUUU0S0..
-  ....0PPPPPP000..
-  ....0PP00FF0....
-  ...0FFF00000....
-  ...00000........
-`;
-
-const SIDE_STAND = `
-  ................
-  .....0TTTTT0....
-  ....0TTTTTTT0...
-  ....0TUTTUTT0...
-  ....0TUSSUTT0...
-  .....0UUUUU0....
-  .....0PPPPP0....
-  .....0PPPPP0....
-  .....0PPPP0.....
-  .....0FFFFF0....
-  .....0000000....
-`;
-
-// Facing right, mid-stride: the front foot reaches ahead on a raised baseline (heel
-// first), the back foot pushes off the ground, and the hand swings out in front.
-const SIDE_STRIDE_A = `
-  ................
-  ................
-  .....0TTTTT0....
-  ....0TTTTTTT0...
-  ....0TTTUTTT0...
-  ....0TTTTUSS0...
-  .....0UUUU000...
-  ....0PPPPPPP0...
-  ...0PPP00PFFF0..
-  ...0FF0..00000..
-  ...0000.........
-`;
-
-// The other stride: same legs, the hand swung out behind.
-const SIDE_STRIDE_B = `
-  ................
-  ................
-  .....0TTTTT0....
-  ....0TTTTTTT0...
-  ....0TTTUTTT0...
-  ...0SSUTTTTT0...
-  ...000UUUUU0....
-  ....0PPPPPPP0...
-  ...0PPP00PFFF0..
-  ...0FF0..00000..
-  ...0000.........
-`;
-
-// The same five poses in a skirt: P is the skirt, Q its hem, and the legs are bare.
-
-const FRONT_STAND_DRESS = `
-  ................
-  ...0TTTTTTTT0...
-  ..0TTTTTTTTTT0..
-  ..0TUTTTTTTUT0..
-  ..0S0TTTTTT0S0..
-  ...00PPPPPP00...
-  ...0PPPPPPPP0...
-  ..0QPPPPPPPPQ0..
-  ..000SS00SS000..
-  ....0FF00FF0....
-  ....000..000....
-`;
-
-const FRONT_STEP_DRESS = `
-  ................
-  ................
-  ...0TTTTTTTT0...
-  ..0STTTTTTTTT0..
-  ..00UTTTTTTUT0..
-  ...0PPPPPPP0T0..
-  ...0PPPPPPP0S0..
-  ..0QPPPPPPPP00..
-  ..000SS00FF000..
-  ...0FFF0000.....
-  ...00000........
-`;
-
-const SIDE_STAND_DRESS = `
-  ................
-  .....0TTTTT0....
-  ....0TTTTTTT0...
-  ....0TUTTUTT0...
-  ....0TUSSUTT0...
-  .....0PPPPP0....
-  ....0PPPPPPP0...
-  ....0QPPPPPQ0...
-  ....000SS0000...
-  ......0FFF0.....
-  ......00000.....
-`;
-
-const SIDE_STRIDE_A_DRESS = `
-  ................
-  ................
-  .....0TTTTT0....
-  ....0TTTTTTT0...
-  ....0TTTUTTT0...
-  ....0TTTTUSS0...
-  ....0PPPPPP00...
-  ...0QPPPPPPPQ0..
-  ...00S0000SFF0..
-  ...0FF0..00000..
-  ...0000.........
-`;
-
-const SIDE_STRIDE_B_DRESS = `
-  ................
-  ................
-  .....0TTTTT0....
-  ....0TTTTTTT0...
-  ....0TTTUTTT0...
-  ...0SSUTTTTT0...
-  ...000PPPPPP0...
-  ...0QPPPPPPPQ0..
-  ...00S0000SFF0..
-  ...0FF0..00000..
-  ...0000.........
-`;
-
-const BODIES = {
-  trousers: {
-    frontStand: FRONT_STAND,
-    frontStep: FRONT_STEP,
-    sideStand: SIDE_STAND,
-    sideStrideA: SIDE_STRIDE_A,
-    sideStrideB: SIDE_STRIDE_B,
-  },
-  dress: {
-    frontStand: FRONT_STAND_DRESS,
-    frontStep: FRONT_STEP_DRESS,
-    sideStand: SIDE_STAND_DRESS,
-    sideStrideA: SIDE_STRIDE_A_DRESS,
-    sideStrideB: SIDE_STRIDE_B_DRESS,
-  },
-};
-
-// --- assembly --------------------------------------------------------------------------
-
-/** One frame: the body on the bottom rows, the head on top, dropped by `drop` pixels. */
-function compose(head: Sprite, body: Sprite, drop = 0): Sprite {
-  if (head.w !== CHAR_W || head.h < HEAD_H || head.h + 1 > CHAR_H) {
-    throw new Error(`character head must be ${CHAR_W} wide and ${HEAD_H} to ${CHAR_H - 1} tall`);
-  }
-  if (body.w !== CHAR_W || body.h !== BODY_H) throw new Error(`character body must be ${CHAR_W}x${BODY_H}`);
-  const px = new Uint8Array(CHAR_W * CHAR_H);
-  px.set(body.px, (CHAR_H - BODY_H) * CHAR_W);
-  for (let i = 0; i < head.px.length; i++) {
-    if (head.px[i] !== 0) px[i + drop * CHAR_W] = head.px[i]!;
-  }
-  return { w: CHAR_W, h: CHAR_H, px, ax: 8, ay: CHAR_H };
-}
+/** The wooden crate of the `carry` pose, unless the legend says otherwise. */
+const PROP_ROLES: Record<string, Slot> = { X: 'wood.2', O: 'wood.1', I: 'wood.0' };
 
 export interface PersonSpec {
   id: string;
   name: string;
-  /** Role letter -> palette slot, for the heads and the shared body. */
+  /** Role letter -> palette slot, for the heads and the shared body. Needs S K T U P Q F. */
   legend: Legend;
-  /** Which shared body to wear. Default 'trousers'. */
-  body?: keyof typeof BODIES;
+  /** Which shared body to wear: long sleeves over trousers, or over a skirt. Default 'trousers'. */
+  body?: 'trousers' | 'dress';
+  /** Body shape. Default 'adult'. */
+  shape?: ShapeName;
+  /** Override the outfit that `body` implies. */
+  outfit?: { top: TopKind; bottom: BottomKind; sleeves: SleeveKind };
   /**
    * Three head grids, 16 wide and at least 14 tall: facing the viewer, facing away,
-   * facing right. The eyes sit on rows 9 and 10. Rows past the 14th hang over the body.
+   * facing right. The eyes sit on rows 9 and 10: columns 5 and 10 from the front,
+   * column 11 from the side. Rows past the 14th hang over the body.
    */
   head: { down: string; up: string; right: string };
+  /** Accessories and other layers over the body. */
+  layers?: readonly BodyLayer[];
+  walkFps?: number;
+  idleFps?: number;
 }
 
-/** Build a full CharacterDef (four directions, 2-frame idle, 4-frame walk) from a spec. */
+/**
+ * Build a full CharacterDef from a spec with hand-drawn heads: four directions, a 2-frame
+ * idle, a 4-frame walk and the poses `sit`, `wave`, `talk` and `carry`.
+ */
 export function person(spec: PersonSpec): CharacterDef {
-  const draw = (art: string) => sprite(art, { legend: spec.legend });
-  const head = { down: draw(spec.head.down), up: draw(spec.head.up), right: draw(spec.head.right) };
-  const body = BODIES[spec.body ?? 'trousers'];
-  const frontStand = draw(body.frontStand);
-  const frontStep = draw(body.frontStep);
-  const sideStand = draw(body.sideStand);
-
-  // Idle breathes: the head settles by one pixel on the second frame.
-  const idleOf = (h: Sprite, b: Sprite) => [compose(h, b), compose(h, b, 1)];
-  const frontWalk = (h: Sprite) => [
-    compose(h, frontStep, 1),
-    compose(h, frontStand),
-    compose(h, flipX(frontStep), 1),
-    compose(h, frontStand),
-  ];
-  const sideWalk = [
-    compose(head.right, draw(body.sideStrideA), 1),
-    compose(head.right, sideStand),
-    compose(head.right, draw(body.sideStrideB), 1),
-    compose(head.right, sideStand),
-  ];
-  const sideIdle = idleOf(head.right, sideStand);
-
-  const idle: Record<Dir, Sprite[]> = {
-    down: idleOf(head.down, frontStand),
-    up: idleOf(head.up, frontStand),
-    right: sideIdle,
-    left: sideIdle.map(flipX),
+  const missing = BODY_ROLES.filter((r) => !spec.legend[r]);
+  if (missing.length > 0) {
+    throw new Error(`person "${spec.id}": the legend has no slot for ${missing.join(', ')}. The body needs: ${BODY_ROLES.join(', ')}.`);
+  }
+  const outfit = spec.outfit ?? { top: 'sweater' as const, bottom: spec.body === 'dress' ? ('skirt' as const) : ('trousers' as const), sleeves: 'long' as const };
+  const zones = (view: View): ZoneMap => {
+    const z = zonesFor(outfit.top, outfit.bottom, outfit.sleeves, view);
+    // the plain reference bodies have no ribbed neck
+    return spec.outfit ? z : { ...z, n: 'T' };
   };
-  const walk: Record<Dir, Sprite[]> = {
-    down: frontWalk(head.down),
-    up: frontWalk(head.up),
-    right: sideWalk,
-    left: sideWalk.map(flipX),
-  };
-  return { id: spec.id, name: spec.name, idle, walk };
+  return build({
+    id: spec.id,
+    name: spec.name,
+    legend: { ...PROP_ROLES, ...spec.legend },
+    shape: spec.shape ?? 'adult',
+    lower: outfit.bottom === 'skirt' ? 'skirt' : 'legs',
+    zones: { front: zones('front'), back: zones('back'), side: zones('side') },
+    head: { down: grid(spec.head.down), up: grid(spec.head.up), right: grid(spec.head.right) },
+    layers: spec.layers,
+    walkFps: spec.walkFps,
+    idleFps: spec.idleFps,
+  });
 }

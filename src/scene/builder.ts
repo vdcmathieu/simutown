@@ -10,7 +10,7 @@ import { blockerAt, fmtTile, inBounds, isWalkable, type Tile, tileAt, tileCenter
 import { unknownName } from '../world/names';
 import { explainNoPath, findPath } from '../world/path';
 import { createRng, type Rng } from '../world/random';
-import { type ActorSeg, bodyAt, type Body, type CamTarget, dirBetween, emptyTimeline, frameAt, insertByStart, type Pt, rampAt, type Timeline } from './timeline';
+import { type ActorSeg, bodyAt, type Body, type CamTarget, cutWalk, dirBetween, emptyTimeline, frameAt, insertByStart, type Pt, rampAt, type Timeline } from './timeline';
 import * as T from './timing';
 import type { ActorHandle, ActorOpts, SceneBuilder, SceneOpts, Target } from './types';
 
@@ -141,7 +141,10 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     const w = r.wander;
     if (!w || t < w.start) return;
     extendWander(r, t);
-    r.segs = r.segs.filter((s) => !(s.kind === 'walk' && s.wander && s.start >= t));
+    // Strolls not yet started are dropped; the one under way stops where the actor is at t.
+    r.segs = r.segs
+      .filter((s) => !(s.kind === 'walk' && s.wander && s.start >= t))
+      .map((s) => (s.kind === 'walk' && s.wander && s.end > t ? cutWalk(s, t) : s));
     r.wander = undefined;
   };
 

@@ -174,6 +174,24 @@ export function bodyAt(segs: ActorSeg[], t: number): Body {
   return b;
 }
 
+/** A copy of a walk that stops at time t (start < t < end), where the walker is at that moment. */
+export function cutWalk(s: ActorSeg & { kind: 'walk' }, t: number): ActorSeg & { kind: 'walk' } {
+  let i = 0;
+  while (i < s.points.length - 2 && s.times[i + 1]! <= t) i++;
+  const a = s.points[i]!;
+  const z = s.points[i + 1]!;
+  const span = s.times[i + 1]! - s.times[i]!;
+  const u = span > 0 ? clamp01((t - s.times[i]!) / span) : 1;
+  const stop = { x: a.x + (z.x - a.x) * u, y: a.y + (z.y - a.y) * u };
+  return {
+    ...s,
+    end: t,
+    points: [...s.points.slice(0, i + 1), stop],
+    times: [...s.times.slice(0, i + 1), t],
+    dirs: s.dirs.slice(0, i + 1),
+  };
+}
+
 /** Direction of travel from a to b (horizontal wins ties). */
 export function dirBetween(a: Pt, b: Pt): Dir {
   const dx = b.x - a.x;

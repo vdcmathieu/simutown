@@ -612,7 +612,7 @@ describe('a longer scene with three actors', () => {
 });
 
 describe('regressions from review', () => {
-  it.fails('a wander stops at once when the actor gets a later instruction', () => {
+  it('a wander stops at once when the actor gets a later instruction', () => {
     const sc = make((s) => {
       const a = s.actor('ana', { at: [12, 8] });
       s.wander(a, { around: [12, 8], radius: 3, speed: 0.2 });

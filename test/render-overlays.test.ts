@@ -6,7 +6,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Surface } from '../src/core/surface';
 import { createRenderer } from '../src/render';
-import { labelHeight } from '../src/render/overlays';
 import * as ui from '../src/ui';
 import { actor, block, frameState, kitArt, kitTown } from '../tools/render-testkit';
 
@@ -16,6 +15,9 @@ vi.mock('../src/ui', () => ({
   drawEmote: vi.fn(),
   drawLabel: vi.fn(),
   drawTitle: vi.fn(),
+  // sizes the renderer stacks with: an emote reports its box plus one free row
+  measureEmote: vi.fn(() => ({ w: 9, h: 9 })),
+  measureLabel: vi.fn(() => ({ w: 30, h: 18 })),
 }));
 
 const art = kitArt();
@@ -52,23 +54,23 @@ describe('overlays', () => {
       }),
       out,
     );
-    expect(vi.mocked(ui.drawEmote).mock.calls[0]!.slice(2)).toEqual(['heart', 40, 25]); // never on the face
-    const labels = vi.mocked(ui.drawLabel).mock.calls.map((c) => c.slice(2));
+    expect(vi.mocked(ui.drawEmote).mock.calls[0]!.slice(2, 5)).toEqual(['heart', 40, 25]); // never on the face
+    const labels = vi.mocked(ui.drawLabel).mock.calls.map((c) => c.slice(2, 6));
     expect(labels).toEqual([
       ['knows', 40, 15, 0.8], // above the 8-pixel emote and a gap
       ['cafe', 10, 16, 1], // `at` is a spot on the ground: lifted by a character's height
     ]);
     const bubble = vi.mocked(ui.drawBubble).mock.calls[0]![2];
     expect(bubble.x).toBe(40);
-    expect(bubble.y).toBe(15 - labelHeight(art.font) - 2); // above the label and a gap
+    expect(bubble.y).toBe(15 - 18 - 2); // above the measured label and a gap
   });
 
   it('draws caption and title only when visible, and overlays last', () => {
     renderer.render(frameState(48, 32, { caption: { text: 'A town.', opacity: 0.4 }, title: { text: 'Hello', subtitle: 'sub', opacity: 0 } }), out);
-    expect(vi.mocked(ui.drawCaption)).toHaveBeenCalledWith(out, expect.anything(), 'A town.', 0.4);
+    expect(vi.mocked(ui.drawCaption)).toHaveBeenCalledWith(out, expect.anything(), 'A town.', 0.4, expect.anything());
     expect(vi.mocked(ui.drawTitle)).not.toHaveBeenCalled();
     renderer.render(frameState(48, 32, { title: { text: 'Hello', subtitle: 'sub', opacity: 1 } }), out);
-    expect(vi.mocked(ui.drawTitle)).toHaveBeenCalledWith(out, expect.anything(), 'Hello', 'sub', 1);
+    expect(vi.mocked(ui.drawTitle)).toHaveBeenCalledWith(out, expect.anything(), 'Hello', 'sub', 1, expect.anything());
     expect(vi.mocked(ui.drawCaption)).toHaveBeenCalledTimes(1);
   });
 });

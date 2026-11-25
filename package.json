@@ -1,0 +1,21 @@
+{
+  "name": "simutown",
+  "version": "0.1.0",
+  "description": "A pixel-town toolkit for scripting small simulated scenes that explain ideas.",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "pnpm typecheck && pnpm test",
+    "sheet": "tsx tools/sheet.ts",
+    "still": "tsx tools/still.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  }
+}

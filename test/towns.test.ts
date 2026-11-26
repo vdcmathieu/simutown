@@ -74,6 +74,20 @@ describe('Willow Square', () => {
     for (const p of town.props) expect(art.props[p.kind], p.kind).toBeDefined();
   });
 
+  it('grows every plant on ground that suits it: no flowers on the paving, no lilies on the lawn', () => {
+    const waterPlants = /^(lily|lotus|reeds|water-rocks)/;
+    const crops = /^(cabbages|sprouts|pumpkins)/;
+    const misplaced: string[] = [];
+    for (const p of town.props) {
+      // ground cover is what has no footprint: flowers, tufts, leaves, crops, water plants, stepping stones
+      if (art.props[p.kind]!.footprint) continue;
+      const ground = town.terrain[p.ty * town.w + p.tx]!;
+      const suits = waterPlants.test(p.kind) ? ground === 'water' : crops.test(p.kind) ? ground === 'soil' : ['grass', 'meadow', 'tall-grass', 'soil'].includes(ground);
+      if (!suits) misplaced.push(`${p.id} (${p.kind}) at ${fmtTile(p)} on ${ground}`);
+    }
+    expect(misplaced).toEqual([]);
+  });
+
   it('describes itself as a text map', () => {
     const text = describeTown(town);
     expect(text).toContain('Willow Square: 44 x 30 tiles');

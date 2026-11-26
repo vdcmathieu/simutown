@@ -171,6 +171,9 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     }
   };
 
+  /** Turns towards another actor, settled after the script: see `face`. */
+  const pendingFaces: { seg: { dir: Dir }; self: ActorRec; other: ActorRec; t: number }[] = [];
+
   /** The body of an actor at build time t (wandering actors are extended to t first). */
   const body = (r: ActorRec, t: number): Body => {
     extendWander(r, t);
@@ -410,7 +413,11 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
           d = dirBetween(body(r, t), other);
         } else if (DIRS.includes(dir)) d = dir;
         else throw unknownName('direction', String(dir), DIRS, `(in ${id}.face; or pass an actor handle)`);
-        insertByStart(r.segs, { kind: 'face', start: t, dir: d });
+        const seg = { kind: 'face' as const, start: t, dir: d };
+        insertByStart(r.segs, seg);
+        // the other actor's track may not be written yet (a later branch of a `together`):
+        // the direction is settled once the whole script has run
+        if (isHandle(dir)) pendingFaces.push({ seg, self: r, other: rec(dir, `${id}.face`), t });
         beat(t, t, `faces ${isHandle(dir) ? dir.id : d}`, id);
       },
       say: say('say'),
@@ -673,6 +680,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
   if (stack.length !== 1) throw new Error('Internal error: unbalanced together/sequence groups.');
   tl.duration = stack[0]!.cursor;
   // Everything is collected and sorted by scene time: now resolve what depends on what came before.
+  for (const f of [...pendingFaces].sort((x, y) => x.t - y.t)) f.seg.dir = dirBetween(body(f.self, f.t), body(f.other, f.t));
   settleRamps(tl.hours, hour0);
   settleRamps(tl.fades, 0);
   settleRamps(tl.focus, 0);

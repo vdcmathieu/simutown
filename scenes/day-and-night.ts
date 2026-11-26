@@ -10,8 +10,8 @@
  * script is a set of parallel tracks on one timeline: `at(seconds, ...)` starts a track at
  * that moment of the day block.
  */
-import { scene } from '../src';
-import { willowSquare, willowSquareHomes } from '../src/towns';
+import { scene } from 'simutown';
+import { willowSquare, willowSquareHomes } from 'simutown/towns';
 
 /** The locked-off shot: the bakery on the left, the market on the right, the town hall above. */
 const WIDE: [number, number] = [21, 9];

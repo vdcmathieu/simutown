@@ -8,8 +8,8 @@
  * The script is written as parallel tracks inside `s.together`: one for the camera, one
  * for the light, one per person. `after(seconds, ...)` delays a track.
  */
-import { scene } from '../src';
-import { willowSquare } from '../src/towns';
+import { scene } from 'simutown';
+import { willowSquare } from 'simutown/towns';
 
 /** The wide shot of the square: the town hall's clock at the top, the willow and the market below. */
 const WIDE: [number, number] = [23, 9];

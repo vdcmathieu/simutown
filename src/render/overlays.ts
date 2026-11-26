@@ -52,10 +52,15 @@ export function drawOverlays(out: Surface, lut: Lut, art: ArtRegistry, state: Fr
     return at;
   };
 
+  // A tag or an emote belongs to a person you can see. When its owner is outside the view it
+  // is skipped, instead of being pinned to the edge of the frame where it points at nobody.
+  // (A speech bubble still shows: a voice from off-screen is useful.)
+  const inView = (at: [number, number]): boolean => at[0] >= -8 && at[0] <= out.w + 8 && at[1] >= -8 && at[1] <= out.h + CHAR_H;
+
   for (const a of state.actors) {
     if (!a.emote || (a.opacity ?? 1) <= 0) continue;
     const at = head(a.id, 'emote');
-    if (!at) continue;
+    if (!at || !inView(at)) continue;
     drawEmote(out, lut, a.emote, at[0], at[1], ui);
     const size = measureEmote(a.emote, ui);
     // measureEmote counts the free row under the icon, which the head offset already holds
@@ -65,7 +70,7 @@ export function drawOverlays(out: Surface, lut: Lut, art: ArtRegistry, state: Fr
     if (n.kind !== 'label') continue;
     if (n.actor !== undefined) {
       const at = head(n.actor, 'label');
-      if (!at) continue;
+      if (!at || !inView(at)) continue;
       drawLabel(out, lut, n.text, at[0], at[1], n.opacity, ui);
       at[1] -= measureLabel(n.text, ui).h + GAP;
     } else if (n.at) {

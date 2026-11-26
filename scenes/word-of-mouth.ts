@@ -10,9 +10,9 @@
  * Agents"; the townsfolk, the staging and the wording are our own, and nothing here is
  * simulated: the script decides who tells whom.
  */
-import { scene } from '../src';
-import type { ActorHandle, Dir } from '../src';
-import { willowSquare } from '../src/towns';
+import { scene } from 'simutown';
+import type { ActorHandle, Dir } from 'simutown';
+import { willowSquare } from 'simutown/towns';
 
 /** The wide shot: the bakery on the left, the market on the right, the town hall above. */
 const WIDE: [number, number] = [20, 9];

@@ -65,6 +65,21 @@ describe('overlays', () => {
     expect(bubble.y).toBe(15 - 18 - 2); // above the measured label and a gap
   });
 
+  it('skips the label and emote of an actor outside the view, but keeps their bubble', () => {
+    // the camera looks at (48, 32); this actor stands far to the right of the 96-wide frame
+    renderer.render(
+      frameState(48, 32, {
+        actors: [actor('far', 'red', 400, 50, { emote: 'heart' })],
+        bubbles: [{ actor: 'far', text: 'Over here!', kind: 'shout', reveal: 1 }],
+        annotations: [{ kind: 'label', actor: 'far', text: '7', opacity: 1 }],
+      }),
+      out,
+    );
+    expect(vi.mocked(ui.drawEmote)).not.toHaveBeenCalled();
+    expect(vi.mocked(ui.drawLabel)).not.toHaveBeenCalled();
+    expect(vi.mocked(ui.drawBubble)).toHaveBeenCalledTimes(1);
+  });
+
   it('draws caption and title only when visible, and overlays last', () => {
     renderer.render(frameState(48, 32, { caption: { text: 'A town.', opacity: 0.4 }, title: { text: 'Hello', subtitle: 'sub', opacity: 0 } }), out);
     expect(vi.mocked(ui.drawCaption)).toHaveBeenCalledWith(out, expect.anything(), 'A town.', 0.4, expect.anything());

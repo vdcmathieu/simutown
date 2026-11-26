@@ -18,7 +18,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { compileTheme, dusk, lutRgb } from '../src/core/palette';
+import { compileTheme, daylight, lutRgb } from '../src/core/palette';
 import { Surface } from '../src/core/surface';
 import { FRAME_H, FRAME_W, type Scene } from '../src/core/types';
 import { writePNG } from '../src/node/png';
@@ -68,7 +68,7 @@ if (ffmpeg.status !== 0) throw new Error(`ffmpeg failed: ${ffmpeg.stderr.toStrin
 
 const bytes = W * H * 4;
 const count = Math.floor(ffmpeg.stdout.length / bytes);
-const lut = compileTheme(dusk);
+const lut = compileTheme(daylight);
 const ink = lutRgb(lut, 'steel.0');
 const perSheet = cols * rows;
 

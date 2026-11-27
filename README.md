@@ -222,6 +222,17 @@ Open the repository in your agent and ask for the scene in a sentence:
 The agent finds the places with `describeTown`, casts from the townsfolk, renders stills to check its work, and renders the film.
 Ask it for the stills too: they are the quickest way to review a scene.
 
+## Use it from an agent (MCP)
+
+`simutown mcp` serves Simutown over the Model Context Protocol, so Claude Code, Claude Desktop, Cursor, Codex and other agents can list the town and its people, write and build scenes, look at stills and render films through tools.
+In this repository Claude Code picks it up from [`.mcp.json`](.mcp.json); in a project that installed simutown, add it with:
+
+```bash
+claude mcp add simutown -- npx simutown mcp
+```
+
+[`docs/mcp.md`](docs/mcp.md) has the setup for other clients, the tools and the loop an agent should follow.
+
 ## Credits
 
 Simutown is inspired by the Smallville sandbox of:

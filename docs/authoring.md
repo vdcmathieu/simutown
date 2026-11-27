@@ -14,6 +14,7 @@ The loop is short:
 6. Render the film.
 
 Steps 4 and 5 repeat until the stills look right.
+An agent can run the same loop through tools: see [Using Simutown from an agent](mcp.md).
 
 ## 1. Plan the beats
 

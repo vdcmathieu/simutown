@@ -65,12 +65,13 @@ Changes to it are additive only (new optional fields), and only the integrator m
 | `src/render/` | The renderer: ground, shadows, sprites, time-of-day grade and lamps, overlays, camera. |
 | `src/towns/` | Built-in towns, such as `willow-square.ts`. |
 | `src/node/`, `src/cli/` | PNG and video export; the `simutown` command. |
+| `src/mcp/` | The MCP server (`simutown mcp`): the stdio protocol, the tools, resources and the `scene` prompt. See `docs/mcp.md`. |
 | `src/player/`, `web/` | The browser player (`mount`); the gallery with its Scenes and Atlas views. |
 | `src/fixtures/` | A hand-built town and scene for developing modules in isolation. |
 | `scenes/` | Scenes: each file default-exports a `Scene`. The CLI finds them by name and the gallery lists them. |
 | `examples/` | The runnable samples shown in the docs; `test/docs.test.ts` builds them all. |
 | `tools/` | Developer scripts: contact sheets, the style key, previews, the docs check, the package build and its test. |
-| `docs/` | `authoring.md` (writing scenes), `scene-api.md` (the API), `making-art.md` (the kits), `STYLE.md` (art direction). |
+| `docs/` | `authoring.md` (writing scenes), `scene-api.md` (the API), `making-art.md` (the kits), `STYLE.md` (art direction), `mcp.md` (the MCP server). |
 | `dist/` | Built, not committed: the package (`pnpm build`) and the gallery site (`dist/web`). |
 
 The package has four entries, set in `exports` of `package.json` and built by `tools/build.ts`: `simutown` (`src/index.ts`, browser-safe), `simutown/towns`, `simutown/player` and `simutown/node` (Node only).
@@ -84,7 +85,7 @@ If a contract is wrong or missing something, say so in your final report instead
 ## Rules
 
 1. **No runtime dependencies.** The engine is plain TypeScript. Dev tools (vitest, tsx, vite, esbuild) are fine.
-2. **Browser-safe core.** Nothing under `src/` may import `node:*`, except `src/node/` and `src/cli/`.
+2. **Browser-safe core.** Nothing under `src/` may import `node:*`, except `src/node/`, `src/cli/` and `src/mcp/`.
 3. **Deterministic.** No `Math.random()`, `Date.now()` or `performance.now()` in anything that decides what a frame looks like. Use a seeded generator. The same scene and time must always give the same pixels.
 4. **Whole pixels.** No sub-pixel positions, no smoothing, no anti-aliasing. Scaling is integer nearest-neighbour.
 5. **Palette slots only.** Art names slots (`steel.2`), never hex colours. Soft effects use dithering or flat alpha, in palette colours.
@@ -103,6 +104,7 @@ pnpm simutown info <scene> --beats     # and when each walk, line, caption and c
 pnpm simutown still <scene> -t 4       # one frame as a PNG -> out/<scene>-4s.png
 pnpm simutown render <scene>           # the film -> out/<scene>.mp4 (needs ffmpeg); -o x.gif for a GIF
 pnpm simutown list                     # the scenes in scenes/
+pnpm simutown mcp                      # the MCP server over stdio, for agents (docs/mcp.md; .mcp.json starts it)
 pnpm dev                               # the gallery: scenes and the art Atlas, at http://localhost:5173
 pnpm build:web                         # the gallery as a static site -> dist/web (embed with ?embed=<scene>)
 pnpm build                             # the package: bundles and types -> dist/ (tools/build.ts)

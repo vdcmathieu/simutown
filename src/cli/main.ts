@@ -7,6 +7,7 @@
  *   simutown info hello --beats
  *   simutown new market-day
  *   simutown list
+ *   simutown mcp
  *
  * `run` takes the arguments and an output sink and returns an exit code, so tests can
  * drive it in-process.
@@ -35,7 +36,6 @@ export interface CliIO {
 /** File extensions a scene file may have. A `.ts` scene runs through Node's type stripping (or tsx). */
 export const SCENE_EXTENSIONS = ['.ts', '.mts', '.js', '.mjs'];
 
-/** The project a command works in: the nearest folder at or above `cwd` with a package.json, else `cwd`. */
 /**
  * The folder the user ran the command in. A package manager runs a script from the package
  * root and reports where the user really was in $INIT_CWD, so `pnpm simutown` works from a
@@ -61,6 +61,7 @@ function isModuleProject(root: string): boolean {
   }
 }
 
+/** The project a command works in: the nearest folder at or above `cwd` with a package.json, else `cwd`. */
 export function projectRoot(cwd: string): string {
   for (let dir = resolve(cwd); ; dir = dirname(dir)) {
     if (existsSync(join(dir, 'package.json'))) return dir;
@@ -76,6 +77,7 @@ Usage
   simutown info   <scene> [--beats]
   simutown new    <name>
   simutown list
+  simutown mcp    [--root dir]
   simutown --help
 
 Type "pnpm simutown" in this repository or in a project that uses pnpm, "npx simutown" with npm.
@@ -95,6 +97,9 @@ info     Title, duration, town size and cast of a scene.
          --beats   and its timeline: when each walk, line, caption and camera move starts
 new      Write a starter scene to scenes/<name>.ts (./<name>.ts if there is no scenes/).
 list     The scenes in scenes/, with their titles and lengths.
+mcp      Serve the Model Context Protocol over stdio, so a coding agent can write,
+         check and render scenes through tools (see docs/mcp.md).
+         --root    the project folder (default: the one with the nearest package.json)
 
 Examples
   simutown new market-day
@@ -129,7 +134,7 @@ export function resolveScenePath(arg: string, cwd: string, root: string = projec
 }
 
 /** A hint for the usual ways importing a scene file fails, or ''. */
-function loadHint(e: unknown, path: string): string {
+export function loadHint(e: unknown, path: string): string {
   const code = (e as { code?: string } | null)?.code;
   const msg = e instanceof Error ? e.message : String(e);
   if (code === 'ERR_UNKNOWN_FILE_EXTENSION' && ['.ts', '.mts'].includes(extname(path))) {
@@ -222,6 +227,7 @@ export async function run(argv: string[], io: CliIO): Promise<number> {
         to: { type: 'string' },
         time: { type: 'string', short: 't' },
         beats: { type: 'boolean' },
+        root: { type: 'string' },
       },
     });
     const [command, target, ...extra] = positionals;
@@ -230,6 +236,7 @@ export async function run(argv: string[], io: CliIO): Promise<number> {
       return command === undefined && !values.help ? 1 : 0;
     }
     if (extra.length > 0) throw new UsageError(`Unexpected arguments: ${extra.join(' ')}`);
+    if (values.root !== undefined && command !== 'mcp') throw new UsageError('--root only goes with "mcp".');
     const needScene = async () => {
       if (!target) throw new UsageError(`"${command}" needs a scene, e.g. simutown ${command} hello`);
       const path = resolveScenePath(target, cwd, root);
@@ -319,8 +326,16 @@ export async function run(argv: string[], io: CliIO): Promise<number> {
         io.out(`${show(path)}  written. Next: simutown info ${target} --beats, then simutown still ${target}`);
         return 0;
       }
+      case 'mcp': {
+        if (target) throw new UsageError(`Unexpected arguments: ${target}`);
+        // Imported only here: the server is not needed by the other commands. It writes
+        // nothing to stdout but protocol messages, and returns when stdin ends.
+        const { startMcpServer } = await import('../mcp/index');
+        await startMcpServer({ root: values.root ? resolve(cwd, values.root) : root });
+        return 0;
+      }
       default:
-        throw new UsageError(`Unknown command "${command}". Commands: render, still, info, new, list. Try --help.`);
+        throw new UsageError(`Unknown command "${command}". Commands: render, still, info, new, list, mcp. Try --help.`);
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

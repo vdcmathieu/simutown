@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "simutown": {
+      "command": "node",
+      "args": ["--import", "tsx", "src/cli/bin.ts", "mcp"]
+    }
+  }
+}

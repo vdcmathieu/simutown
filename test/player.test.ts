@@ -110,8 +110,8 @@ describe('browser code imports nothing from Node', () => {
   const graph = reachable([...files(join(ROOT, 'src/player')), ...files(join(ROOT, 'web'))].filter((f) => f.endsWith('.ts')));
 
   it('has found the player and the gallery', () => {
-    expect([...graph.keys()].some((f) => f.endsWith('src/player/index.ts'))).toBe(true);
-    expect([...graph.keys()].some((f) => f.endsWith('web/main.ts'))).toBe(true);
+    expect([...graph.keys()].some((f) => f.endsWith(join('src', 'player', 'index.ts')))).toBe(true);
+    expect([...graph.keys()].some((f) => f.endsWith(join('web', 'main.ts')))).toBe(true);
   });
 
   for (const [file, specs] of graph) {

@@ -51,7 +51,7 @@ describe('docs', () => {
   });
 
   it('imports every file in examples/', () => {
-    const files = tsFiles(join(ROOT, 'examples')).map((f) => relative(join(ROOT, 'examples'), f));
+    const files = tsFiles(join(ROOT, 'examples')).map((f) => relative(join(ROOT, 'examples'), f).replaceAll('\\', '/'));
     expect(Object.keys(EXAMPLES).sort()).toEqual(files.sort());
   });
 

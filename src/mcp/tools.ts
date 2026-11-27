@@ -5,7 +5,7 @@
  * Every tool reports failure as a `ToolResult` with `isError: true` and a message that
  * says how to fix it (listing valid names where that helps); nothing throws out of `run`.
  */
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { townsfolk } from '../art/characters';
@@ -24,6 +24,7 @@ export const GUIDES = {
   'scene-api': { file: 'scene-api.md', title: 'The scripting API: every call a scene can make.' },
   'making-art': { file: 'making-art.md', title: 'The art kits: new characters, buildings and props.' },
   style: { file: 'STYLE.md', title: 'Art direction: what Simutown pictures should look like.' },
+  mcp: { file: 'mcp.md', title: 'Using Simutown through these MCP tools: the tools, the loop and the limits.' },
 } as const;
 
 /** A guide topic: a key of `GUIDES`. */
@@ -52,11 +53,20 @@ export function packageRoot(): string {
   }
 }
 
-/** The markdown of a guide in docs/. Throws when the file is missing. */
+/** Put after the title of a guide read over MCP: the guides are written for a shell user. */
+const MCP_NOTE =
+  '> Reading this through MCP: where the guide says to run a command, call the tool instead. ' +
+  '`pnpm simutown info` is scene_info, `still` is still, `render` is render, `new` is new_scene, `list` is list_scenes, ' +
+  'and `describeTown` is describe_town. Links to other guides (`scene-api.md`, `mcp.md`, ...) are read_guide topics.';
+
+/** The markdown of a guide in docs/, with a note on the MCP tools after its title. Throws when the file is missing. */
 export function readGuide(topic: GuideTopic): string {
   const guide = GUIDES[topic];
   if (!guide) throw new Error(`Unknown guide "${topic}". Guides: ${Object.keys(GUIDES).join(', ')}.`);
-  return readFileSync(join(packageRoot(), 'docs', guide.file), 'utf8');
+  const text = readFileSync(join(packageRoot(), 'docs', guide.file), 'utf8');
+  if (topic === 'mcp') return text;
+  const end = text.indexOf('\n');
+  return end < 0 ? `${text}\n\n${MCP_NOTE}\n` : `${text.slice(0, end)}\n\n${MCP_NOTE}\n${text.slice(end)}`;
 }
 
 /** The place names of a town, sorted: the targets `walk`, `appear` and the camera take. */
@@ -91,10 +101,10 @@ async function guard(fn: () => Promise<ToolResult> | ToolResult): Promise<ToolRe
   }
 }
 
-/** True when `path` is `root` or inside it. */
+/** True when `path` is `root` or inside it (by its name: symlinks are not followed). */
 function inside(root: string, path: string): boolean {
   const rel = relative(root, path);
-  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 }
 
 /** A path as shown to the agent: relative to the project, with forward slashes. */
@@ -102,15 +112,37 @@ function shown(root: string, path: string): string {
   return (relative(root, path) || path).split(sep).join('/');
 }
 
-/** Find a scene file from a tool's `scene` argument (a name in scenes/ or a path in the project). */
+/** Find a scene file from a tool's `scene` argument (a name in scenes/ or a .ts or .js path in the project). */
 function scenePath(arg: unknown, root: string): string {
   if (typeof arg !== 'string' || arg.trim() === '') throw new Error(`"scene" must be a scene name, such as ${exampleNames(root)}.`);
+  const outside = () =>
+    new Error(`"${arg}" is outside the project folder ${root}. Name a scene in scenes/ (${exampleNames(root)}) or give a path inside the project.`);
+  // Check the argument before looking for it, so nothing outside the project is even probed.
+  if (!inside(root, resolve(root, arg))) throw outside();
   const path = resolveScenePath(arg, root, root);
-  if (!inside(root, path)) {
-    throw new Error(`"${arg}" is outside the project folder ${root}. Name a scene in scenes/ (${exampleNames(root)}) or give a path inside the project.`);
+  if (!inside(root, path)) throw outside();
+  if (!SCENE_EXTENSIONS.includes(extname(path))) {
+    throw new Error(`"${arg}" is not a scene file: a scene is a ${SCENE_EXTENSIONS.join(' or ')} file. Scenes: ${exampleNames(root)}.`);
   }
   return path;
 }
+
+/** Run `fn` after every earlier call locked on `key` has finished: one write-and-build or render per file at a time. */
+const locks = new Map<string, Promise<unknown>>();
+async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const before = locks.get(key) ?? Promise.resolve();
+  const run = before.catch(() => {}).then(fn);
+  const tail = run.catch(() => {});
+  locks.set(key, tail);
+  try {
+    return await run;
+  } finally {
+    if (locks.get(key) === tail) locks.delete(key);
+  }
+}
+
+/** The scene files new_scene and write_scene created in this session: the ones delete_scene may remove. */
+const created = new Set<string>();
 
 function exampleNames(root: string): string {
   const names = sceneFiles(root).map((f) => basename(f, extname(f)));
@@ -132,7 +164,7 @@ export function infoText(scene: Scene, path: string, root: string, beats: boolea
     `  duration  ${secs(i.duration)}, ${i.frames} frames at ${i.fps} fps`,
     `  frame     ${i.width}x${i.height} (x4 = ${i.width * 4}x${i.height * 4})`,
     `  town      ${i.town.name}, ${i.town.w}x${i.town.h} tiles, ${i.town.props} props`,
-    `  places    ${i.town.places.join(', ') || 'none'}`,
+    `  places    ${i.town.places.length} (describe_town lists them)`,
     `  cast      ${i.cast.join(', ') || 'nobody'}`,
   ];
   if (beats) {
@@ -165,9 +197,13 @@ export interface StillTime {
 /** Beats that carry the story: kept first when there are more beats than stills. */
 const KEY_BEAT = /^(says|thinks|whispers|shouts|caption "|title|camera|fade)/;
 
+/** Candidate times closer than this show the same moment: `beatTimes` keeps one of them. */
+export const SAME_MOMENT = 0.75;
+
 /**
  * One time per beat worth looking at: the middle of every call that takes time, and just
- * after every caption appears. Sorted, without near-duplicates. A scene without beats
+ * after every caption appears. Sorted, and times within `SAME_MOMENT` seconds of the first
+ * of a group are merged into the one inside the most running beats. A scene without beats
  * gets four times spread evenly.
  */
 export function beatTimes(scene: Scene): StillTime[] {
@@ -178,13 +214,19 @@ export function beatTimes(scene: Scene): StillTime[] {
     else if (/^caption "/.test(b.what)) raw.push({ t: Math.min(b.start + 0.5, scene.duration), key });
   }
   if (raw.length === 0) raw.push(...[0.125, 0.375, 0.625, 0.875].map((f) => ({ t: f * scene.duration, key: true })));
-  const times: StillTime[] = [];
+  const beats = scene.beats ?? [];
+  const busy = (t: number) => beats.filter((b) => b.start <= t + 1e-9 && t < b.end - 1e-9).length;
+  const groups: StillTime[][] = [];
   for (const c of raw.map((c) => ({ ...c, t: Math.round(c.t * 100) / 100 })).sort((x, y) => x.t - y.t)) {
-    const last = times.at(-1);
-    if (last && c.t - last.t <= 0.1) last.key ||= c.key;
-    else times.push(c);
+    const group = groups.at(-1);
+    if (group && c.t - group[0]!.t < SAME_MOMENT) group.push(c);
+    else groups.push([c]);
   }
-  return times;
+  return groups.map((group) => {
+    let best = group[0]!;
+    for (const c of group) if (busy(c.t) > busy(best.t)) best = c;
+    return { t: best.t, key: group.some((c) => c.key) };
+  });
 }
 
 /** Keep `max` of `times` spread evenly (first and last included). */
@@ -343,6 +385,7 @@ const newSceneTool: ToolDef = {
     guard(() => {
       const dir = scenesDir(ctx.root);
       const path = newScene(String(args.name), dir, ctx.root);
+      created.add(path);
       return ok(`${shown(ctx.root, path)} written. Edit it and send it back with write_scene.\n\n${readFileSync(path, 'utf8')}`);
     }),
 };
@@ -360,7 +403,8 @@ const writeSceneTool: ToolDef = {
     'build it and return either its summary and timeline (when each walk, line, caption and camera move starts) or the ' +
     'error that stops it, which names the valid places, characters or props. The file is written either way. ' +
     'A scene default-exports scene({ title, town, timeOfDay }, (s) => { ... }), importing from \'simutown\'. ' +
-    'Fix errors and call again; once it builds, look at it with still (every_beat: true).',
+    'Fix errors and call again; once it builds, look at it with still (every_beat: true). ' +
+    'If you give up on a scene you created, remove it with delete_scene.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -378,20 +422,55 @@ const writeSceneTool: ToolDef = {
         return fail(`A scene name is lowercase words joined by dashes, such as "market-day"; got "${args.name}". The file goes in scenes/.`);
       }
       if (typeof args.source !== 'string' || args.source.trim() === '') return fail('"source" must be the complete source of the scene file.');
+      const source = args.source;
       const dir = scenesDir(ctx.root);
-      // Overwrite the scene of that name whatever its extension; a new one gets the extension newScene picks.
-      const path = SCENE_EXTENSIONS.map((e) => join(dir, name + e)).find((f) => existsSync(f)) ?? newScene(name, dir, ctx.root);
-      writeFileSync(path, args.source);
-      let scene: Scene;
-      try {
-        scene = await loadFreshScene(path, ctx.root);
-      } catch (e) {
-        return fail(`${shown(ctx.root, path)} written, but it does not build:\n${message(e)}`);
+      // One write-and-build per scene at a time, so that each call builds its own source.
+      return withLock(join(dir, name), async () => {
+        // Overwrite the scene of that name whatever its extension; a new one gets the extension newScene picks.
+        let path = SCENE_EXTENSIONS.map((e) => join(dir, name + e)).find((f) => existsSync(f));
+        if (!path) {
+          path = newScene(name, dir, ctx.root);
+          created.add(path);
+        }
+        writeFileSync(path, source);
+        let scene: Scene;
+        try {
+          scene = await loadFreshScene(path, ctx.root);
+        } catch (e) {
+          const cleanup = created.has(path) ? ' To give up on it, call delete_scene.' : '';
+          return fail(`${shown(ctx.root, path)} written, but it does not build:\n${message(e)}${cleanup}`);
+        }
+        return ok(
+          `${shown(ctx.root, path)} written and built.\n\n${infoText(scene, path, ctx.root, true)}\n\n` +
+            `Next: still { scene: "${name}", every_beat: true } and look at every image.`,
+        );
+      });
+    }),
+};
+
+const deleteSceneTool: ToolDef = {
+  name: 'delete_scene',
+  description:
+    'Delete a scene file that new_scene or write_scene created in this session, such as a draft that does not build and ' +
+    'that you are giving up on, so it does not break list_scenes and the gallery. Scenes that were there before cannot be deleted.',
+  inputSchema: { type: 'object', properties: { name: NAME_ARG }, required: ['name'], additionalProperties: false },
+  annotations: { title: 'Delete a scene', destructiveHint: true, idempotentHint: true },
+  run: (args, ctx) =>
+    guard(() => {
+      const name = bareName(String(args.name));
+      const dir = join(ctx.root, 'scenes');
+      const path = SCENE_EXTENSIONS.map((e) => join(dir, name + e)).find((f) => existsSync(f));
+      if (!path) return fail(`There is no scene "${args.name}" in scenes/. Scenes: ${exampleNames(ctx.root)}.`);
+      if (!created.has(path)) {
+        const mine = [...created].filter((f) => existsSync(f)).map((f) => basename(f, extname(f)));
+        return fail(
+          `${shown(ctx.root, path)} was not created in this session, so delete_scene leaves it alone. ` +
+            (mine.length ? `Scenes created in this session: ${mine.join(', ')}.` : 'No scene was created in this session.'),
+        );
       }
-      return ok(
-        `${shown(ctx.root, path)} written and built.\n\n${infoText(scene, path, ctx.root, true)}\n\n` +
-          `Next: still { scene: "${name}", every_beat: true } and look at every image.`,
-      );
+      rmSync(path);
+      created.delete(path);
+      return ok(`${shown(ctx.root, path)} deleted.`);
     }),
 };
 
@@ -463,11 +542,20 @@ const stillTool: ToolDef = {
         times = [typeof args.t === 'number' ? args.t : scene.duration / 2];
       }
       const bad = times.filter((t) => typeof t !== 'number' || !Number.isFinite(t) || t < 0 || t > scene.duration);
-      if (bad.length) return fail(`Times must be between 0 and ${secs(scene.duration)} (the scene's length); got ${bad.join(', ')}.`);
+      if (bad.length) {
+        const { frames, fps } = describeScene(scene);
+        const last = Math.max(0, (frames - 1) / fps);
+        return fail(
+          `Times must be between 0 and ${secs(scene.duration)} (the scene's length); got ${bad.join(', ')}. ` +
+            `Fix the arguments of still and call it again: try t: ${Number(last.toFixed(2))} for the last frame, or every_beat: true.`,
+        );
+      }
 
       const result: ToolResult = { content: [] };
       if (note) result.content.push({ type: 'text', text: note.trimEnd() });
       for (const t of times) {
+        // Let a cancel notification in between frames.
+        await new Promise((r) => setImmediate(r));
         if (ctx.signal?.aborted) return fail('Cancelled.');
         const path = join(ctx.root, 'out', `${name}-${Number(t.toFixed(2))}s.png`);
         const res = renderStill(scene, t, path, { scale });
@@ -488,8 +576,15 @@ const renderTool: ToolDef = {
     type: 'object',
     properties: {
       scene: SCENE_ARG,
-      format: { type: 'string', enum: ['mp4', 'gif', 'webm'], default: 'mp4', description: 'The container.' },
-      output: { type: 'string', description: 'Where to write, relative to the project folder. Default out/<scene>.<format>.' },
+      format: {
+        type: 'string',
+        enum: ['mp4', 'gif', 'webm'],
+        description: 'The container. Default: the extension of output if it has one, else mp4.',
+      },
+      output: {
+        type: 'string',
+        description: 'Where to write, relative to the project folder, such as "out/film.gif". Default out/<scene>.<format>.',
+      },
       from: { type: 'number', minimum: 0, description: 'Start of the range, in seconds. Default 0.' },
       to: { type: 'number', minimum: 0, description: "End of the range, in seconds. Default the scene's length." },
       scale: { type: 'integer', minimum: 1, maximum: 8, description: 'Upscale of the 480x270 frame. Default 4 (2 for gif).' },
@@ -513,7 +608,8 @@ const renderTool: ToolDef = {
         else if (args.format !== undefined && ext !== format) return fail(`"output" ends in .${ext} but "format" is ${format}: make them agree.`);
         else format = ext;
       }
-      const res = await renderVideo(scene, path, {
+      // One render per file at a time: two renders of one file would share its temporary file.
+      const res = await withLock(path, () => renderVideo(scene, path, {
         scale: args.scale as number | undefined,
         fps: args.fps as number | undefined,
         from: args.from as number | undefined,
@@ -523,7 +619,7 @@ const renderTool: ToolDef = {
           if (ctx.signal?.aborted) throw new Error('Render cancelled.');
           if (p.frame === p.frames || p.frame % 10 === 0) ctx.progress?.(p.frame, p.frames, `frame ${p.frame} of ${p.frames}`);
         },
-      });
+      }));
       const bytes = statSync(res.path).size;
       return ok(
         `${shown(ctx.root, res.path)}  ${res.format}, ${res.width}x${res.height}, ${res.frames} frames at ${res.fps} fps, ` +
@@ -542,6 +638,7 @@ export function simutownTools(): ToolDef[] {
     readSceneTool,
     newSceneTool,
     writeSceneTool,
+    deleteSceneTool,
     sceneInfoTool,
     stillTool,
     renderTool,

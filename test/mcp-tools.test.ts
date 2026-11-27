@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { hasFfmpeg } from '../src/node/video';
 import { simutownPrompts, simutownResources } from '../src/mcp/resources';
+import { createServer } from '../src/mcp/server';
 import { beatTimes, pickStills, simutownTools } from '../src/mcp/tools';
 import type { ToolContext, ToolResult } from '../src/mcp/types';
 
@@ -43,7 +44,7 @@ describe('simutown MCP tools', () => {
   it('has the tools, with schemas and annotations', () => {
     expect(tools.map((t) => t.name)).toEqual([
       'read_guide', 'describe_town', 'list_townsfolk', 'list_scenes', 'read_scene',
-      'new_scene', 'write_scene', 'scene_info', 'still', 'render',
+      'new_scene', 'write_scene', 'delete_scene', 'scene_info', 'still', 'render',
     ]);
     for (const t of tools) {
       expect(t.description.length).toBeGreaterThan(80);
@@ -60,7 +61,9 @@ describe('simutown MCP tools', () => {
     expect(text(await call('read_guide', { topic: 'style' }, { root }))).toMatch(/#/);
     const bad = await call('read_guide', { topic: 'nope' }, { root });
     expect(bad.isError).toBe(true);
-    expect(text(bad)).toMatch(/authoring, scene-api, making-art, style/);
+    expect(text(bad)).toMatch(/authoring, scene-api, making-art, style, mcp/);
+    expect(text(guide)).toMatch(/Reading this through MCP: .*scene_info/);
+    expect(text(await call('read_guide', { topic: 'mcp' }, { root }))).toMatch(/^# Using Simutown from an agent/);
 
     const town = text(await call('describe_town', {}, { root }));
     expect(town).toMatch(/Willow Square/);
@@ -97,6 +100,27 @@ describe('simutown MCP tools', () => {
       expect(r.isError).toBe(true);
     }
     expect(text(await call('read_scene', { scene: outside }, { root }))).toMatch(/outside the project/);
+    const pkg = await call('read_scene', { scene: 'package.json' }, { root });
+    expect(pkg.isError).toBe(true);
+    expect(text(pkg)).toMatch(/not a scene file/);
+    // Refused by name, before anything outside the project is looked for.
+    const up = await call('still', { scene: '../../etc/passwd' }, { root });
+    expect(text(up)).toMatch(/outside the project/);
+    expect(text(up)).not.toMatch(/looked for/);
+  });
+
+  it('deletes only the scenes it created in this session', async () => {
+    const root = project();
+    const draft = await call('write_scene', { name: 'draft', source: 'export default 3;\n' }, { root });
+    expect(text(draft)).toMatch(/call delete_scene/);
+    const r = await call('delete_scene', { name: 'draft' }, { root });
+    expect(r.isError).toBeUndefined();
+    expect(existsSync(join(root, 'scenes/draft.ts'))).toBe(false);
+    const old = await call('delete_scene', { name: 'good-morning' }, { root });
+    expect(old.isError).toBe(true);
+    expect(text(old)).toMatch(/not created in this session/);
+    expect(existsSync(join(root, 'scenes/good-morning.ts'))).toBe(true);
+    expect((await call('delete_scene', { name: 'nope' }, { root })).isError).toBe(true);
   });
 
   it('writes a scene and answers with its beats, or with the build error', async () => {
@@ -167,6 +191,7 @@ describe('simutown MCP tools', () => {
     const late = await call('still', { scene: 'good-morning', t: 99 }, { root });
     expect(late.isError).toBe(true);
     expect(text(late)).toMatch(/between 0 and 12\.27s/);
+    expect(text(late)).toMatch(/try t: 12\.2\d? for the last frame, or every_beat: true/);
   });
 
   it('caps every_beat at 12 stills, keeping lines and captions first', () => {
@@ -178,6 +203,22 @@ describe('simutown MCP tools', () => {
     expect(beatTimes({ duration: 8, beats: undefined } as never).map((c) => c.t)).toEqual([1, 3, 5, 7]);
   });
 
+  it('merges beat times that show the same moment, keeping the busiest', () => {
+    const beats = [
+      { start: 3, end: 4.2, actor: 'ana', what: 'walks to [22, 15]' },
+      { start: 3, end: 4.6, actor: 'yuki', what: 'walks to [25, 15]' },
+      { start: 3.4, end: 3.4, what: 'caption "Off they go"' },
+      { start: 10, end: 12, actor: 'yuki', what: 'says "Then I am off!"' },
+      { start: 11.5, end: 12.4, actor: 'yuki', what: 'emotes happy' },
+    ];
+    const times = beatTimes({ duration: 14, beats } as never);
+    expect(times).toEqual([
+      { t: 3.6, key: true },
+      { t: 11, key: true },
+      { t: 11.95, key: false },
+    ]);
+  });
+
   it('refuses render outputs outside the project', async () => {
     const root = project();
     const r = await call('render', { scene: 'good-morning', output: '../film.gif' }, { root });
@@ -185,6 +226,19 @@ describe('simutown MCP tools', () => {
     expect(text(r)).toMatch(/inside the project/);
     const ext = await call('render', { scene: 'good-morning', output: 'out/film.mov' }, { root });
     expect(ext.isError).toBe(true);
+  });
+
+  it('takes the format from the output when no format is given (through tools/call)', async () => {
+    const root = project();
+    const server = createServer({ name: 't', version: '0', instructions: '', tools, resources: [], prompts: [] }, { root, log: () => {} });
+    const res = (await server.handle({
+      jsonrpc: '2.0', id: 1, method: 'tools/call',
+      params: { name: 'render', arguments: { scene: 'good-morning', output: 'out/x.gif', from: 5, to: 5.2, scale: 1 } },
+    })) as { result: ToolResult };
+    expect(text(res.result)).not.toMatch(/make them agree/);
+    if (FFMPEG) expect(text(res.result)).toMatch(/out\/x\.gif +gif/);
+    const clash = await call('render', { scene: 'good-morning', output: 'out/x.gif', format: 'mp4' }, { root });
+    expect(text(clash)).toMatch(/ends in \.gif but "format" is mp4/);
   });
 
   it.skipIf(!FFMPEG)('renders a short gif range, reporting progress', async () => {
@@ -218,7 +272,7 @@ describe('simutown MCP resources and prompt', () => {
     const root = project();
     const res = simutownResources();
     expect(res.map((r) => r.uri)).toEqual(expect.arrayContaining([
-      'simutown://docs/authoring', 'simutown://docs/scene-api', 'simutown://docs/making-art', 'simutown://docs/style',
+      'simutown://docs/authoring', 'simutown://docs/scene-api', 'simutown://docs/making-art', 'simutown://docs/style', 'simutown://docs/mcp',
       'simutown://townsfolk', 'simutown://towns/willowSquare',
     ]));
     const folk = JSON.parse(await res.find((r) => r.uri === 'simutown://townsfolk')!.read({ root })) as { id: string }[];

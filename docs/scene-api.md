@@ -279,7 +279,9 @@ Helpers, all from `src/world`:
 - `describeTown(town)` - a plain-text map with a legend, the props and every place name, so an author who cannot see the picture can still plan a scene. A town's rooms follow, each with its own map, props and places under their qualified names (`bakery:door`).
 - `createRng(seed)` - a seeded random generator (`next`, `int`, `range`, `pick`) for anything that needs variation.
 
-`describeTown` output looks like this (`#` is a prop footprint, digits mark places):
+`describeTown` output looks like this.
+`#` is a prop footprint and every tile with places has a mark of its own.
+Props without doors, seats or places fold into one `Scenery` line, and `<who>.home` places are listed under the door they share:
 
 ```
 Test: 8 x 5 tiles. x grows right, y grows down, [0, 0] is the top-left tile.
@@ -296,10 +298,11 @@ Legend:
   w water (solid)
   c cobble
   # prop footprint (solid)
+  any other mark is a place, listed under Places
 
-Props (origin = bottom-left tile of the footprint):
+Props with doors, seats or places (origin = bottom-left tile of the footprint):
   home (house) at [4, 2], footprint 3x2 tiles
-  ...
+Scenery, 3 more props (solid ones show as # on the map): 2 lamp, rug.
 
 Places (walkable tiles you can use as targets):
   1 home.door [5, 3]

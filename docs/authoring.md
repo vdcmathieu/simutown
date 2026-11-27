@@ -78,12 +78,15 @@ Legend:
   g grass
   c cobble
   # prop footprint (solid)
+  any other mark is a place, listed under Places
 
-Props (origin = bottom-left tile of the footprint):
+Props with doors, seats or places (origin = bottom-left tile of the footprint):
   house (house) at [5, 4], footprint 5x3 tiles
   bakery (bakery) at [17, 4], footprint 5x3 tiles
   fruit-stall (stall) at [13, 8], footprint 3x1 tiles
-  ...
+  cloth-stall (stall-teal) at [8, 10], footprint 3x1 tiles
+  bench (bench) at [20, 12], footprint 2x1 tiles
+Scenery, 6 more props (solid ones show as # on the map): 2 lamp, barrel, crate, oak, tree.
 
 Places (walkable tiles you can use as targets):
   1 bakery.door [18, 5]

@@ -93,4 +93,24 @@ describe('Willow Square', () => {
     expect(text).toContain('Willow Square: 44 x 30 tiles');
     expect(text).toContain('ana.home');
   });
+
+  it('keeps the description short: scenery folded, one mark per place, homes grouped', () => {
+    const text = describeTown(town);
+    const outside = text.slice(0, text.indexOf('\nRooms:'));
+    expect(outside.length).toBeLessThan(8000);
+    expect(outside).not.toMatch(/grass-tuft-small-\d/);
+    expect(outside).toMatch(/Scenery, \d+ more props .*: \d+ lamp, \d+ grass-tuft-small/);
+    // every place tile has a mark of its own, and the map shows it on that tile
+    const rows = outside.split('\n').filter((l) => /^ ?\d+ /.test(l) && l.length > 40);
+    const list = outside.slice(outside.indexOf('Places ('), outside.indexOf('Homes ('));
+    const marks = [...list.matchAll(/^ {2}(\S) (\S+) \[(\d+), (\d+)\]/gm)];
+    expect(marks.length).toBeGreaterThan(50);
+    expect(new Set(marks.map((m) => m[1])).size).toBe(marks.length);
+    expect(marks.map((m) => m[1])).not.toContain('*');
+    for (const [, mark, , tx, ty] of marks) expect(rows[Number(ty)]!.slice(3)[Number(tx)]).toBe(mark);
+    // every place is named once, the homes under their door
+    for (const name of Object.keys(town.places).filter((n) => !n.endsWith('.home'))) expect(list).toMatch(new RegExp(` ${name.replace(/\./g, '\\.')}[ ,)]`));
+    expect(outside).toMatch(/^ {2}\S ana, pia at cottage.door \[2, 9\]$/m);
+    expect(outside).toMatch(/^ {2}\S lin, noor, raj at red-house.door \[18, 28\]$/m);
+  });
 });

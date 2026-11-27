@@ -16,7 +16,7 @@ import type { ServerSpec } from './types';
 export const INSTRUCTIONS = `Simutown turns a short TypeScript scene script into a deterministic pixel-town film. Nothing in the town is smart: the scene decides everything.
 To make a scene: read_guide first (topic "authoring"; "scene-api" for the exact calls), or use the "scene" prompt, which spells out the whole loop.
 Look up names before using them: describe_town for the places (walk to "bakery.door", not "bakery") and list_townsfolk for the cast ids.
-Write with write_scene { name, source }: it builds the scene and returns its timeline, or an error that lists the valid names. Fix and call again until it builds.
+Write with write_scene { name, source }: it builds the scene and returns its timeline, or an error that lists the valid names. Fix and call again until it builds (delete_scene removes a draft you give up on).
 Then still { scene, every_beat: true } and look at every image: people in frame, no overlapping bubbles, each caption up while its beat needs it.
 When every beat reads, render { scene } writes the film to out/ (MP4; format "gif" for a GIF).`;
 

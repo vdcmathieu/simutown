@@ -6,9 +6,13 @@
  *   - checks what the tarball ships (dist, docs, no tests, tools or media);
  *   - writes scenes that import from `simutown` and `simutown/towns`, a .ts and a .js one;
  *   - runs the installed `simutown` command: list, info --beats, new, still, and render to mp4;
+ *   - does the same `new` in a CommonJS project, where the starter must be a .mts file;
  *   - imports every entry in Node and checks they share one copy of the engine;
  *   - typechecks a file that uses every entry, under moduleResolution "bundler" (no Node
  *     types: the browser entries must not need them) and under "nodenext".
+ * With `--git` it also installs the committed HEAD of this repository with npm, the way
+ * `npm install github:vdcmathieu/simutown` does: npm clones it, installs its dev dependencies
+ * and runs `prepare`, which must build the package. That needs the network and about a minute.
  * It needs pnpm and ffmpeg on the PATH, and is slower than `pnpm check` (about 20 s).
  * On failure it says which step failed, with the command's output, and keeps the project.
  */
@@ -54,12 +58,19 @@ function write(rel: string, text: string): void {
   writeFileSync(path, text);
 }
 
-const simutown = (...args: string[]) => sh(join(PROJECT, 'node_modules/.bin/simutown'), args, PROJECT);
-const tsc = (config: string) => sh(join(ROOT, 'node_modules/.bin/tsc'), ['-p', config], PROJECT);
+// Commands are run through Node, not through node_modules/.bin: a .bin entry is a shell
+// script on Unix and a .cmd file on Windows, and only the first can be executed directly.
+const node = (script: string, args: string[], cwd: string) => sh(process.execPath, [script, ...args], cwd);
+const cliOf = (project: string) => join(project, 'node_modules/simutown/dist/cli/bin.js');
+const simutown = (...args: string[]) => node(cliOf(PROJECT), args, PROJECT);
+const tsc = (config: string) => node(join(ROOT, 'node_modules/typescript/bin/tsc'), ['-p', config], PROJECT);
+const GIT = process.argv.includes('--git');
 
 function main(): void {
   let tarball = '';
   step('pack the library (pnpm pack, which builds it)', () => {
+    // Remove the built entry first: if packing did not run the build, the tarball check below fails.
+    rmSync(join(ROOT, 'dist/index.js'), { force: true });
     sh('pnpm', ['pack', '--pack-destination', TMP], ROOT);
     const found = readdirSync(TMP).find((f) => f.endsWith('.tgz'));
     expect(found, `pnpm pack wrote no .tgz into ${TMP}`);
@@ -79,6 +90,8 @@ function main(): void {
   step('install the tarball into a new project', () => {
     write('package.json', `${JSON.stringify({ name: 'simutown-consumer', private: true, type: 'module' }, null, 2)}\n`);
     sh('pnpm', ['add', tarball, '--ignore-workspace'], PROJECT);
+    const bins = readdirSync(join(PROJECT, 'node_modules/.bin'));
+    expect(bins.some((f) => f === 'simutown' || f === 'simutown.cmd'), `no simutown command was linked into node_modules/.bin (found: ${bins.join(', ')})`);
   });
 
   step('write scenes that import from simutown and simutown/towns', () => {
@@ -128,6 +141,30 @@ export default scene({ title: 'Plain', town: willowSquare }, (s) => {
     simutown('still', 'starter', '-o', 'out/starter.png', '--scale', '1');
     expect(statSync(join(PROJECT, 'out/starter.png')).size > 1000, 'out/starter.png is empty');
   });
+
+  step('simutown new in a CommonJS project writes a .mts starter that loads', () => {
+    const cjs = join(TMP, 'commonjs-project');
+    mkdirSync(cjs, { recursive: true });
+    writeFileSync(join(cjs, 'package.json'), `${JSON.stringify({ name: 'simutown-cjs-consumer', private: true, type: 'commonjs' }, null, 2)}\n`);
+    sh('pnpm', ['add', tarball, '--ignore-workspace'], cjs);
+    node(cliOf(cjs), ['new', 'starter'], cjs);
+    expect(statSync(join(cjs, 'starter.mts')).size > 100, 'simutown new did not write starter.mts in a CommonJS project');
+    const info = node(cliOf(cjs), ['info', 'starter'], cjs);
+    expect(/Starter/.test(info), `simutown info could not load the .mts starter in a CommonJS project:\n${info}`);
+  });
+
+  if (GIT) {
+    step('npm install from git: clone, dev dependencies, prepare builds the package', () => {
+      const head = sh('git', ['rev-parse', 'HEAD'], ROOT).trim();
+      const proj = join(TMP, 'git-project');
+      mkdirSync(proj, { recursive: true });
+      writeFileSync(join(proj, 'package.json'), `${JSON.stringify({ name: 'simutown-git-consumer', private: true, type: 'module' }, null, 2)}\n`);
+      sh('npm', ['install', '--no-audit', '--no-fund', `git+file://${ROOT}#${head}`], proj);
+      expect(statSync(join(proj, 'node_modules/simutown/dist/index.js')).size > 1000, 'the git install has no built dist/index.js: prepare did not build');
+      const info = node(cliOf(proj), ['--help'], proj);
+      expect(/simutown - render pixel-town scenes/.test(info), `the git-installed command did not run:\n${info}`);
+    });
+  }
 
   step('every entry imports in Node and shares one engine', () => {
     write('identity.mjs', `import * as core from 'simutown';

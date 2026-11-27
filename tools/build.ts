@@ -1,5 +1,5 @@
 /**
- * Build the package into dist/: `pnpm build` (and `prepack`, so `pnpm pack` and installs
+ * Build the package into dist/: `pnpm build` (and `prepare`, so `pnpm pack` and installs
  * from GitHub build it too).
  *
  * Why this setup: the sources use extensionless imports (moduleResolution Bundler), so
@@ -102,8 +102,10 @@ async function main(): Promise<void> {
   chmodSync(join(DIST, 'cli/bin.js'), 0o755);
 
   // Declarations: tsc writes them, then their relative imports get extensions.
-  const tsc = join(ROOT, 'node_modules/.bin/tsc');
-  execFileSync(tsc, ['-p', 'tsconfig.build.json'], { cwd: ROOT, stdio: 'inherit' });
+  // tsc is run through Node, not through node_modules/.bin: that entry is a shell script on
+  // Unix and a .cmd file on Windows, and only the first can be executed directly.
+  const tsc = join(ROOT, 'node_modules/typescript/bin/tsc');
+  execFileSync(process.execPath, [tsc, '-p', 'tsconfig.build.json'], { cwd: ROOT, stdio: 'inherit' });
   const types = join(DIST, 'types');
   for (const file of dtsFiles(types)) writeFileSync(file, withExtensions(readFileSync(file, 'utf8'), dirname(file)));
 

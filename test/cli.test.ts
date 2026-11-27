@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { projectRoot, run } from '../src/cli/main';
+import { invocationDir, projectRoot, run } from '../src/cli/main';
 
 const REPO = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const dir = mkdtempSync(join(tmpdir(), 'simutown-cli-'));
@@ -84,12 +84,58 @@ describe('simutown CLI', () => {
   });
 });
 
+describe('where a command runs (regression)', () => {
+  it('uses INIT_CWD only when it is the folder the user was in below the script folder', () => {
+    const root = mkdtempSync(join(tmpdir(), 'simutown-cwd-'));
+    const sub = join(root, 'scenes');
+    mkdirSync(sub);
+    // `pnpm simutown` from scenes/: pnpm runs the script in the root and reports scenes/ in INIT_CWD
+    expect(invocationDir({ INIT_CWD: sub }, root)).toBe(sub);
+    // a script that does `cd examples && simutown ...`: INIT_CWD is the root, the command is below it
+    expect(invocationDir({ INIT_CWD: root }, sub)).toBe(sub);
+    // an INIT_CWD from somewhere unrelated is ignored
+    expect(invocationDir({ INIT_CWD: tmpdir() }, sub)).toBe(sub);
+    expect(invocationDir({}, sub)).toBe(sub);
+  });
+});
+
+describe('simutown new, by kind of project (regression)', () => {
+  const projectWith = (pkg: string | undefined) => {
+    const project = mkdtempSync(join(tmpdir(), 'simutown-kind-'));
+    if (pkg !== undefined) writeFileSync(join(project, 'package.json'), pkg);
+    return project;
+  };
+
+  it('writes .ts only where Node reads .ts as an ES module, and .mts everywhere else', async () => {
+    const esm = projectWith('{ "type": "module" }');
+    expect((await cliIn(esm, esm, 'new', 'one')).code).toBe(0);
+    expect(existsSync(join(esm, 'one.ts'))).toBe(true);
+
+    for (const pkg of ['{ "type": "commonjs" }', '{}', undefined]) {
+      const project = projectWith(pkg);
+      const r = await cliIn(project, project, 'new', 'one');
+      expect(r.code).toBe(0);
+      expect(existsSync(join(project, 'one.mts'))).toBe(true);
+      expect(existsSync(join(project, 'one.ts'))).toBe(false);
+      expect(r.out).toMatch(/one\.mts/);
+    }
+  });
+
+  it('refuses a name already taken under either extension', async () => {
+    const project = projectWith('{ "type": "module" }');
+    writeFileSync(join(project, 'one.mts'), 'export default 1;\n');
+    const r = await cliIn(project, project, 'new', 'one');
+    expect(r.code).not.toBe(0);
+    expect(r.err).toMatch(/already exists/);
+  });
+});
+
 describe('simutown new', () => {
   it('writes a starter scene to the current folder of a project without scenes/, and it builds and renders', async () => {
     const project = mkdtempSync(join(tmpdir(), 'simutown-new-'));
     const r = await cliIn(project, project, 'new', 'market-day');
     expect(r.code).toBe(0);
-    const file = join(project, 'market-day.ts');
+    const file = join(project, 'market-day.mts');
     expect(readFileSync(file, 'utf8')).toMatch(/import \{ scene, willowSquare \} from 'simutown';/);
     expect(readFileSync(file, 'utf8')).toMatch(/title: 'Market day'/);
 
@@ -110,7 +156,7 @@ describe('simutown new', () => {
     mkdirSync(sub);
     expect(projectRoot(sub)).toBe(project);
     expect((await cliIn(sub, projectRoot(sub), 'new', 'two-friends')).code).toBe(0);
-    expect(existsSync(join(project, 'scenes/two-friends.ts'))).toBe(true);
+    expect(existsSync(join(project, 'scenes/two-friends.mts'))).toBe(true);
     const again = await cliIn(sub, project, 'new', 'two-friends');
     expect(again.code).toBe(1);
     expect(again.err).toMatch(/already exists/);

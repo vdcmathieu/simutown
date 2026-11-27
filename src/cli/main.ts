@@ -11,7 +11,7 @@
  * `run` takes the arguments and an output sink and returns an exit code, so tests can
  * drive it in-process.
  */
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -36,6 +36,31 @@ export interface CliIO {
 export const SCENE_EXTENSIONS = ['.ts', '.mts', '.js', '.mjs'];
 
 /** The project a command works in: the nearest folder at or above `cwd` with a package.json, else `cwd`. */
+/**
+ * The folder the user ran the command in. A package manager runs a script from the package
+ * root and reports where the user really was in $INIT_CWD, so `pnpm simutown` works from a
+ * subfolder. That only holds while $INIT_CWD is the working directory or below it: a script
+ * that changes folder itself (`cd examples && simutown ...`), or a stray $INIT_CWD from an
+ * unrelated shell, must not send the command somewhere else.
+ */
+export function invocationDir(env: { INIT_CWD?: string } = process.env, cwd: string = process.cwd()): string {
+  const here = resolve(cwd);
+  const init = env.INIT_CWD ? resolve(env.INIT_CWD) : undefined;
+  if (!init) return here;
+  const rel = relative(here, init);
+  const below = rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+  return below ? init : here;
+}
+
+/** Whether Node reads a `.ts` or `.js` file in `root` as an ES module: its package.json says `"type": "module"`. */
+function isModuleProject(root: string): boolean {
+  try {
+    return (JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { type?: string }).type === 'module';
+  } catch {
+    return false;
+  }
+}
+
 export function projectRoot(cwd: string): string {
   for (let dir = resolve(cwd); ; dir = dirname(dir)) {
     if (existsSync(join(dir, 'package.json'))) return dir;
@@ -147,14 +172,21 @@ export function sceneFiles(root: string): string[] {
     .map((f) => join(dir, f));
 }
 
-/** Write a starter scene called `name` into `<root>/scenes/` if there is one, else into `cwd`. Returns its path. */
+/**
+ * Write a starter scene called `name` into `<root>/scenes/` if there is one, else into `cwd`.
+ * Returns its path. The file is `.ts` in a project whose package.json says `"type": "module"`
+ * and `.mts` anywhere else: a scene is an ES module, and Node reads a `.ts` file in a
+ * CommonJS or untyped project as CommonJS, where its `import` lines fail.
+ */
 export function newScene(name: string, cwd: string, root: string): string {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) {
     throw new UsageError(`A scene name is lowercase words joined by dashes, such as "market-day"; got "${name}".`);
   }
   const scenes = join(root, 'scenes');
-  const path = join(existsSync(scenes) ? scenes : cwd, `${name}.ts`);
-  if (existsSync(path)) throw new UsageError(`${path} already exists: pick another name.`);
+  const dir = existsSync(scenes) ? scenes : cwd;
+  const taken = SCENE_EXTENSIONS.map((ext) => join(dir, `${name}${ext}`)).find((f) => existsSync(f));
+  if (taken) throw new UsageError(`${taken} already exists: pick another name.`);
+  const path = join(dir, `${name}${isModuleProject(root) ? '.ts' : '.mts'}`);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, starterScene(name));
   return path;
@@ -174,7 +206,7 @@ const secs = (s: number) => `${Number(s.toFixed(2))}s`;
 
 /** Run the CLI. Returns the process exit code. */
 export async function run(argv: string[], io: CliIO): Promise<number> {
-  const cwd = io.cwd ?? process.env.INIT_CWD ?? process.cwd();
+  const cwd = io.cwd ?? invocationDir();
   const root = io.root ?? projectRoot(cwd);
   try {
     const { values, positionals } = parseArgs({

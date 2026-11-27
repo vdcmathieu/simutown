@@ -174,6 +174,9 @@ function write(stream: Writable, chunk: Uint8Array): Promise<void> {
   });
 }
 
+/** Exports started by this process, to name each one's partial file. */
+let exportCount = 0;
+
 /**
  * Render `scene` to a video file. The format comes from the extension (.mp4, .gif, .webm).
  *
@@ -187,9 +190,10 @@ export async function renderVideo(scene: Scene, path: string, opts: VideoOpts = 
   const bin = ffmpegBinary(opts);
   mkdirSync(dirname(path), { recursive: true });
   // ffmpeg writes to a sibling; it replaces `path` only on success, so a failed export
-  // never leaves half a file behind or destroys a good one already there.
+  // never leaves half a file behind or destroys a good one already there. The sibling's
+  // name is unique to this call, so two exports to the same file never share it.
   const ext = extname(path);
-  const partial = join(dirname(path), `${basename(path, ext)}.partial${ext}`);
+  const partial = join(dirname(path), `${basename(path, ext)}.partial-${process.pid}-${++exportCount}${ext}`);
   try {
     await encode(scene, renderer, plan, bin, partial, path, opts);
     renameSync(partial, path);

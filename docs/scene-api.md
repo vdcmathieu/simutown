@@ -81,7 +81,7 @@ The view never leaves the town, down to the last pixel the renderer draws: near 
 | `a.face(dir \| actor)` | Turn. | 0 |
 | `a.say(text, { hold?, gesture? })` | Speech bubble with typewriter reveal, held long enough to read. A standing speaker plays the `talk` pose while the text types out; `gesture: false` turns that off. | from text length |
 | `a.think(text, { hold?, gesture? })` / `a.shout(text, { hold?, gesture? })` | Same, different bubble. | from text length |
-| `a.emote(name, { hold? })` | Icon above the head. | 1.2 s |
+| `a.emote(name, { hold? })` | Icon above the head; beside it while the person also speaks or thinks. | 1.2 s |
 | `a.pose(name, { hold? })` | Play any of the character's poses (the townsfolk have `sit`, `wave`, `talk`, `carry`), then return to idle. | 1 s |
 | `a.sitOn(prop, seat?, { hold?, speed? })` | Walk to a seat of a prop (default: its first), slide onto it and sit until the next move or pose. | walk + 0.3 s + `hold` |
 | `a.enter(prop, { speed? })` | Walk to the prop's `door` place, face up and go through the door (0.3 s). When the building has a room, the actor is then inside it on its `door` place, facing up; otherwise they leave the map. | walk + 0.3 s |

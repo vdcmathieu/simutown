@@ -65,6 +65,21 @@ describe('overlays', () => {
     expect(bubble.y).toBe(15 - 18 - 2); // above the measured label and a gap
   });
 
+  it('moves an emote beside the head when a bubble sits right above it, off the tail', () => {
+    const say = (x: number, zoom = 1) =>
+      frameState(48, 32, { actors: [actor('a', 'red', x, 50, { emote: 'heart' })], bubbles: [{ actor: 'a', text: 'Hi', kind: 'say', reveal: 1 }] });
+    renderer.render(say(40), out);
+    // the bubble keeps its place on the head; the 9-wide emote goes right of the head, level with the face
+    expect(vi.mocked(ui.drawBubble).mock.calls[0]![2]).toMatchObject({ x: 40, y: 25 });
+    expect(vi.mocked(ui.drawEmote).mock.calls[0]!.slice(2, 5)).toEqual(['heart', 40 + 6 + 5, 25 + 6]);
+    // offsets follow the zoom: at zoom 2 the head is at screen (32, 19)
+    renderer.render({ ...say(40), camera: { x: 48, y: 32, zoom: 2 } }, out);
+    expect(vi.mocked(ui.drawEmote).mock.calls[1]!.slice(2, 5)).toEqual(['heart', 32 + 12 + 5, 19 + 12]);
+    // by the right edge of the 96-wide frame it goes to the left of the head
+    renderer.render(say(90), out);
+    expect(vi.mocked(ui.drawEmote).mock.calls[2]!.slice(2, 5)).toEqual(['heart', 90 - 11, 31]);
+  });
+
   it('skips the label and emote of an actor outside the view, but keeps their bubble', () => {
     // the camera looks at (48, 32); this actor stands far to the right of the 96-wide frame
     renderer.render(

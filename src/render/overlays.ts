@@ -5,7 +5,9 @@
  *
  * Several things can sit above one head at once. They stack upward in a fixed order, with
  * a small gap between them and nothing on the face: the emote just above the head, then
- * the label, then the speech bubble.
+ * the label, then the speech bubble. One exception: an emote under a bubble, with no label
+ * between them, would sit on the bubble's tail. It moves beside the head instead, and the
+ * tail runs past it down to the head.
  */
 import { type Lut, lutRgb } from '../core/palette';
 import type { Surface } from '../core/surface';
@@ -16,6 +18,10 @@ import type { WarnOnce } from './warn';
 
 /** Clear screen pixels between the top of the head and whatever sits above it, and between stacked overlays. */
 const GAP = 2;
+/** Half the width of a head, in world pixels: an emote beside the head starts past it. */
+const HEAD_HALF = 5;
+/** How far below the top of the sprite an emote beside the head ends, in world pixels: level with the face, clear of the bubble. */
+const BESIDE_DROP = 6;
 
 
 /** Blend the whole frame toward ink. `amount` is 0..1. */
@@ -57,10 +63,20 @@ export function drawOverlays(out: Surface, lut: Lut, art: ArtRegistry, state: Fr
   // (A speech bubble still shows: a voice from off-screen is useful.)
   const inView = (at: [number, number]): boolean => at[0] >= -8 && at[0] <= out.w + 8 && at[1] >= -8 && at[1] <= out.h + CHAR_H;
 
+  const speaking = new Set(state.bubbles.map((b) => b.actor));
+  const labelled = new Set((state.annotations ?? []).flatMap((n) => (n.kind === 'label' && n.actor !== undefined ? [n.actor] : [])));
   for (const a of state.actors) {
     if (!a.emote || (a.opacity ?? 1) <= 0) continue;
     const at = head(a.id, 'emote');
     if (!at || !inView(at)) continue;
+    if (speaking.has(a.id) && !labelled.has(a.id)) {
+      // beside the head, on the right unless that leaves the frame; the stack does not grow
+      const w = measureEmote(a.emote, ui).w;
+      const reach = (HEAD_HALF + 1) * cam.zoom + Math.ceil(w / 2);
+      const x = at[0] + reach + Math.ceil(w / 2) <= out.w ? at[0] + reach : at[0] - reach;
+      drawEmote(out, lut, a.emote, x, at[1] + BESIDE_DROP * cam.zoom, ui);
+      continue;
+    }
     drawEmote(out, lut, a.emote, at[0], at[1], ui);
     const size = measureEmote(a.emote, ui);
     // measureEmote counts the free row under the icon, which the head offset already holds

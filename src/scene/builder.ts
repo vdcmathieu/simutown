@@ -86,7 +86,21 @@ function clock(hour: number): string {
 }
 
 function checkSeconds(what: string, v: number | undefined): void {
-  if (v !== undefined && !(Number.isFinite(v) && v >= 0)) throw new Error(`${what} must be a number of seconds >= 0, got ${v}.`);
+  if (v !== undefined && !(typeof v === 'number' && Number.isFinite(v) && v >= 0)) throw new Error(`${what} must be a number of seconds >= 0, got ${shown(v)}.`);
+}
+
+/** Text a person says, a title or a caption: a string, or a clear error naming what came instead. */
+function checkText(what: string, v: unknown): void {
+  if (typeof v !== 'string') throw new Error(`${what} takes text in quotes, got ${shown(v)}.`);
+}
+
+/** A value as an error message should show it: strings quoted, and the type named unless it is a number. */
+function shown(v: unknown): string {
+  if (typeof v === 'number') return String(v);
+  if (typeof v === 'string') return `${JSON.stringify(v)} (a string)`;
+  if (v === null || v === undefined) return String(v);
+  if (Array.isArray(v)) return `[${v.map(String).join(', ')}] (an array)`;
+  return `${typeof v === 'object' ? JSON.stringify(v) : String(v)} (${typeof v === 'object' ? 'an object' : `a ${typeof v}`})`;
 }
 
 /**
@@ -452,6 +466,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     beat(t0, t0, `${o.hidden ? 'waits, hidden,' : 'appears'} at ${named(o.at, room)}`, id);
 
     const say = (kind: 'say' | 'think' | 'shout') => (text: string, opts: SayOpts = {}) => {
+      checkText(`${id}.${kind}`, text);
       checkSeconds(`${id}.${kind} hold`, opts.hold);
       const typeEnd = T.typeTime(text);
       const d = typeEnd + (opts.hold ?? T.readHold(text));
@@ -740,6 +755,8 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
     together: (fn) => group(true, fn),
     sequence: (fn) => group(false, fn),
     title(text, subtitle, opts = {}) {
+      checkText('s.title', text);
+      if (subtitle !== undefined) checkText('s.title subtitle', subtitle);
       checkSeconds('s.title hold', opts.hold);
       const d = 2 * T.TITLE_FADE + (opts.hold ?? T.TITLE_HOLD);
       const t = advance(d);
@@ -747,6 +764,7 @@ export function scene(opts: SceneOpts, script: (s: SceneBuilder) => void): Scene
       beat(t, t + d, `title ${JSON.stringify(text)}${subtitle !== undefined ? `, ${JSON.stringify(subtitle)}` : ''}`);
     },
     caption(text, opts = {}) {
+      checkText('s.caption', text);
       checkSeconds('s.caption hold', opts.hold);
       const t = advance(opts.hold ?? 0);
       captions.push({ text, start: t, end: opts.hold !== undefined ? t + opts.hold : Infinity, fadeIn: true });

@@ -156,30 +156,56 @@ export function runningAt(beats: readonly SceneBeat[] | undefined, t: number): s
 /** Most images one `still` call returns. */
 export const MAX_STILLS = 12;
 
+/** A time worth a still, and whether its beat carries the story (a line, caption, title, camera move or fade). */
+export interface StillTime {
+  t: number;
+  key: boolean;
+}
+
+/** Beats that carry the story: kept first when there are more beats than stills. */
+const KEY_BEAT = /^(says|thinks|whispers|shouts|caption "|title|camera|fade)/;
+
 /**
  * One time per beat worth looking at: the middle of every call that takes time, and just
- * after every caption appears. Sorted, without near-duplicates.
+ * after every caption appears. Sorted, without near-duplicates. A scene without beats
+ * gets four times spread evenly.
  */
-export function beatTimes(scene: Scene): number[] {
-  const beats = scene.beats ?? [];
-  const raw: number[] = [];
-  for (const b of beats) {
-    if (b.end > b.start + 1e-9) raw.push((b.start + b.end) / 2);
-    else if (/^caption "/.test(b.what)) raw.push(Math.min(b.start + 0.5, scene.duration));
+export function beatTimes(scene: Scene): StillTime[] {
+  const raw: StillTime[] = [];
+  for (const b of scene.beats ?? []) {
+    const key = KEY_BEAT.test(b.what);
+    if (b.end > b.start + 1e-9) raw.push({ t: (b.start + b.end) / 2, key });
+    else if (/^caption "/.test(b.what)) raw.push({ t: Math.min(b.start + 0.5, scene.duration), key });
   }
-  if (raw.length === 0) raw.push(...[0.125, 0.375, 0.625, 0.875].map((f) => f * scene.duration));
-  const times: number[] = [];
-  for (const t of raw.map((t) => Math.round(t * 100) / 100).sort((a, b) => a - b)) {
-    if (times.length === 0 || t - times.at(-1)! > 0.1) times.push(t);
+  if (raw.length === 0) raw.push(...[0.125, 0.375, 0.625, 0.875].map((f) => ({ t: f * scene.duration, key: true })));
+  const times: StillTime[] = [];
+  for (const c of raw.map((c) => ({ ...c, t: Math.round(c.t * 100) / 100 })).sort((x, y) => x.t - y.t)) {
+    const last = times.at(-1);
+    if (last && c.t - last.t <= 0.1) last.key ||= c.key;
+    else times.push(c);
   }
   return times;
 }
 
-/** Keep `max` times spread evenly over the list (first and last included); return kept and dropped. */
-function spread(times: number[], max: number): { kept: number[]; dropped: number[] } {
-  if (times.length <= max) return { kept: times, dropped: [] };
-  const pick = new Set(Array.from({ length: max }, (_, i) => Math.round((i * (times.length - 1)) / (max - 1))));
-  return { kept: times.filter((_, i) => pick.has(i)), dropped: times.filter((_, i) => !pick.has(i)) };
+/** Keep `max` of `times` spread evenly (first and last included). */
+function spread(times: number[], max: number): number[] {
+  if (times.length <= max) return times;
+  if (max <= 0) return [];
+  if (max === 1) return [times[Math.floor(times.length / 2)]!];
+  return [...new Set(Array.from({ length: max }, (_, i) => times[Math.round((i * (times.length - 1)) / (max - 1))]!))];
+}
+
+/**
+ * Choose at most `max` stills: every key beat if they fit (spread evenly if not), then the
+ * other beats spread over the slots left. Returns the kept and the dropped times, sorted.
+ */
+export function pickStills(times: StillTime[], max: number): { kept: number[]; dropped: number[] } {
+  const all = times.map((c) => c.t);
+  if (all.length <= max) return { kept: all, dropped: [] };
+  const key = spread(times.filter((c) => c.key).map((c) => c.t), max);
+  const rest = spread(times.filter((c) => !c.key).map((c) => c.t), max - key.length);
+  const kept = [...key, ...rest].sort((x, y) => x - y);
+  return { kept, dropped: all.filter((t) => !kept.includes(t)) };
 }
 
 const SCENE_ARG = {
@@ -408,7 +434,7 @@ const stillTool: ToolDef = {
       every_beat: {
         type: 'boolean',
         default: false,
-        description: 'One frame in the middle of each beat that takes time and just after each caption appears (up to 12).',
+        description: 'One frame in the middle of each beat that takes time and just after each caption appears (up to 12; lines, captions and camera moves are kept first).',
       },
       scale: { type: 'integer', minimum: 1, maximum: 4, default: 2, description: 'Upscale: 1 is 480x270, 2 is 960x540.' },
     },
@@ -424,7 +450,7 @@ const stillTool: ToolDef = {
       let times: number[];
       let note = '';
       if (args.every_beat === true) {
-        const { kept, dropped } = spread(beatTimes(scene), MAX_STILLS);
+        const { kept, dropped } = pickStills(beatTimes(scene), MAX_STILLS);
         times = kept;
         if (!scene.beats) note = 'This scene has no timeline of beats (it was not built with scene()), so these frames are spread evenly.\n';
         if (dropped.length) {

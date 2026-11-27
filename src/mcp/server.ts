@@ -4,12 +4,13 @@
  * resources and prompts a `ServerSpec` hands it. Node only.
  *
  * stdout is the protocol channel. Nothing else may write to it: logs go to stderr, and
- * while `serveStdio` runs, `console.log` and friends are routed to stderr too.
+ * while `serveStdio` runs, every other write to `process.stdout` (console.log, console.dir,
+ * a direct `process.stdout.write` in a scene) is routed to stderr too.
  */
 
 import type { Readable, Writable } from 'node:stream';
+import { Console } from 'node:console';
 import { StringDecoder } from 'node:string_decoder';
-import { format } from 'node:util';
 import type { InputSchema, PropertySchema, ServerSpec, ToolContext, ToolResult } from './types';
 
 /** The protocol versions this server speaks, newest first. */
@@ -22,6 +23,8 @@ export const ErrorCode = {
   MethodNotFound: -32601,
   InvalidParams: -32602,
   InternalError: -32603,
+  /** MCP's code for resources/read of an unknown URI. */
+  ResourceNotFound: -32002,
 } as const;
 
 /** A JSON-RPC request id. */
@@ -43,10 +46,11 @@ export interface ServerOptions {
 /** An MCP server, independent of transport. */
 export interface McpServer {
   /**
-   * Handle one parsed JSON-RPC message. Resolves to the response, or to undefined for a
-   * notification, a response from the client, or a request the client cancelled.
+   * Handle one parsed JSON-RPC message, or a batch (an array of them, answered with an
+   * array). Resolves to the response, or to undefined for a notification, a response from
+   * the client, or a request the client cancelled.
    */
-  handle(message: unknown): Promise<OutgoingMessage | undefined>;
+  handle(message: unknown): Promise<OutgoingMessage | OutgoingMessage[] | undefined>;
   /** Abort every call still running (for shutdown). */
   abortAll(): void;
 }
@@ -56,6 +60,7 @@ class RpcError extends Error {
   constructor(
     readonly code: number,
     message: string,
+    readonly data?: unknown,
   ) {
     super(message);
   }
@@ -298,7 +303,9 @@ export function createServer(spec: ServerSpec, opts: ServerOptions): McpServer {
         const resource = typeof params.uri === 'string' ? resources.get(params.uri) : undefined;
         if (!resource) {
           const valid = [...resources.keys()].join(', ') || '(none)';
-          throw new RpcError(ErrorCode.InvalidParams, `Unknown resource ${JSON.stringify(params.uri)}. Valid uris: ${valid}.`);
+          throw new RpcError(ErrorCode.ResourceNotFound, `Unknown resource ${JSON.stringify(params.uri)}. Valid uris: ${valid}.`, {
+            uri: params.uri,
+          });
         }
         const text = await resource.read(baseCtx());
         return { contents: [{ uri: resource.uri, mimeType: resource.mimeType, text }] };
@@ -359,43 +366,53 @@ export function createServer(spec: ServerSpec, opts: ServerOptions): McpServer {
   }
 
   /** An error response. */
-  const errorResponse = (id: Id | null, code: number, msg: string): OutgoingMessage => ({
+  const errorResponse = (id: Id | null, code: number, msg: string, data?: unknown): OutgoingMessage => ({
     jsonrpc: '2.0',
     id,
-    error: { code, message: msg },
+    error: data === undefined ? { code, message: msg } : { code, message: msg, data },
   });
+
+  /** Handle one message (not a batch). */
+  async function handleOne(message: unknown): Promise<OutgoingMessage | undefined> {
+    if (!isObject(message)) {
+      return errorResponse(null, ErrorCode.InvalidRequest, 'A message must be a JSON object.');
+    }
+    const rawId = message.id;
+    const idOk = typeof rawId === 'string' || (typeof rawId === 'number' && Number.isInteger(rawId));
+    const id: Id | null = idOk ? (rawId as Id) : null;
+    if (message.jsonrpc !== '2.0') {
+      return errorResponse(id, ErrorCode.InvalidRequest, 'jsonrpc must be "2.0".');
+    }
+    if (message.method === undefined && ('result' in message || 'error' in message)) {
+      return undefined; // a response from the client: the server sends no requests, so ignore it
+    }
+    if (typeof message.method !== 'string') {
+      return errorResponse(id, ErrorCode.InvalidRequest, 'method must be a string.');
+    }
+    if (!('id' in message)) {
+      onNotification(message.method, message);
+      return undefined;
+    }
+    if (!idOk) return errorResponse(null, ErrorCode.InvalidRequest, 'id must be a string or an integer.');
+    try {
+      const result = await dispatch(id as Id, message.method, message);
+      if (cancelled.delete(id as Id)) return undefined;
+      return { jsonrpc: '2.0', id, result };
+    } catch (err) {
+      if (err instanceof RpcError) return errorResponse(id, err.code, err.message, err.data);
+      log(`[simutown-mcp] ${message.method} failed: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+      return errorResponse(id, ErrorCode.InternalError, messageOf(err));
+    }
+  }
 
   return {
     async handle(message) {
-      if (!isObject(message)) {
-        return errorResponse(null, ErrorCode.InvalidRequest, Array.isArray(message) ? 'Batches are not supported.' : 'A message must be a JSON object.');
-      }
-      const rawId = message.id;
-      const idOk = typeof rawId === 'string' || (typeof rawId === 'number' && Number.isFinite(rawId));
-      const id: Id | null = idOk ? (rawId as Id) : null;
-      if (message.jsonrpc !== '2.0') {
-        return errorResponse(id, ErrorCode.InvalidRequest, 'jsonrpc must be "2.0".');
-      }
-      if (message.method === undefined && ('result' in message || 'error' in message)) {
-        return undefined; // a response from the client: the server sends no requests, so ignore it
-      }
-      if (typeof message.method !== 'string') {
-        return errorResponse(id, ErrorCode.InvalidRequest, 'method must be a string.');
-      }
-      if (!('id' in message)) {
-        onNotification(message.method, message);
-        return undefined;
-      }
-      if (!idOk) return errorResponse(null, ErrorCode.InvalidRequest, 'id must be a string or a number.');
-      try {
-        const result = await dispatch(id as Id, message.method, message);
-        if (cancelled.delete(id as Id)) return undefined;
-        return { jsonrpc: '2.0', id, result };
-      } catch (err) {
-        if (err instanceof RpcError) return errorResponse(id, err.code, err.message);
-        log(`[simutown-mcp] ${message.method} failed: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
-        return errorResponse(id, ErrorCode.InternalError, messageOf(err));
-      }
+      // Protocol 2025-03-26 has clients send batches; later versions dropped them. Accepting
+      // one costs nothing, so every version gets the array of responses it is owed.
+      if (!Array.isArray(message)) return handleOne(message);
+      if (message.length === 0) return errorResponse(null, ErrorCode.InvalidRequest, 'A batch must not be empty.');
+      const responses = (await Promise.all(message.map(handleOne))).filter((r): r is OutgoingMessage => r !== undefined);
+      return responses.length ? responses : undefined;
     },
     abortAll() {
       for (const c of running.values()) c.abort('The server is shutting down');
@@ -413,28 +430,41 @@ export interface StdioOptions {
   output?: Writable;
   /** Where log lines go. Defaults to stderr. */
   log?: (line: string) => void;
+  /** Shut down when this aborts (on SIGTERM, say): calls still running are aborted and awaited. */
+  signal?: AbortSignal;
 }
-
-/** The console methods that would write to stdout, routed to stderr while the server runs. */
-const CONSOLE_METHODS = ['log', 'info', 'debug', 'warn'] as const;
 
 /**
  * Serve a spec over stdio: one JSON-RPC message per line in, one per line out.
- * Requests run concurrently, so responses may go out of order. Resolves when the input
- * ends and the calls still running have finished. While it runs, console.log, info,
- * debug and warn write to stderr, so that nothing but the protocol reaches stdout.
+ * Requests run concurrently, so responses may go out of order.
+ *
+ * The server shuts down when the input ends (the MCP way for a client to close the
+ * session), when the input or output fails (a closed pipe), or when `signal` aborts. It then
+ * aborts the calls still running, so a render stops and removes its partial file, waits for
+ * them, and resolves.
+ *
+ * While it runs, the global console writes to stderr and `process.stdout.write` is pointed at
+ * stderr, so that console.log, console.dir and direct writes from scene code cannot reach
+ * the protocol channel. Protocol messages go
+ * through the output's own write, saved before.
  */
 export async function serveStdio(spec: ServerSpec, opts: StdioOptions): Promise<void> {
   const input = opts.input ?? process.stdin;
   const output = opts.output ?? process.stdout;
   const log = opts.log ?? stderrLog;
-  const send = (message: OutgoingMessage): void => {
-    output.write(`${JSON.stringify(message)}\n`);
+  const write = output.write.bind(output) as (chunk: string) => boolean;
+  let closed = false;
+  const send = (message: OutgoingMessage | OutgoingMessage[]): void => {
+    if (!closed) write(`${JSON.stringify(message)}\n`);
   };
   const server = createServer(spec, { root: opts.root, log, notify: send });
 
-  const saved = CONSOLE_METHODS.map((m) => console[m]);
-  for (const m of CONSOLE_METHODS) console[m] = (...args: unknown[]) => stderrLog(format(...args));
+  // Route everything bound for stdout to stderr: the whole console (log, dir, table, group,
+  // count, time, ...) and direct writes.
+  const savedConsole = globalThis.console;
+  globalThis.console = new Console({ stdout: process.stderr, stderr: process.stderr });
+  const stdoutWrite = process.stdout.write;
+  process.stdout.write = process.stderr.write.bind(process.stderr) as typeof process.stdout.write;
 
   const inFlight = new Set<Promise<void>>();
   const onLine = (line: string): void => {
@@ -458,30 +488,62 @@ export async function serveStdio(spec: ServerSpec, opts: StdioOptions): Promise<
     inFlight.add(job);
   };
 
+  const decoder = new StringDecoder('utf8');
+  let buffer = '';
+  const onData = (chunk: Buffer | string): void => {
+    buffer += typeof chunk === 'string' ? chunk : decoder.write(chunk);
+    let newline = buffer.indexOf('\n');
+    while (newline >= 0) {
+      onLine(buffer.slice(0, newline));
+      buffer = buffer.slice(newline + 1);
+      newline = buffer.indexOf('\n');
+    }
+  };
+  let onEnd = (): void => {};
+  let onInputError = (_err: Error): void => {};
+  let onOutputError = (_err: Error): void => {};
+  let onAbort = (): void => {};
+
   try {
-    await new Promise<void>((resolve, reject) => {
-      const decoder = new StringDecoder('utf8');
-      let buffer = '';
-      input.on('data', (chunk: Buffer | string) => {
-        buffer += typeof chunk === 'string' ? chunk : decoder.write(chunk);
-        let newline = buffer.indexOf('\n');
-        while (newline >= 0) {
-          onLine(buffer.slice(0, newline));
-          buffer = buffer.slice(newline + 1);
-          newline = buffer.indexOf('\n');
-        }
-      });
-      input.once('end', () => {
+    await new Promise<void>((resolve) => {
+      onEnd = () => {
         buffer += decoder.end();
         if (buffer) onLine(buffer);
         resolve();
-      });
-      input.once('error', reject);
+      };
+      onInputError = (err) => {
+        log(`[simutown-mcp] input failed, shutting down: ${err.message}`);
+        resolve();
+      };
+      onOutputError = (err) => {
+        // A closed stdout (EPIPE): nobody reads the answers any more.
+        closed = true;
+        log(`[simutown-mcp] output failed, shutting down: ${err.message}`);
+        resolve();
+      };
+      onAbort = () => {
+        log('[simutown-mcp] shutting down');
+        resolve();
+      };
+      input.on('data', onData);
+      input.once('end', onEnd);
+      input.once('error', onInputError);
+      output.on('error', onOutputError);
+      if (opts.signal?.aborted) onAbort();
+      else opts.signal?.addEventListener('abort', onAbort, { once: true });
     });
+    input.off('data', onData);
+    input.pause();
+    server.abortAll();
     while (inFlight.size) await Promise.all(inFlight);
   } finally {
-    CONSOLE_METHODS.forEach((m, i) => {
-      console[m] = saved[i]!;
-    });
+    input.off('end', onEnd);
+    input.off('error', onInputError);
+    opts.signal?.removeEventListener('abort', onAbort);
+    process.stdout.write = stdoutWrite;
+    globalThis.console = savedConsole;
+    // Keep listening for output errors, so that a late EPIPE is logged instead of crashing the process.
+    output.off('error', onOutputError);
+    output.on('error', (err) => log(`[simutown-mcp] output failed: ${err.message}`));
   }
 }

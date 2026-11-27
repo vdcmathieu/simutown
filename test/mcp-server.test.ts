@@ -52,6 +52,17 @@ function fakeSpec(): ServerSpec {
         },
       },
       {
+        name: 'leaky',
+        description: 'Write to stdout around the console.',
+        inputSchema: { type: 'object', properties: {} },
+        async run() {
+          console.dir({ dir: 1 });
+          console.table([1]);
+          process.stdout.write('raw stdout\n');
+          return { content: [{ type: 'text', text: 'ok' }] };
+        },
+      },
+      {
         name: 'chatty',
         description: 'Log to the console.',
         inputSchema: { type: 'object', properties: {} },
@@ -133,7 +144,7 @@ describe('createServer', () => {
   it('lists tools with schemas and annotations', async () => {
     const { server } = setup();
     const res = (await server.handle(req(1, 'tools/list'))) as any;
-    expect(res.result.tools.map((t: any) => t.name)).toEqual(['echo', 'slow', 'boom', 'chatty']);
+    expect(res.result.tools.map((t: any) => t.name)).toEqual(['echo', 'slow', 'boom', 'leaky', 'chatty']);
     expect(res.result.tools[0]).toMatchObject({
       description: 'Echo the arguments.',
       inputSchema: { type: 'object', required: ['text'] },
@@ -151,7 +162,7 @@ describe('createServer', () => {
     const { server } = setup();
     const res = (await server.handle(req(1, 'tools/call', { name: 'nope' }))) as any;
     expect(res.error.code).toBe(-32602);
-    expect(res.error.message).toContain('echo, slow, boom, chatty');
+    expect(res.error.message).toContain('echo, slow, boom, leaky, chatty');
   });
 
   it('checks arguments and says what was expected and given', async () => {
@@ -220,7 +231,8 @@ describe('createServer', () => {
     const read = (await server.handle(req(2, 'resources/read', { uri: 'fake://docs/guide' }))) as any;
     expect(read.result).toEqual({ contents: [{ uri: 'fake://docs/guide', mimeType: 'text/markdown', text: '# Guide' }] });
     const bad = (await server.handle(req(3, 'resources/read', { uri: 'fake://nope' }))) as any;
-    expect(bad.error.code).toBe(-32602);
+    expect(bad.error.code).toBe(-32002);
+    expect(bad.error.data).toEqual({ uri: 'fake://nope' });
     expect(bad.error.message).toContain('fake://docs/guide');
   });
 
@@ -246,9 +258,16 @@ describe('createServer', () => {
     expect(await server.handle({ id: 1, method: 'ping' })).toMatchObject({ id: 1, error: { code: -32600 } });
     expect(await server.handle({ jsonrpc: '2.0', id: 2 })).toMatchObject({ id: 2, error: { code: -32600 } });
     expect(await server.handle('hello')).toMatchObject({ id: null, error: { code: -32600 } });
-    expect(await server.handle([req(1, 'ping')])).toMatchObject({ id: null, error: { code: -32600 } });
+    expect(await server.handle([])).toMatchObject({ id: null, error: { code: -32600 } });
+    expect(await server.handle({ jsonrpc: '2.0', id: 1.5, method: 'ping' })).toMatchObject({ id: null, error: { code: -32600 } });
     expect(await server.handle({ jsonrpc: '2.0', id: { x: 1 }, method: 'ping' })).toMatchObject({ id: null, error: { code: -32600 } });
     expect(await server.handle({ jsonrpc: '2.0', id: 3, method: 'tools/list', params: 5 })).toMatchObject({ id: 3, error: { code: -32602 } });
+    // A batch gets the array of its responses; notifications in it get none.
+    expect(await server.handle([req(1, 'ping'), { jsonrpc: '2.0', method: 'notifications/initialized' }, req(2, 'nope')])).toEqual([
+      { jsonrpc: '2.0', id: 1, result: {} },
+      { jsonrpc: '2.0', id: 2, error: { code: -32601, message: 'Unknown method "nope".' } },
+    ]);
+    expect(await server.handle([{ jsonrpc: '2.0', method: 'notifications/initialized' }])).toBeUndefined();
     // A response from the client is ignored.
     expect(await server.handle({ jsonrpc: '2.0', id: 9, result: {} })).toBeUndefined();
   });
@@ -331,5 +350,57 @@ describe('serveStdio', () => {
       stdout.mockRestore();
     }
     expect(console.log).toBe(original);
+  });
+
+  it('routes console.dir, console.table and process.stdout.write to stderr too', async () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const realStdoutWrite = process.stdout.write;
+    const stdout: string[] = [];
+    process.stdout.write = ((s: string) => (stdout.push(String(s)), true)) as typeof process.stdout.write;
+    try {
+      const { input, lines, done } = stdio();
+      input.end(`${JSON.stringify(req(1, 'tools/call', { name: 'leaky' }))}\n`);
+      await done;
+      expect(lines).toEqual([{ jsonrpc: '2.0', id: 1, result: { content: [{ type: 'text', text: 'ok' }] } }]);
+      const err = stderr.mock.calls.map(([s]) => String(s)).join('');
+      expect(err).toContain('dir: 1');
+      expect(err).toContain('raw stdout');
+      expect(stdout).toEqual([]);
+    } finally {
+      process.stdout.write = realStdoutWrite;
+      stderr.mockRestore();
+    }
+  });
+
+  it('aborts the calls still running when the input ends, and answers them', async () => {
+    const { input, lines, done } = stdio();
+    input.end(`${JSON.stringify(req(1, 'tools/call', { name: 'slow' }))}\n`);
+    await done;
+    expect(lines).toEqual([{ jsonrpc: '2.0', id: 1, result: { content: [{ type: 'text', text: 'aborted' }] } }]);
+  });
+
+  it('shuts down on its signal, aborting what runs, with the input still open', async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const stop = new AbortController();
+    const out: string[] = [];
+    output.on('data', (c: Buffer) => out.push(c.toString()));
+    const done = serveStdio(fakeSpec(), { root: '/proj', input, output, log: silent, signal: stop.signal });
+    input.write(`${JSON.stringify(req(1, 'tools/call', { name: 'slow' }))}\n`);
+    await new Promise((r) => setTimeout(r, 10));
+    stop.abort();
+    await done;
+    expect(out.join('')).toContain('aborted');
+  });
+
+  it('shuts down instead of crashing when the output fails (EPIPE)', async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const done = serveStdio(fakeSpec(), { root: '/proj', input, output, log: silent });
+    input.write(`${JSON.stringify(req(1, 'tools/call', { name: 'slow' }))}\n`);
+    await new Promise((r) => setTimeout(r, 10));
+    output.emit('error', Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }));
+    await done;
+    output.emit('error', new Error('late')); // logged, not thrown
   });
 });

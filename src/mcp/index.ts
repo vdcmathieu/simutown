@@ -48,10 +48,27 @@ export interface StartOptions {
 }
 
 /**
- * Serve the Simutown MCP server over stdin and stdout until stdin ends. stdout carries only
+ * Serve the Simutown MCP server over stdin and stdout until stdin ends or the process gets
+ * SIGTERM or SIGINT. Either way the calls still running are aborted and awaited first, so
+ * a render removes its partial file. A second signal exits at once. stdout carries only
  * protocol messages; logs go to stderr.
  */
 export async function startMcpServer(opts: StartOptions): Promise<void> {
   process.stderr.write(`[simutown-mcp] serving ${opts.root} over stdio\n`);
-  await serveStdio(simutownServerSpec(), { root: opts.root });
+  const stop = new AbortController();
+  const onSignal = (signal: NodeJS.Signals): void => {
+    if (stop.signal.aborted) process.exit(1);
+    process.stderr.write(`[simutown-mcp] ${signal}: stopping the calls still running\n`);
+    stop.abort();
+  };
+  process.on('SIGTERM', onSignal);
+  process.on('SIGINT', onSignal);
+  try {
+    await serveStdio(simutownServerSpec(), { root: opts.root, signal: stop.signal });
+  } finally {
+    process.off('SIGTERM', onSignal);
+    process.off('SIGINT', onSignal);
+    // stdin may still be open (after a signal): let go of it so the process can exit.
+    process.stdin.destroy();
+  }
 }

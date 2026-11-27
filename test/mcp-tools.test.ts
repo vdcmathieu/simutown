@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { hasFfmpeg } from '../src/node/video';
 import { simutownPrompts, simutownResources } from '../src/mcp/resources';
+import { agentHint } from '../src/mcp/load';
 import { createServer } from '../src/mcp/server';
 import { beatTimes, pickStills, simutownTools } from '../src/mcp/tools';
 import type { ToolContext, ToolResult } from '../src/mcp/types';
@@ -143,6 +144,28 @@ describe('simutown MCP tools', () => {
       expect(text(r)).toMatch(/lowercase words joined by dashes/);
     }
     expect(existsSync(join(root, 'escape.ts'))).toBe(false);
+  });
+
+  it('adds hints for the usual slips: unknown calls, missing imports, wrong types, syntax', async () => {
+    const root = project();
+    const build = async (src: string) => text(await call('write_scene', { name: 'slip', source: src }, { root }));
+    const base = SCENE('Slip', 'Hi');
+    expect(await build(base.replace("bo.say('Hi');", 'bo.dance();'))).toMatch(/dance is not a call\. If bo is an actor, its calls are: walkTo, .*say/);
+    expect(await build(base.replace("bo.say('Hi');", 's.camera.zoomIn();'))).toMatch(/zoomIn is not a camera call\. Camera calls: cut, pan, follow/);
+    expect(await build(base.replace('{ scene, willowSquare }', '{ scene }'))).toMatch(
+      /willowSquare comes from simutown: add it to the import, as in import \{ scene, willowSquare \}/,
+    );
+    expect(await build(base.replace("bo.say('Hi');", 'bo.say(42 as never);'))).toMatch(/wrong type.*breaks after "fade in", at "bo says 42"/s);
+    const syntax = await build(base.trimEnd().slice(0, -3));
+    expect(syntax).toMatch(/does not build/);
+    expect(syntax).not.toContain(root);
+    expect(syntax).not.toContain('\x1b[');
+    // esbuild's form (tsx, which the server runs under in this repository) gets the line and a caret.
+    const path = join(root, 'scenes/slip.ts');
+    writeFileSync(path, 'const a = 1;\nconst b = (;\n');
+    expect(agentHint(new Error(`Transform failed with 1 error:\n${path}:2:11: ERROR: Unexpected ";"`), path)).toBe(
+      '\n  2 | const b = (;\n    |            ^',
+    );
   });
 
   it('sees a rewritten scene at once (no stale module cache)', async () => {

@@ -1,6 +1,31 @@
+# Dependencies and build output
 node_modules/
-out/
 dist/
+out/
+coverage/
+*.tsbuildinfo
+.vite/
+*.tgz
+
+# Agent and editor files: keep them local.
+# The one exception is the scene-writing skill, which the docs point readers to.
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/simutown-scene/
+.codex/
+.cursor/
+.aider*
+.vscode/
+.idea/
+*.swp
+
+# Secrets and local settings
+.env
+.env.*
+*.local.json
+
+# OS and logs
 .DS_Store
-.claude/worktrees/
+Thumbs.db
 *.log

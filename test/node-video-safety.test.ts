@@ -43,6 +43,21 @@ describe('a failed export leaves the destination alone', () => {
     expect(readdirSync(dir)).toEqual(['clip.gif']);
     expect(existsSync(join(dir, 'clip.partial.gif'))).toBe(false);
   });
+
+  it.skipIf(!ffmpeg)('gives two exports to the same file a partial each', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'simutown-safe-'));
+    const dest = join(dir, 'clip.gif');
+    const seen = new Set<string>();
+    const look = () => {
+      for (const f of readdirSync(dir)) if (f.includes('.partial')) seen.add(f);
+    };
+    const one = { to: 0.5, scale: 1, onProgress: look };
+    await Promise.all([renderVideo(tinyScene, dest, one), renderVideo(tinyScene, dest, one)]);
+    expect(seen.size).toBe(2);
+    expect([...seen].every((f) => /^clip\.partial-\d+-\d+\.gif$/.test(f))).toBe(true);
+    expect(readFileSync(dest).subarray(0, 3).toString()).toBe('GIF');
+    expect(readdirSync(dir)).toEqual(['clip.gif']);
+  });
 });
 
 describe('export and playback agree on the frame count', () => {

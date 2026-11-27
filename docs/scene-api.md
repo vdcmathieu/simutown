@@ -81,7 +81,7 @@ The view never leaves the town, down to the last pixel the renderer draws: near 
 | `a.face(dir \| actor)` | Turn. | 0 |
 | `a.say(text, { hold?, gesture? })` | Speech bubble with typewriter reveal, held long enough to read. A standing speaker plays the `talk` pose while the text types out; `gesture: false` turns that off. | from text length |
 | `a.think(text, { hold?, gesture? })` / `a.shout(text, { hold?, gesture? })` | Same, different bubble. | from text length |
-| `a.emote(name, { hold? })` | Icon above the head. | 1.2 s |
+| `a.emote(name, { hold? })` | Icon above the head; beside it while the person also speaks or thinks. | 1.2 s |
 | `a.pose(name, { hold? })` | Play any of the character's poses (the townsfolk have `sit`, `wave`, `talk`, `carry`), then return to idle. | 1 s |
 | `a.sitOn(prop, seat?, { hold?, speed? })` | Walk to a seat of a prop (default: its first), slide onto it and sit until the next move or pose. | walk + 0.3 s + `hold` |
 | `a.enter(prop, { speed? })` | Walk to the prop's `door` place, face up and go through the door (0.3 s). When the building has a room, the actor is then inside it on its `door` place, facing up; otherwise they leave the map. | walk + 0.3 s |
@@ -279,7 +279,9 @@ Helpers, all from `src/world`:
 - `describeTown(town)` - a plain-text map with a legend, the props and every place name, so an author who cannot see the picture can still plan a scene. A town's rooms follow, each with its own map, props and places under their qualified names (`bakery:door`).
 - `createRng(seed)` - a seeded random generator (`next`, `int`, `range`, `pick`) for anything that needs variation.
 
-`describeTown` output looks like this (`#` is a prop footprint, digits mark places):
+`describeTown` output looks like this.
+`#` is a prop footprint and every tile with places has a mark of its own.
+Props without doors, seats or places fold into one `Scenery` line, and `<who>.home` places are listed under the door they share:
 
 ```
 Test: 8 x 5 tiles. x grows right, y grows down, [0, 0] is the top-left tile.
@@ -296,10 +298,11 @@ Legend:
   w water (solid)
   c cobble
   # prop footprint (solid)
+  any other mark is a place, listed under Places
 
-Props (origin = bottom-left tile of the footprint):
+Props with doors, seats or places (origin = bottom-left tile of the footprint):
   home (house) at [4, 2], footprint 3x2 tiles
-  ...
+Scenery, 3 more props (solid ones show as # on the map): 2 lamp, rug.
 
 Places (walkable tiles you can use as targets):
   1 home.door [5, 3]

@@ -504,6 +504,17 @@ describe('determinism', () => {
 describe('errors an author can act on', () => {
   const err = (script: (s: SceneBuilder) => void) => () => make(script);
 
+  it('text that is not a string, and a hold given as a string', () => {
+    const ana = (s: SceneBuilder) => s.actor('ana', { at: 'west' });
+    expect(err((s) => ana(s).say(42 as unknown as string))).toThrow(/ana.say takes text in quotes, got 42\./);
+    expect(err((s) => ana(s).think(undefined as unknown as string))).toThrow(/ana.think takes text in quotes, got undefined\./);
+    expect(err((s) => ana(s).shout(['hi'] as unknown as string))).toThrow(/ana.shout takes text in quotes, got \[hi\] \(an array\)\./);
+    expect(err((s) => s.caption({ text: 'hi' } as unknown as string))).toThrow(/s.caption takes text in quotes, got \{"text":"hi"\} \(an object\)\./);
+    expect(err((s) => s.title(7 as unknown as string))).toThrow(/s.title takes text in quotes, got 7\./);
+    expect(err((s) => s.caption('hi', { hold: '2.5' as unknown as number }))).toThrow(/s.caption hold must be a number of seconds >= 0, got "2.5" \(a string\)\./);
+    expect(err((s) => ana(s).say('hi', { hold: -1 }))).toThrow(/ana.say hold must be a number of seconds >= 0, got -1\./);
+  });
+
   it('unknown character, place, prop, pose, emote, direction', () => {
     expect(err((s) => s.actor('anna', { at: 'west' }))).toThrow(/Unknown character "anna". Did you mean "ana"\? Valid characters: ana, ben, cy\./);
     expect(err((s) => s.actor('ana', { at: 'wset' }))).toThrow(/Unknown place "wset". Did you mean "west"\? Valid places: cafe.door, east, plaza, pocket, west\./);

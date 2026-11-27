@@ -192,7 +192,7 @@ describe('describeTown', () => {
     expect(text).toContain('4 #gggggg#');
     expect(text).toContain('w water (solid)');
     expect(text).toContain('home (house) at [4, 2], footprint 3x2 tiles');
-    expect(text).toContain('rug (rug) at [1, 0], no footprint (walkable)');
+    expect(text).toContain('Scenery, 3 more props (solid ones show as # on the map): 2 lamp, rug.');
     expect(text).toContain('1 home.door [5, 3]');
     expect(text).toContain('3 plaza [3, 3]');
   });

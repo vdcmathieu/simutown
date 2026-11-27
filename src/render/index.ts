@@ -20,7 +20,7 @@ import type { Surface } from '../core/surface';
 import { type ActorState, type ArtRegistry, type FrameState, type Renderer, TILE, type Town } from '../core/types';
 import { dimUnfocused, drawAnnotations } from './annotations';
 import { cameraFor, present } from './camera';
-import { conditionAt, flatCondition } from './conditions';
+import { conditionAt, flatCondition, indoorConditionAt } from './conditions';
 import { type FlatLight, gradePass } from './grade';
 import { buildGround, paintGround } from './ground';
 import { accumulateGlow, actorGlow, castActorOcclusion, collectLights, createTownOcclusion, drawEmissive } from './lights';
@@ -28,7 +28,7 @@ import { drawOverlays } from './overlays';
 import { castActorShadows, copyTownMask, createTownShadows } from './shadows';
 import { collectDrawables, drawFlatProps, drawSprites, resolveProps } from './sprites';
 import { createView, type View } from './view';
-import { createWarner } from './warn';
+import { createWarner, listNames } from './warn';
 
 export interface RendererOpts {
   theme?: Theme;
@@ -42,8 +42,34 @@ export interface RendererOpts {
   warn?: (message: string) => void;
 }
 
-/** Create the renderer for a town. Unknown ids in the town or in a frame are reported once and skipped. */
+/**
+ * Create the renderer for a town. Unknown ids in the town or in a frame are reported once and skipped.
+ * A frame with `interior` set is drawn by a renderer for that room, made on first use and kept.
+ */
 export function createRenderer(town: Town, opts: RendererOpts = {}): Renderer {
+  const outside = createMapRenderer(town, opts);
+  const rooms = new Map<string, Renderer>();
+  const warn = createWarner(opts.warn ?? ((m) => console.warn(m)));
+  return {
+    render(state: FrameState, out: Surface): void {
+      const id = state.interior;
+      if (id !== undefined) {
+        const room = town.interiors?.[id];
+        if (room) {
+          let r = rooms.get(id);
+          if (!r) rooms.set(id, (r = createMapRenderer(room, opts)));
+          r.render(state, out);
+          return;
+        }
+        warn(`room:${id}`, `unknown room "${id}", drawn as the town outside. Known rooms: ${listNames(Object.keys(town.interiors ?? {}))}`);
+      }
+      outside.render(state, out);
+    },
+  };
+}
+
+/** The renderer for one map: a town, or a room (`indoor`), which is lit by its own lamps. */
+function createMapRenderer(town: Town, opts: RendererOpts): Renderer {
   const art = opts.art ?? builtinArt;
   const lut = compileTheme(opts.theme ?? daylight);
   const lighting = opts.lighting !== false;
@@ -70,7 +96,7 @@ export function createRenderer(town: Town, opts: RendererOpts = {}): Renderer {
       v.x0 = cam.x0;
       v.y0 = cam.y0;
       const t = Number.isFinite(state.t) ? state.t : 0;
-      const c = lighting ? conditionAt(state.timeOfDay, lut) : flatCondition();
+      const c = !lighting ? flatCondition() : town.indoor ? indoorConditionAt(state.timeOfDay, lut) : conditionAt(state.timeOfDay, lut);
 
       paintGround(v, ground, lut, t);
       drawFlatProps(v, flat, lut, t);
@@ -91,7 +117,7 @@ export function createRenderer(town: Town, opts: RendererOpts = {}): Renderer {
         flatLight = new Float32Array((list.length + 1) * 3);
         for (const d of list) if (d.actor) flatLight.set(actorGlow(lights, d.x, d.y, t, c.glow), d.id * 3);
       }
-      gradePass(v, c, mapW, mapH, people, flatLight);
+      gradePass(v, c, mapW, mapH, people, flatLight, ground.outside);
       if (c.lamps > 0) {
         drawEmissive(v, flatGlow, lut, c.lamps);
         drawEmissive(v, list, lut, c.lamps);

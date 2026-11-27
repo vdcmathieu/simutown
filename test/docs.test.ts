@@ -17,6 +17,7 @@ import * as gravel from '../examples/art/gravel';
 import * as hayBale from '../examples/art/hay-bale';
 import * as lena from '../examples/art/lena';
 import * as stoneLantern from '../examples/art/stone-lantern';
+import * as bakeryRoom from '../examples/bakery-room';
 import * as goodMorning from '../examples/good-morning';
 import * as haggle from '../examples/haggle';
 import * as market from '../examples/market';
@@ -28,6 +29,7 @@ const EXAMPLES: Record<string, object> = {
   'art/hay-bale.ts': hayBale,
   'art/lena.ts': lena,
   'art/stone-lantern.ts': stoneLantern,
+  'bakery-room.ts': bakeryRoom,
   'good-morning.ts': goodMorning,
   'haggle.ts': haggle,
   'market.ts': market,

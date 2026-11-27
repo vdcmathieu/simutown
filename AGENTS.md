@@ -22,6 +22,7 @@ Claude Code has the same steps as a skill, in `.claude/skills/simutown-scene/SKI
    ```
 
    Props are not places: to reach the bakery, walk to `bakery.door`. A new setting is a small `defineTown` (see `examples/market.ts`).
+   Every Willow Square building with a door but the shed has a room, listed after the town: name what is inside as `bakery:counter.behind`, go in with `actor.enter('bakery')` and out with `actor.exit('bakery')`, show the room with `s.camera.inside('bakery')` and the street again with `s.camera.outside()`. See "Going inside" in `docs/authoring.md`.
 3. **Cast** by role from the townsfolk table in `docs/authoring.md` (the baker is `bo`, the children `kofi` and `lin`). The same list is `townsfolk` in `src/art/characters/index.ts`. Use only those ids: `ben` and `cy` in some `docs/scene-api.md` snippets are stand-ins.
 4. **Pick the hour.** Plain daylight runs from 9 to 16; a golden late afternoon is 17 to 18 (lamps light at 17:30); sunset 19; a blue evening 19.5 to 21; night after 21.5. See "Time of day" in `docs/authoring.md`.
 5. **Write** `scenes/<kebab-name>.ts`, default-exporting `scene({ title, town, timeOfDay }, (s) => { ... })`. `pnpm simutown new <kebab-name>` writes a commented starter; or copy the shape of a scene in `scenes/` (`pnpm simutown list`) or of `examples/haggle.ts`. Import the library as `simutown` and the town from `simutown/towns`.
@@ -30,6 +31,7 @@ Claude Code has the same steps as a skill, in `.claude/skills/simutown-scene/SKI
 8. **Render** with `pnpm simutown render <name>` (MP4 in `out/`; `-o out/<name>.gif` for a GIF), and run `pnpm check`.
 
 Pacing, in short: each call starts when the previous one ends and `s.together` runs calls at once; speech times itself; a caption takes no time (give it `{ hold }` or action after it) and, without a `hold`, stays up until the next caption or `s.clearCaption()`; walking is 2.5 tiles a second; zoom 1 to set the scene and zoom 2 for dialogue; cut between places, pan within one, and keep the camera still while someone speaks.
+Indoors: cut when someone goes through a door (0.15 s into their `enter` or `exit`), shoot the room at zoom 2, and keep a customer a step back from a counter so their bubble does not cover the face behind it.
 To hit a target length, adjust an `s.wait(...)` before the final fade.
 
 A scene is done when it builds, its length is close to what was asked, you have looked at a still of every beat, the film is rendered, and `pnpm check` passes.

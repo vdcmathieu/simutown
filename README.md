@@ -133,6 +133,12 @@ Its doorways and corners have names such as `cafe.door`, which a script uses as 
 
 ![The map of Willow Square](docs/media/willow-square-map.png)
 
+**Rooms.** Every building with a door but the shed has an inside: the bakery with its oven and counter, the cafe, the school, the library, the town hall, the shop, the post office and five homes, each furnished for who lives there.
+People go in and out with `enter` and `exit`, the camera follows them through the door, and in the evening the lamps and the fire light the room.
+The `fresh-bread` scene goes from the bakery to a family's supper table.
+
+![Supper in the red house, in the evening](docs/images/inside-evening.png)
+
 **A cast.** Fourteen townsfolk, each with a role and a look: Ana the neighbour, Bo the baker, Yuki the teacher, Kofi and Lin the children, Otto the elder, Raj the postal worker, and more.
 Each walks in four directions, sits, waves, talks and carries, and shows emotes (a heart, an idea, a question mark, ...).
 The [authoring guide](docs/authoring.md#3-cast-from-the-townsfolk) lists them all.
@@ -148,7 +154,7 @@ Everything follows one [art direction](docs/STYLE.md), so new art looks like it 
 
 **The teaching overlays.** Captions, title cards, labels above people, dotted links that show information passing, rings, and a focus that dims everyone else.
 
-**Three example scenes** in `scenes/`, to read and to copy: `hello`, `word-of-mouth` and `day-and-night`.
+**Example scenes** in `scenes/`, to read and to copy: `hello`, `word-of-mouth`, `day-and-night` and `fresh-bread`.
 
 | `hello` | `word-of-mouth` | `day-and-night` |
 |---|---|---|

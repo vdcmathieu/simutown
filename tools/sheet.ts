@@ -1,12 +1,12 @@
 /**
  * Render a contact sheet of the built-in art to a PNG, so art can be reviewed by eye.
  *
- *   pnpm sheet <terrain|nature|street|buildings|characters|ui|all> [--scale 6] [--only text]
+ *   pnpm sheet <terrain|nature|street|buildings|characters|ui|interior|all> [--scale 6] [--only text]
  *
  * Output goes to out/sheets/<group>.png, and the cell order is printed to stdout.
  * Props with an emissive layer are shown twice: by day, and lit on a dark backdrop.
  */
-import { art, buildings, natureProps, streetProps } from '../src/art';
+import { art, buildings, interiorProps, interiorTerrain, natureProps, streetProps } from '../src/art';
 import { compileTheme, daylight, lutRgb, type Slot } from '../src/core/palette';
 import type { Sprite } from '../src/core/sprite';
 import { Surface } from '../src/core/surface';
@@ -41,9 +41,11 @@ function spriteCell(label: string, s: Sprite, bg: Slot, overlay?: Sprite, br?: b
   };
 }
 
-function terrainCells(): Cell[] {
+function terrainCells(defs = Object.values(art.terrain)): Cell[] {
   const cells: Cell[] = [];
-  for (const def of Object.values(art.terrain)) {
+  // a fringe shared by several grounds (the cap of a room) is drawn once
+  const shown = new Set<object>();
+  for (const def of defs) {
     const looks = def.anims?.length ? def.anims.flatMap((a) => a.frames) : def.anim ? def.anim.frames : def.variants;
     looks.forEach((s, i) => {
       cells.push({
@@ -72,6 +74,8 @@ function terrainCells(): Cell[] {
         },
       });
     }
+    if (def.fringe && shown.has(def.fringe)) continue;
+    if (def.fringe) shown.add(def.fringe);
     for (const [side, entry] of Object.entries(def.fringe ?? {})) {
       [entry].flat().forEach((s, i) => cells.push(spriteCell(`${def.id}.fringe.${side}#${i}`, s, 'steel.3')));
     }
@@ -79,11 +83,11 @@ function terrainCells(): Cell[] {
   return cells;
 }
 
-function propCells(props: Record<string, PropDef>): Cell[] {
+function propCells(props: Record<string, PropDef>, bg: Slot = 'moss.2'): Cell[] {
   const cells: Cell[] = [];
   for (const def of Object.values(props)) {
     const frames = def.anim ? def.anim.frames : [def.sprite];
-    frames.forEach((s, i) => cells.push(spriteCell(`${def.id}${def.anim ? `~${i}` : ''}`, s, 'moss.2')));
+    frames.forEach((s, i) => cells.push(spriteCell(`${def.id}${def.anim ? `~${i}` : ''}`, s, bg)));
     if (def.emissive) cells.push(spriteCell(`${def.id} (lit)`, frames[0]!, 'steel.1', def.emissive));
   }
   return cells;
@@ -127,6 +131,8 @@ const GROUPS: Record<string, () => Cell[]> = {
   buildings: () => propCells(buildings),
   characters: characterCells,
   ui: uiCells,
+  // rooms: the grounds (the ink on its own, then each floor and wall) and the furniture, on a floor
+  interior: () => [...terrainCells(Object.values(interiorTerrain)), ...propCells(interiorProps, 'cream.1')],
 };
 
 function layout(cells: Cell[], maxW: number) {

@@ -23,6 +23,12 @@ export interface Ground {
   /** The whole town's terrain at native size, opaque. Animated tiles hold their first frame. */
   surface: Surface;
   animated: AnimatedTile[];
+  /**
+   * Per ground pixel of the town, 1 where it shows `outside` terrain (the dark beyond a room's
+   * walls) and nothing drawn over it: light and the time of day leave it alone, like the void
+   * beyond the map. Absent when the town has no such terrain.
+   */
+  outside?: Uint8Array;
 }
 
 /** A loud checker for unknown terrain: clearly not art, so a typo in a town is seen at once. */
@@ -63,6 +69,7 @@ export function buildGround(town: Town, art: ArtRegistry, lut: Lut, warn: WarnOn
   surface.clear([...lutRgb(lut, 'steel.0'), 255]);
   const placeholder = placeholderTile();
   const animated: AnimatedTile[] = [];
+  const outside = town.terrain.some((id) => art.terrain[id]?.outside) ? new Uint8Array(surface.w * surface.h) : undefined;
   for (let ty = 0; ty < town.h; ty++) {
     for (let tx = 0; tx < town.w; tx++) {
       const id = town.terrain[ty * town.w + tx];
@@ -76,11 +83,26 @@ export function buildGround(town: Town, art: ArtRegistry, lut: Lut, warn: WarnOn
       surface.blit(tile, tx * TILE, ty * TILE, lut);
       const fringes = fringesFor(town, art.terrain, tx, ty).map((f) => f.sprite);
       for (const f of fringes) surface.blit(f, tx * TILE, ty * TILE, lut);
+      if (outside && def!.outside) markOutside(outside, surface.w, tx, ty, fringes);
       const moving = (def!.anim?.frames.length ?? 0) > 1 || (def!.anims ?? []).some((a) => a.frames.length > 1);
       if (moving) animated.push({ tx, ty, def: def!, fringes });
     }
   }
-  return { surface, animated };
+  return { surface, animated, ...(outside ? { outside } : {}) };
+}
+
+/** Mark a tile of outside terrain, except the pixels its fringes (a room's wall cap) cover. */
+function markOutside(mask: Uint8Array, w: number, tx: number, ty: number, fringes: Sprite[]): void {
+  for (let y = 0; y < TILE; y++) mask.fill(1, (ty * TILE + y) * w + tx * TILE, (ty * TILE + y) * w + tx * TILE + TILE);
+  for (const f of fringes) {
+    for (let y = 0; y < f.h; y++) {
+      for (let x = 0; x < f.w; x++) {
+        const wx = tx * TILE + x - f.ax;
+        const wy = ty * TILE + y - f.ay;
+        if (f.px[y * f.w + x] !== 0 && wx >= 0 && wy >= 0 && wx < w && wy * w + wx < mask.length) mask[wy * w + wx] = 0;
+      }
+    }
+  }
 }
 
 /**

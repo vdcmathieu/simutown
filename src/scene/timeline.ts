@@ -4,6 +4,7 @@
  */
 import type { Slot } from '../core/palette';
 import { type ActorState, type Annotation, type Dir, FRAME_H, FRAME_W, type FrameState, TILE, type Town } from '../core/types';
+import { locationTown, type Room } from './locations';
 import { CAPTION_FADE, clamp01, ease, LABEL_FADE, TITLE_FADE } from './timing';
 
 export interface Pt {
@@ -13,8 +14,13 @@ export interface Pt {
 
 /** One change to an actor's body. Segments are sorted by start and folded in order. */
 export type ActorSeg =
-  /** Put the actor somewhere (creation, teleport, coming out of a door). */
-  | { kind: 'place'; start: number; x: number; y: number; dir?: Dir; visible?: boolean; opacity?: number }
+  /** Put the actor somewhere (creation, teleport, coming out of a door), in `room` (absent: outside). */
+  | { kind: 'place'; start: number; x: number; y: number; dir?: Dir; visible?: boolean; opacity?: number; room?: string }
+  /**
+   * Go through a door into `room` (absent: outside), arriving at (x, y). Over [start, end] the
+   * actor fades in on the far side while a copy of them fades out on the side they left.
+   */
+  | { kind: 'door'; start: number; end: number; x: number; y: number; dir: Dir; room?: string }
   /** Walk through `points`, reaching points[i] at times[i]. `dirs[i]` is the direction of leg i. */
   | { kind: 'walk'; start: number; end: number; points: Pt[]; times: number[]; dirs: Dir[]; face?: Dir; wander?: boolean }
   | { kind: 'face'; start: number; dir: Dir }
@@ -40,9 +46,11 @@ export interface Ramp {
 export type CamTarget = Pt | { actor: string; at?: number };
 
 export type CameraSeg =
-  | { kind: 'cut'; start: number; target: CamTarget; zoom?: number }
-  | { kind: 'pan'; start: number; end: number; target: CamTarget; zoom?: number }
-  | { kind: 'follow'; start: number; actor: string | null };
+  /** With `back`, the target and zoom are where the camera last was outside, filled in by `settleCamera`. */
+  | { kind: 'cut'; start: number; target: CamTarget; zoom?: number; room?: string; back?: boolean }
+  | { kind: 'pan'; start: number; end: number; target: CamTarget; zoom?: number; room?: string }
+  /** Follows the actor while they are in `room`; while they are in another location, holds where they left it. */
+  | { kind: 'follow'; start: number; actor: string | null; room?: string };
 
 export interface Timeline {
   town: Town;
@@ -53,7 +61,7 @@ export interface Timeline {
   emotes: { actor: string; name: string; start: number; end: number }[];
   captions: { text: string; start: number; end: number; fadeIn: boolean }[];
   titles: { text: string; subtitle?: string; start: number; end: number }[];
-  labels: { actor?: string; at?: Pt; text: string; start: number; end: number }[];
+  labels: { actor?: string; at?: Pt; room?: string; text: string; start: number; end: number }[];
   links: { from: string; to: string; start: number; grow: number; end: number; slot?: Slot }[];
   rings: { actor: string; start: number; grow: number; end: number; slot?: Slot }[];
   focus: (Ramp & { actors: string[] })[];
@@ -64,11 +72,12 @@ export interface Timeline {
   cameraFrom: Cam[];
 }
 
-/** A camera position in world pixels and a whole-number zoom. */
+/** A camera position in world pixels of a location (`room`, absent outside) and a whole-number zoom. */
 export interface Cam {
   x: number;
   y: number;
   zoom: number;
+  room?: string;
 }
 
 /** An empty timeline for a town. */
@@ -143,6 +152,10 @@ export function rampAt(ramps: Ramp[], t: number, initial: number): number {
 
 /** An actor's body at one instant. */
 export interface Body {
+  /** The location the body is in: a room key, or undefined outside. */
+  room?: string;
+  /** While going through a door: how they look on the side they are leaving, fading out. */
+  leaving?: Body;
   exists: boolean;
   visible: boolean;
   x: number;
@@ -159,7 +172,24 @@ export function bodyAt(segs: ActorSeg[], t: number): Body {
   for (const s of segs) {
     if (s.start > t) break;
     switch (s.kind) {
+      case 'door': {
+        const u = s.end > s.start ? clamp01((t - s.start) / (s.end - s.start)) : 1;
+        if (u < 1) b.leaving = { ...b, leaving: undefined, opacity: 1 - u };
+        else delete b.leaving;
+        b.exists = true;
+        b.visible = true;
+        b.room = s.room;
+        b.x = s.x;
+        b.y = s.y;
+        b.dir = s.dir;
+        b.opacity = u;
+        b.pose = 'idle';
+        b.poseStart = s.start;
+        break;
+      }
       case 'place':
+        b.room = s.room;
+        delete b.leaving;
         b.exists = true;
         b.x = s.x;
         b.y = s.y;
@@ -253,14 +283,16 @@ export function clampCamera(town: Town, c: Cam): Cam {
   };
 }
 
-function actorPos(tl: Timeline, id: string, t: number): Pt {
-  const b = bodyAt(tl.actors.find((a) => a.id === id)!.segs, t);
+/** Where an actor is seen in location `room`: mid-door, the side of the door in that room. */
+function actorPos(tl: Timeline, id: string, t: number, room: Room): Pt {
+  const here = bodyAt(tl.actors.find((a) => a.id === id)!.segs, t);
+  const b = here.room !== room && here.leaving && here.leaving.room === room ? here.leaving : here;
   // Centre on the body, not the feet.
   return { x: b.x, y: b.y - 12 };
 }
 
-function targetPos(tl: Timeline, target: CamTarget, t: number): Pt {
-  return 'actor' in target ? actorPos(tl, target.actor, target.at ?? t) : target;
+function targetPos(tl: Timeline, target: CamTarget, t: number, room: Room): Pt {
+  return 'actor' in target ? followPos(tl, target.actor, target.at ?? t, room) : target;
 }
 
 /** The default camera: the town's centre at zoom 1. */
@@ -268,14 +300,50 @@ function homeCamera(town: Town): Cam {
   return clampCamera(town, { x: (town.w * TILE) / 2, y: (town.h * TILE) / 2, zoom: 1 });
 }
 
+/** Clamp a camera to the map of its own location. */
+function clampIn(tl: Timeline, c: Cam): Cam {
+  const out = clampCamera(locationTown(tl.town, c.room), c);
+  if (c.room !== undefined) out.room = c.room;
+  return out;
+}
+
 /**
- * Record, for every camera segment, the camera just before it starts (position and the zoom
- * carried forward). Call once after the script; each frame then evaluates a single segment.
+ * Where a followed actor is seen in location `room` at t: where they are while they are there
+ * (or mid-door on its side), else where they were just before they last left it.
+ */
+function followPos(tl: Timeline, id: string, t: number, room: Room): Pt {
+  const segs = tl.actors.find((a) => a.id === id)!.segs;
+  const here = bodyAt(segs, t);
+  if (here.room === room || (here.leaving && here.leaving.room === room)) return actorPos(tl, id, t, room);
+  // the last segment that took them from `room` to somewhere else: where they were just before it
+  let left = -1;
+  let was: Room | null = null;
+  segs.forEach((s, i) => {
+    if (s.start > t || (s.kind !== 'door' && s.kind !== 'place')) return;
+    if (was === room && s.room !== room) left = i;
+    was = s.room;
+  });
+  if (left < 0) return actorPos(tl, id, t, room);
+  // every segment up to that one, also those that start at the same instant (being placed there)
+  const b = bodyAt(segs.slice(0, left), segs[left]!.start);
+  return { x: b.x, y: b.y - 12 };
+}
+
+/**
+ * Record, for every camera segment, the camera just before it starts (position, location and
+ * the zoom carried forward). Call once after the script; each frame then evaluates a single segment.
  */
 export function settleCamera(tl: Timeline): void {
   let from = homeCamera(tl.town);
+  // where the camera last was outside: at first, the opening view
+  let outside = from;
   tl.cameraFrom = tl.camera.map((s, i) => {
     if (i > 0) from = segCamera(tl, tl.camera[i - 1]!, from, s.start);
+    if (from.room === undefined) outside = from;
+    if (s.kind === 'cut' && s.back) {
+      s.target = { x: outside.x, y: outside.y };
+      s.zoom ??= outside.zoom;
+    }
     return from;
   });
 }
@@ -310,18 +378,20 @@ export function snapCamera(town: Town, c: Cam): Cam {
 
 /** The camera during segment `s` at time t, given the camera `from` just before it started. */
 function segCamera(tl: Timeline, s: CameraSeg, from: Cam, t: number): Cam {
+  const room = s.room;
   switch (s.kind) {
     case 'cut':
-      return clampCamera(tl.town, { ...targetPos(tl, s.target, s.start), zoom: s.zoom ?? from.zoom });
+      return clampIn(tl, { ...targetPos(tl, s.target, s.start, room), zoom: s.zoom ?? from.zoom, room });
     case 'follow':
       if (s.actor === null) return from;
-      return clampCamera(tl.town, { ...actorPos(tl, s.actor, t), zoom: from.zoom });
+      // while the actor is through a door, the camera stays where they were last seen
+      return clampIn(tl, { ...followPos(tl, s.actor, t, room), zoom: from.zoom, room });
     case 'pan': {
       const u = s.end > s.start ? clamp01((t - s.start) / (s.end - s.start)) : 1;
       const zoom = u >= 0.5 ? (s.zoom ?? from.zoom) : from.zoom;
-      const to = clampCamera(tl.town, { ...targetPos(tl, s.target, Math.min(t, s.end)), zoom });
+      const to = clampIn(tl, { ...targetPos(tl, s.target, Math.min(t, s.end), room), zoom, room });
       const e = ease(u);
-      return clampCamera(tl.town, { x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e, zoom });
+      return clampIn(tl, { x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e, zoom, room });
     }
   }
 }
@@ -342,14 +412,21 @@ function inOut(t: number, start: number, end: number, fin: number, fout: number)
   return Math.min(fin > 0 ? clamp01((t - start) / fin) : 1, fout > 0 ? clamp01((end - t) / fout) : 1);
 }
 
-/** Everything visible at time t (clamped to [0, duration]). Pure: reads the timeline only. */
+/**
+ * Everything visible at time t (clamped to [0, duration]). Pure: reads the timeline only.
+ * The frame shows one location, the camera's: only the people there (and their bubbles and
+ * annotations) are in it, and someone going through a door shows on both sides.
+ */
 export function frameAt(tl: Timeline, time: number): FrameState {
   const t = Number.isFinite(time) ? Math.min(tl.duration, Math.max(0, time)) : 0;
+  const cam = cameraAt(tl, t);
+  const room = cam.room;
   const shown = new Set<string>();
   const actors: ActorState[] = [];
   for (const a of tl.actors) {
-    const b = bodyAt(a.segs, t);
-    if (!b.exists || !b.visible) continue;
+    const here = bodyAt(a.segs, t);
+    const b = here.room === room ? here : here.leaving?.room === room ? here.leaving : undefined;
+    if (!b || !b.exists || !b.visible) continue;
     shown.add(a.id);
     const st: ActorState = {
       id: a.id,
@@ -375,7 +452,7 @@ export function frameAt(tl: Timeline, time: number): FrameState {
 
   const annotations: Annotation[] = [];
   for (const l of tl.labels) {
-    if (t < l.start || t >= l.end + LABEL_FADE || (l.actor && !shown.has(l.actor))) continue;
+    if (t < l.start || t >= l.end + LABEL_FADE || (l.actor ? !shown.has(l.actor) : l.room !== room)) continue;
     const opacity = inOut(t, l.start, l.end + LABEL_FADE, LABEL_FADE, LABEL_FADE);
     annotations.push({ kind: 'label', ...(l.actor ? { actor: l.actor } : { at: { ...l.at! } }), text: l.text, opacity });
   }
@@ -388,15 +465,17 @@ export function frameAt(tl: Timeline, time: number): FrameState {
     annotations.push({ kind: 'ring', actor: r.actor, progress: clamp01((t - r.start) / r.grow), ...(r.slot ? { slot: r.slot } : {}) });
   }
 
+  const { x, y, zoom } = snapCamera(locationTown(tl.town, room), cam);
   const frame: FrameState = {
     t,
-    camera: snapCamera(tl.town, cameraAt(tl, t)),
+    camera: { x, y, zoom },
     timeOfDay: rampAt(tl.hours, t, tl.timeOfDay),
     actors,
     bubbles,
     annotations,
     fade: rampAt(tl.fades, t, 0),
   };
+  if (room !== undefined) frame.interior = room;
 
   let caption: Timeline['captions'][number] | undefined;
   for (const c of tl.captions) if (c.start <= t) caption = c;

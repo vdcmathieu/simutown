@@ -3,7 +3,7 @@
  * type. It walks `art` at runtime, so whatever the registry holds is what it shows;
  * a new character, prop, tile, emote or glyph appears without touching this file.
  */
-import { art } from '../src/art';
+import { art, interiorProps, interiorTerrain } from '../src/art';
 import { compileTheme, daylight, lutRgb, type Slot } from '../src/core/palette';
 import type { Sprite } from '../src/core/sprite';
 import { Surface } from '../src/core/surface';
@@ -170,8 +170,11 @@ function section(id: string, title: string, count: number, body: Node | null, em
 export function atlasView(main: HTMLElement): () => void {
   anims = [];
   const chars = Object.values(art.characters);
-  const props = Object.values(art.props);
-  const terrain = Object.values(art.terrain);
+  // the room kit gets a section of its own, so the town's props and grounds stay together
+  const indoorProps = Object.values(art.props).filter((p) => interiorProps[p.id]);
+  const indoorTerrain = Object.values(art.terrain).filter((t) => interiorTerrain[t.id]);
+  const props = Object.values(art.props).filter((p) => !interiorProps[p.id]);
+  const terrain = Object.values(art.terrain).filter((t) => !interiorTerrain[t.id]);
   const emotes = Object.entries(art.emotes);
   const glyphCount = Object.keys(art.font.glyphs).length;
 
@@ -179,6 +182,7 @@ export function atlasView(main: HTMLElement): () => void {
     { id: 'characters', title: 'Characters', n: chars.length },
     { id: 'props', title: 'Props', n: props.length },
     { id: 'terrain', title: 'Terrain', n: terrain.length },
+    { id: 'interiors', title: 'Interiors', n: indoorProps.length + indoorTerrain.length },
     { id: 'emotes', title: 'Emotes', n: emotes.length },
     { id: 'font', title: 'Font', n: glyphCount },
   ];
@@ -199,6 +203,9 @@ export function atlasView(main: HTMLElement): () => void {
       'No props yet.', 'Placed on the map by kind. Props that glow are shown again with their lights on.'),
     section('terrain', 'Terrain', terrain.length, h('div', { class: 'items' }, terrain.map(terrainItem)),
       'No terrain yet.', 'Ground tiles, shown as a 3 × 3 patch so seams are visible.'),
+    section('interiors', 'Interiors', indoorProps.length + indoorTerrain.length,
+      h('div', { class: 'items' }, [...indoorTerrain.map(terrainItem), ...indoorProps.map(propItem)]),
+      'No interior art yet.', 'The room kit: floors, the two rows of the back wall, the ink outside, and the furniture.'),
     section('emotes', 'Emotes', emotes.length, h('div', { class: 'items' }, emotes.map(([id, s]) => emoteItem(id, s))),
       'No emotes yet. They will appear here as soon as the registry has some.', 'Drawn above a head with actor.emote(id).'),
     section('font', 'Font', glyphCount, fontBlock(),

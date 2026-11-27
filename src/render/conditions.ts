@@ -44,6 +44,10 @@ export interface Condition extends Grade {
    * in golden sunlight barely changes the ground; the same lamp at night owns it.
    */
   glow: number;
+  /** How strongly lamplight tints what it lights, 0..1. Default: the outdoor 0.7. */
+  litTint?: number;
+  /** Saturation of what lamplight lights, 1 = unchanged. Default: the outdoor 0.6. */
+  litSat?: number;
 }
 
 interface Mood {
@@ -193,6 +197,51 @@ export function conditionAt(hour: number, lut: Lut): Condition {
     cast: Math.round(lerp(sa[3], sb[3], st) * 16) / 16,
     lamps,
     glow: lamps * Math.max(0, Math.min(1, (1 - ambient) / GLOW_DARKNESS)),
+  };
+}
+
+/**
+ * Indoors after dark: the warm, slightly dimmer room its lamps light. By day a room is drawn
+ * as the art is; from the lamp hour it moves to this as the lamps come on.
+ */
+const ROOM_NIGHT: Omit<Mood, 'hour'> = { tint: ['ochre.1', 'rose.1'], amount: 0.2, bright: 0.82, sat: 1.04, lift: 0, shadow: 0.2 };
+/**
+ * Lamplight in a room. It falls on a lit room, not a dark blue night: at the outdoor strength
+ * it bleaches faces and turns blue cloth olive. So it is weaker, less yellow, and keeps more
+ * of the colours it lands on.
+ */
+const ROOM_GLOW = 0.65;
+const ROOM_LIT_TINT = 0.45;
+const ROOM_LIT_SAT = 0.9;
+/** Indoors there is no sun: only contact shadows, at this opacity. */
+const ROOM_SHADOW = 0.2;
+
+/**
+ * The light condition in a room (`Town.indoor`) at an hour of the day. A room has no sun and
+ * no sky: no cast shadows (only the contact shadows that ground people and furniture), and no
+ * blue night. By day it shows the art's own colours; when the lamps come on (on the town's
+ * schedule) it dims a little and warms, and the lamps light it.
+ */
+export function indoorConditionAt(hour: number, lut: Lut): Condition {
+  const lamps = lampsAt(hour);
+  const day = gradesOf(lut, { hour: 0, ...DAY });
+  const night = gradesOf(lut, { hour: 0, ...ROOM_NIGHT });
+  const town = blend(day.town, night.town, lamps);
+  const ink = lutRgb(lut, 'steel.0');
+  return {
+    ...town,
+    identity: lamps === 0,
+    actor: blend(day.actor, night.actor, lamps),
+    shadowAlpha: ROOM_SHADOW,
+    shadowRgb: ink.map((c, i) => c * Math.min(1, town.mul[i]!)) as Vec,
+    shadowKx: 0,
+    shadowKy: 0,
+    cast: 0,
+    lamps,
+    // the room is already bright: its lamps warm it gently and keep its colours
+    glow: lamps * ROOM_GLOW,
+    litTint: ROOM_LIT_TINT,
+    litSat: ROOM_LIT_SAT,
   };
 }
 

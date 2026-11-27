@@ -51,8 +51,10 @@ export type FlatLight = Float32Array;
  * outside it are left untouched, so the void around the map stays `steel.0`.
  * `people[id]` is 1 for owner ids that are actors: they get the gentler grade and flat light.
  * Pass `flat` only when the lamps are lit and the view's glow buffer has been filled.
+ * `outside` (mapW x mapH, 1 = the dark beyond a room's walls) marks ground pixels that are
+ * left untouched the same way: no grade, no shadow and no lamp light falls on them.
  */
-export function gradePass(v: View, c: Condition, mapW: number, mapH: number, people: Uint8Array, flat: FlatLight | undefined): void {
+export function gradePass(v: View, c: Condition, mapW: number, mapH: number, people: Uint8Array, flat: FlatLight | undefined, outside?: Uint8Array): void {
   const { color: d, owner, shade, occlusion, glow, w, h } = v;
   const [mr, mg, mb] = c.mul;
   const [lr, lg, lb] = c.lift;
@@ -63,6 +65,8 @@ export function gradePass(v: View, c: Condition, mapW: number, mapH: number, peo
   const psat = c.actor.sat;
   const identity = c.identity;
   const shadowA = c.shadowAlpha / 255;
+  const tint = c.litTint ?? TINT;
+  const litSat = c.litSat ?? LIT_SAT;
   const shadows = shadowA > 0;
   if (identity && !shadows && !flat) return;
   // in plain daylight only shadowed pixels change: skip the rest quickly
@@ -76,7 +80,7 @@ export function gradePass(v: View, c: Condition, mapW: number, mapH: number, peo
       if (shadeOnly && shade[i] === 0) continue;
       const o = owner[i]!;
       const wx = v.x0 + x;
-      if (o === 0 && !(rowInMap && wx >= 0 && wx < mapW)) continue;
+      if (o === 0 && (!(rowInMap && wx >= 0 && wx < mapW) || (outside !== undefined && outside[wy * mapW + wx] === 1))) continue;
       const p = i * 4;
       const ar = d[p]!;
       const ag = d[p + 1]!;
@@ -142,9 +146,9 @@ export function gradePass(v: View, c: Condition, mapW: number, mapH: number, peo
           const bloom = BLOOM * weight;
           const lum = (ar * 77 + ag * 150 + ab * 29) >> 8;
           // blend toward the art's own colour as it looks under this light
-          r += ((lum + (ar - lum) * LIT_SAT) * (1 - TINT + TINT * tr) + tr * bloom - r) * weight;
-          g += ((lum + (ag - lum) * LIT_SAT) * (1 - TINT + TINT * tg) + tg * bloom - g) * weight;
-          b += ((lum + (ab - lum) * LIT_SAT) * (1 - TINT + TINT * tb) + tb * bloom - b) * weight;
+          r += ((lum + (ar - lum) * litSat) * (1 - tint + tint * tr) + tr * bloom - r) * weight;
+          g += ((lum + (ag - lum) * litSat) * (1 - tint + tint * tg) + tg * bloom - g) * weight;
+          b += ((lum + (ab - lum) * litSat) * (1 - tint + tint * tb) + tb * bloom - b) * weight;
         }
       }
       d[p] = r;

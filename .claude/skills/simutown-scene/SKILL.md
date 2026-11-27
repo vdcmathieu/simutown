@@ -30,6 +30,7 @@ Your job: turn the request into a short, clear film, check it by looking at stil
    ```
 
    Use the place names it prints: to reach the bakery, walk to `bakery.door`.
+   The rooms follow the town: every building with a door but the shed has one, and what is inside is named `<building>:<place>`, such as `bakery:counter.behind` or `red-house:chair-2`.
    If no town has the setting you need, define a small one with `defineTown` (30 x 17 tiles fills the frame); see `examples/market.ts`.
 3. **Cast** by role from the townsfolk table: the baker is `bo`, the children are `kofi` and `lin`, and so on.
    Use ids from that table only; an unknown id is an error that lists the valid ones, and the stand-in names in some `docs/scene-api.md` snippets (`ben`, `cy`) are not in the cast.
@@ -76,11 +77,13 @@ Your job: turn the request into a short, clear film, check it by looking at stil
 - Keep a bubble under about 60 characters and a caption under about 80.
 - Walking is 2.5 tiles a second: start people near where they are needed.
 - Zoom 1 sets the scene; zoom 2 for conversation. Cut to change place or after a fade; pan to move within a place. Do not move the camera while someone speaks.
+- Indoors: `actor.enter(building)` and `actor.exit(building)` go through the door (0.3 s); cut 0.15 s into it, with `s.camera.inside(building)` going in and `s.camera.outside()` coming out (back to the street shot from before, at its zoom; `s.camera.outside(target)` for another place, town tile or person outside). A tile in a cut is a tile of the place the camera shows. `scenes/fresh-bread.ts` is the example; "Going inside" in `docs/authoring.md` has the rest.
 - Start with `s.title(...)` or `s.fadeIn()`, end with `s.fadeOut()`, and hold 1 to 2 seconds after the key moment.
 
 ## Common mistakes
 
 - A prop id as a target: `walkTo('bakery')` fails; use `bakery.door` or another place.
+- A room's place from outside, or an outside place from inside: `enter` or `exit` first. Inside a room, a bare name is still an outside name: write `bakery:counter.front`.
 - Two captions in a row with nothing between: the first is never seen.
 - The same character twice without `id`: `s.actor('kofi', { id: 'kofi-2', at: ... })`.
 - A string where an actor handle is expected: pass the value `s.actor()` returned.

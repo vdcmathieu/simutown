@@ -1,12 +1,13 @@
 import type { ArtRegistry } from '../core/types';
 import { buildings } from './buildings';
 import { characters } from './characters';
+import { interiorProps, interiorTerrain } from './interior';
 import { natureProps } from './nature';
 import { streetProps } from './street';
 import { terrain } from './terrain';
 import { emotes, font } from './ui';
 
-export { buildings, characters, emotes, font, natureProps, streetProps, terrain };
+export { buildings, characters, emotes, font, interiorProps, interiorTerrain, natureProps, streetProps, terrain };
 
 // The kits scene authors use to make their own art.
 export { makeBuilding } from './buildings';
@@ -19,8 +20,8 @@ export { driftEdge, recolorFringe, straightEdge, turf } from './terrain/edges';
 
 /** The built-in art: everything Simutown can draw out of the box. */
 export const art: ArtRegistry = {
-  terrain,
-  props: { ...natureProps, ...streetProps, ...buildings },
+  terrain: { ...terrain, ...interiorTerrain },
+  props: { ...natureProps, ...streetProps, ...buildings, ...interiorProps },
   characters,
   emotes,
   font,

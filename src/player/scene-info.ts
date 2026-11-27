@@ -2,7 +2,7 @@
  * Checking that a module's default export really is a Scene. Browser-safe: the CLI and
  * the web gallery both use it, so a broken scene file fails the same way everywhere.
  */
-import type { Scene } from '../core/types';
+import type { Scene, Town } from '../core/types';
 import { frameCount } from './clock';
 
 /**
@@ -53,6 +53,7 @@ export interface SceneInfo {
   frames: number;
   width: number;
   height: number;
+  /** `places` lists the town's own places, then those of its rooms as "<building>:<place>". */
   town: { name: string; w: number; h: number; props: number; places: string[] };
   /** Character ids that appear: `scene.cast` when declared, else found by sampling. */
   cast: string[];
@@ -83,7 +84,13 @@ export function describeScene(scene: Scene, step?: number): SceneInfo {
     frames,
     width: scene.width,
     height: scene.height,
-    town: { name: town.name, w: town.w, h: town.h, props: town.props.length, places: Object.keys(town.places ?? {}) },
+    town: { name: town.name, w: town.w, h: town.h, props: town.props.length, places: placeNames(town) },
     cast: [...cast],
   };
+}
+
+/** The places of a town, then those of its rooms by their qualified names. */
+function placeNames(town: Town): string[] {
+  const rooms = Object.entries(town.interiors ?? {}).flatMap(([b, room]) => Object.keys(room.places).map((p) => `${b}:${p}`));
+  return [...Object.keys(town.places ?? {}), ...rooms];
 }

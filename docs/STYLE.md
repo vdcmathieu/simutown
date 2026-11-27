@@ -288,6 +288,79 @@ They are built from the same pieces and the same rules; each gets one feature th
 - **Assembling a hedge.** An east-west row is `hedge-h-l`, any number of `hedge-h`, then `hedge-h-r`. A north-south row is `hedge` at the north end, then `hedge-v` for every tile below it; each piece covers the front face of the one above. A corner at the north end of a north-south row is `hedge-h-l` or `hedge-h-r` with `hedge-v` below it; a corner at the south end is `hedge-sw` (the row turns east) or `hedge-se` (it turns west). `hedge` alone is a clipped block.
 - Anything that repeats along a street (fence, hedge, wall, kerb) needs an end piece and must look right three tiles long and ten tiles long.
 
+## Interiors
+
+A scene can follow people indoors, into a room behind a door.
+A room is as bright as the square outside: light floors, light walls, warm wood, the cosy inside of a handheld-RPG house.
+A dark, moody room is wrong.
+
+![Ana and Pia's cottage in Willow Square, by day](images/interior-home.png)
+
+### The room view
+
+- The same top-down three-quarter view as outside: we see the front faces of things and the tops of the low ones.
+- **The back wall** is a face two tiles (32 pixels) tall along the top of the room: an upper row and a base row.
+  The upper row starts with a 2-pixel band of the wall's own shade under the cap; the base row ends in a skirting (5 rows of `wood`, dark on the last) or a wainscot (a dado rail, then upright boards), so the wall meets the floor on a clean dark line.
+- **The floor** lies below the wall. There is no ceiling.
+- **The sides and the front** are not drawn as faces. The top of the walls is a wooden cap 4 pixels wide: dark on the room side, light, light, mid on the ink side. It runs above the back wall, down both sides and along the open front.
+- **The cap lies outside the room**, on the ink: every floor and wall draws it as its fringe on the ink tiles around it. So furniture against a side wall or the front can never paint over it, and a room needs no corner pieces.
+- **The exit** is a doormat on the bottom floor row. It reaches 4 pixels further down, over the front cap, so the room's edge opens where the door is.
+- **Everything outside the room is ink** (`steel.0`). Ink is the one ground allowed to be ink.
+
+### Sizes
+
+The camera frames a room at zoom 2, which shows 15 x 8.4 tiles (240 x 135 pixels).
+A room, walls included and its ink border not counted, is **at most 14 x 7 tiles**: two rows of wall and up to five of floor.
+The cap lies outside the room, 4 pixels on every side, so the box is 14 x 16 + 8 = 232 pixels wide and 7 x 16 + 8 = 120 tall at most, and the frame shows all of it with a margin of ink on all four sides: the room reads as a closed box, never as a cropped picture.
+A small home can be smaller.
+Furniture stands next to 16 x 24 people and must read at that size.
+
+| Thing | Size in pixels | Notes |
+|-------|----------------|-------|
+| Room | at most 14 x 7 tiles | Walls included, ink not counted. |
+| Back wall | 2 tiles tall | The cap sits on the ink above it. |
+| Window | 16 x 32, or 32 x 32 with curtains | On the wall: the frame starts 6 rows under the cap and the sill sits about 10 pixels above the skirting. |
+| Table | 32 x 18 | A 6-row top whose back edge is 17 pixels above the base line; see Seats. |
+| Chair | 16 x 22, from behind 16 x 13 | The back is a solid panel, never thin spindles; from behind it shows a lit top rail and two slats. |
+| Bed | 16 x 40, double 32 x 40 | Head to the wall, two tiles deep. |
+| Tall cupboards | 32 x 39 | Wardrobe, bookshelf, bread rack: above eye level, so no top plane. |
+| Counter | 48 x 29 | Three tiles; goods stand on its top. |
+| Desk | 16 x 24, teacher's 32 x 28 | A closed front 10 rows tall, so it hides the feet of whoever stands behind it. |
+
+### Floors
+
+Boards, never bricks.
+
+- **Boards** run left to right, 7 pixels wide, two to a tile, with a joint line one tone darker than the board under each (`floor-pine`: `cream.1` boards, `cream.0` joints; `floor-wood`: `cream.0` boards, `wood.2` joints). `wood.2` is the darkest tone that covers any length of a floor.
+- A board is 32 to 64 pixels long: most rows cross a whole tile with no end joint, and a tile has at most one end joint in each board. End joints sit on different columns in every variant, so they never line up into a running bond.
+- **Flagstones** (`floor-stone`) are a whole tile tall, each tile cut once at its own column, with the same structure in every variant. About two tiles in five carry a glint, and a glint hugs the top-left corner of a slab; no free-floating dashes.
+- **Checks** (`floor-checker`) are 8 pixels, in two near creams, so they stay quiet under people.
+- Every floor has at least three variants (a checker excepted), and the mixed view of `pnpm sheet interior` shows no grid.
+
+### Walls
+
+- Wall faces are light and quiet: `cream.2` plaster, `ochre.3` paper, `sky.2` and `cream.2` stripes, `wood.2` panelling, or `brick.2`.
+- Paper carries rose sprigs, two to a tile on a loose diagonal, at a different offset in each variant: a pattern, never a grid of dots and never a few stray specks.
+- Brick follows the outdoor brick rule: a few bricks drawn far apart, never a course line across the wall, and no shade band under the cap. A whole wall of brick is the loudest surface in a room, so prefer brick on the base row under plaster.
+- Any upper row goes with any base row: plaster over a brick base, paper over a wainscot.
+- **What goes on walls**: windows, pictures, a clock, a shelf, a menu board or a blackboard, a wall lamp, a banner, an inner door. They hang on the back wall only, have no footprint and cast no shadow, and keep within the 32 pixels of the wall.
+- Boards (signs, menus, blackboards) carry chalk shapes and lines, never lettering or digits.
+
+### Furniture
+
+- Every rule of props holds: a closed ink outline, light from the upper left, three tones a material, and a top plane on anything below eye level.
+- Furniture stands out from the floor by its outline and by a different tone or material: on both floors the furniture's wood is at least one tone darker than the boards.
+- Pieces against a wall stand on the first floor row (or column) and rise over the wall face; the cap stays clear of them because it lies on the ink.
+- Small goods on a counter or a shelf (bread, cups, jars, books) are 3 to 11 pixels across, in strong colours, and stand on the top plane. Keep them off the middle of a counter's top, where the feet of whoever stands behind it would show.
+- **Feet behind low pieces.** Someone standing on the tile right behind a piece has their feet 20 pixels above its base line. A piece people stand behind (a counter, a desk, a lectern) is at least 22 pixels tall, so it hides their feet. A table is lower, 18 pixels, for the sake of its sitters: stand people beside a table or two rows behind it, and put chairs on the tile behind it.
+- **Seats.** A sitter facing the viewer sits on the chair's base line (props are drawn before people on the same line), so they are drawn over the seat with the chair's back showing around their head. At a table, the chair stands on the tile behind it, 16 pixels up: the tabletop's back edge comes 17 pixels above the table's base line, about 8 rows under the sitter's chin, so their shoulders, arms and shirt show and the table hides their lap. A chair seen from behind is drawn over its sitter (seat 5 pixels behind its base line) and hides their body, never their head. A bar stool works the same way: its sitter faces the bar and sits 14 pixels behind its base line, so the stool's cushion shows just under them and its legs below.
+
+### Light in a room
+
+- By day, no lamp is lit and window glass is `sky`, as outside.
+- After dusk, window glass turns to night glass (`steel.1`, `sky.0`, `sky.1`) in the emissive layer, and a window has no light of its own.
+- Lamps, the fireplace and the oven keep an emissive layer and a light, so the room is lit from inside: lamp glass and shades in `ochre.2` and `ochre.3`, embers in `ochre.1`.
+
 ## Daylight, dusk and night
 
 Bright daylight is the default, and all art is drawn for it.

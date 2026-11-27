@@ -281,6 +281,50 @@ Simutown exports helpers for the common edges: `straightEdge` (a kerb or a deck'
 The priorities of the built-in grounds, and which of them may touch, are in [the art direction](STYLE.md#which-grounds-may-touch); a new ground must say where it joins that table.
 Use it in a town by giving it a character in the legend: `legend: { ':': 'gravel' }`.
 
+## A room
+
+The inside of a building is a town of its own, built with `defineTown` from the interior kit (`src/art/interior/`).
+Floors and walls are terrain, so the room's shape is the ASCII map; everything else is a prop.
+
+```text
+################     #  ink: the dark outside, solid; the wooden cap is drawn on it
+#PPPPPPPPPPPPPP#     P  wall-paper: the upper row of the back wall
+#pppppppppppppp#     p  wall-paper-base: the base row, with a wainscot down to the floor
+#..............#     .  floor-pine
+#..............#
+#..............#
+#..............#
+#..............#
+################
+```
+
+```ts
+const home = defineTown({
+  name: 'home',
+  terrain: map, // the map above
+  legend: { '#': 'ink', P: 'wall-paper', p: 'wall-paper-base', '.': 'floor-pine' },
+  props: [
+    { kind: 'window-wide', at: [4, 2] }, // on the wall: stands on the base row
+    { kind: 'fireplace', at: [7, 3] },   // against the wall: on the first floor row
+    { kind: 'chair', at: [4, 5] },
+    { kind: 'table', at: [4, 6] },
+    { kind: 'chair-back', at: [5, 7] },
+    { kind: 'doormat', at: [8, 7] },     // the exit, on the bottom floor row
+  ],
+  places: { door: [8, 7] },
+});
+```
+
+- **The shell.** Draw the room as a rectangle of wall and floor inside a border of `ink`, at most 14 x 7 tiles (two rows of wall, up to five of floor), so the whole box and its cap show at zoom 2. The back wall is two rows: an upper `wall-<look>` over a base `wall-<look>-base`. The looks are `plaster`, `paper`, `stripe`, `panel` and `brick`, and any upper row goes with any base row. The floors are `floor-pine`, `floor-wood`, `floor-checker` and `floor-stone`.
+- **The cap.** Every floor and wall draws the top of the walls as its fringe on the ink around it, so the cap lies outside the room, where furniture cannot cover it. There are no corner or side pieces to place, and nothing to keep clear of the walls.
+- **Wall pieces** (`window`, `window-wide`, `wall-lamp`, `picture`, `picture-flowers`, `wall-clock`, `wall-shelf`, `menu-board`, `blackboard`, `banner`, `inner-door`) stand on the base row of the wall and cover the wall above it. They have no footprint.
+- **Furniture** stands on the floor. Tall pieces (`wardrobe`, `bookshelf`, `bread-rack`, `fireplace`, `oven`, `kitchen-counter`) go on the first floor row, against the wall.
+- **Counters** (`bakery-counter`, `bar-counter`, `shop-counter`, `post-counter`) are three tiles wide with a `behind` place for the shopkeeper and a `front` place for the customer, so leave the floor row above them free.
+- **Seats.** `chair`, `stool`, `armchair` and `sofa` (seats `left` and `right`) face the viewer; `chair-back` is a chair seen from behind, for the near side of a table; `cafe-chair` and `cafe-chair-left` face right and left; `bar-stool` faces the bar, away from the viewer. Scenes use them with `actor.sitOn(prop)`. Tables have no places, so chairs can stand on any side.
+- **The exit** is a `doormat` on the bottom floor row and a place called `door` on the same tile.
+
+The rooms of Willow Square (`src/towns/willow-square-rooms.ts`) are built this way. `pnpm tsx tools/interior-preview.ts` puts two or three townsfolk in each of them with a tiny scene and renders it at noon and at 21:00, and `pnpm sheet interior` draws every piece of the kit.
+
 ## All together
 
 This scene imports the five files above, which registers them, and uses them in a small town from afternoon into dusk.
@@ -304,7 +348,7 @@ The whole file is [`examples/new-art.ts`](../examples/new-art.ts).
 A sprite you have not looked at is not done.
 
 - **In a scene.** `pnpm simutown still examples/new-art.ts -t 3` renders a frame by day and `-t 9` one at dusk; open the PNG and look at the new art at x4, beside the built-in art. Check the dusk frame for anything that glows.
-- **On a contact sheet.** `pnpm sheet <group>` draws all the built-in art of a group (`terrain`, `nature`, `street`, `buildings`, `characters`, `ui` or `all`) to `out/sheets/<group>.png`, with every frame of every character and the lit version of anything with an emissive layer beside its day look. `--only <text>` keeps the cells whose label contains the text, and `--scale <n>` zooms. It shows built-in art, so use it once the art is in `src/art/`.
+- **On a contact sheet.** `pnpm sheet <group>` draws all the built-in art of a group (`terrain`, `nature`, `street`, `buildings`, `characters`, `ui`, `interior` or `all`) to `out/sheets/<group>.png`, with every frame of every character and the lit version of anything with an emissive layer beside its day look. `--only <text>` keeps the cells whose label contains the text, and `--scale <n>` zooms. It shows built-in art, so use it once the art is in `src/art/`.
 - **In the Atlas.** `pnpm dev`, then Atlas in the menu, shows every character, prop, ground and emote in the registry, animated, with the ids to type. Art registered by a scene in `scenes/` appears there too, once the gallery has loaded that scene (restart `pnpm dev` after adding a file).
 - **Against the style key.** `docs/style/stylekey.png` shows the reference art in context; put yours beside it and judge it at x4, from across the room. The checklist at the end of [the art direction](STYLE.md#checklist-before-you-call-a-sprite-done) is the definition of done.
 

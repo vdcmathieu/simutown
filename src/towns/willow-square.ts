@@ -15,6 +15,7 @@
 import type { Town } from '../core/types';
 import { createRng } from '../world/random';
 import { defineTown, type PropSpec } from '../world/town';
+import { willowSquareRooms } from './willow-square-rooms';
 
 const LEGEND: Record<string, string> = {
   g: 'grass',
@@ -358,7 +359,9 @@ const homePlaces: Record<string, [number, number]> = Object.fromEntries(
 /**
  * Willow Square. Besides every prop's own places (`cafe.door`, `fountain.south`,
  * `park.bench.left`, `market.fruit.vendor`...), it names the spots a scene is likely to
- * need, and `<name>.home` for the door of each townsperson's home.
+ * need, and `<name>.home` for the door of each townsperson's home. Every building with a
+ * door but the shed has a room (`willow-square-rooms.ts`): name what is inside as
+ * `<building>:<place>`, such as `bakery:counter.front`.
  */
 export const willowSquare: Town = defineTown({
   name: 'Willow Square',
@@ -400,4 +403,5 @@ export const willowSquare: Town = defineTown({
     playground: [4, 21],
     ...homePlaces,
   },
+  interiors: willowSquareRooms,
 });

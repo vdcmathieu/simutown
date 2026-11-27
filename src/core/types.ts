@@ -52,6 +52,11 @@ export interface TerrainDef {
   anims?: Anim[];
   /** Blocks walking (water, hedges). Default false. */
   solid?: boolean;
+  /**
+   * Not part of a room: the dark beyond its walls (the `ink` ground). A room's map carries
+   * a border of it, and framing the room (`s.camera.inside`) leaves that border out.
+   */
+  outside?: boolean;
   /** Higher-priority terrain draws its fringe over lower-priority neighbours. */
   priority: number;
   /**
@@ -205,6 +210,19 @@ export interface Town {
   places: Record<string, { tx: number; ty: number }>;
   /** 1 = blocked, per tile, row-major. Derived from solid terrain and prop footprints. */
   solid: Uint8Array;
+  /**
+   * True for a room: the inside of a building. A room has no sun and no sky: the renderer
+   * casts no sun or moon shadows in it and never darkens it to night; after dusk its own
+   * lamps light it. Whatever lies outside the room's walls is drawn as ink.
+   */
+  indoor?: boolean;
+  /**
+   * The rooms behind this town's doors, keyed by the id of the building prop each one is
+   * the inside of. A room is a Town of its own (`indoor: true`) in its own tile
+   * coordinates, with a walkable place called `door` just inside its entrance. Scenes name
+   * what is in a room as "<building>:<name>", e.g. "bakery:door", "bakery:counter.front".
+   */
+  interiors?: Record<string, Town>;
 }
 
 // ---------------------------------------------------------------------------------------
@@ -258,6 +276,12 @@ export interface FrameState {
   camera: { x: number; y: number; zoom: number };
   /** Hour of day, 0..24. The renderer derives ambient light and whether lamps are lit. */
   timeOfDay: number;
+  /**
+   * The room this frame shows: a key of the town's `interiors`. Absent: the town outside.
+   * When set, the camera, the actors and the annotations are in that room's coordinates,
+   * and `actors` holds only the people who are in that room.
+   */
+  interior?: string;
   actors: ActorState[];
   bubbles: BubbleState[];
   annotations?: Annotation[];

@@ -2,7 +2,7 @@
 import { art as builtinArt } from '../art';
 import type { ArtRegistry, PlacedProp, Town } from '../core/types';
 import { blockerAt, fmtTile, inBounds } from './grid';
-import { unknownName } from './names';
+import { nearest, unknownName } from './names';
 
 /** A prop to place: `at` is its origin tile, the bottom-left tile of its footprint. */
 export interface PropSpec {
@@ -26,6 +26,14 @@ export interface TownSpec {
   props?: PropSpec[];
   /** Extra named walkable tiles, e.g. `{ plaza: [6, 9] }`. */
   places?: Record<string, [number, number]>;
+  /** True for a room, the inside of a building: lit by its own lamps, no sun, ink beyond its walls. */
+  indoor?: boolean;
+  /**
+   * The rooms behind this town's doors, keyed by the id of the building prop each is the inside of.
+   * Each room is a Town of its own (usually `indoor: true`) with a walkable place called `door`.
+   * The building must have a `door` place outside. Scenes name what is inside as `<building>:<name>`.
+   */
+  interiors?: Record<string, Town>;
 }
 
 function parseGrid(spec: TownSpec, art: ArtRegistry): { w: number; h: number; terrain: string[] } {
@@ -147,5 +155,34 @@ export function defineTown(spec: TownSpec, art: ArtRegistry = builtinArt): Town 
     }
   });
   for (const [name, [tx, ty]] of Object.entries(spec.places ?? {})) addPlace(name, tx, ty, 'in places');
+  if (spec.indoor) town.indoor = true;
+  if (spec.interiors) town.interiors = checkInteriors(town, spec.interiors);
   return town;
+}
+
+/** Check that every room belongs to a building with a door, and has a `door` place of its own. */
+function checkInteriors(town: Town, interiors: Record<string, Town>): Record<string, Town> {
+  const withDoors = town.props.map((p) => p.id ?? p.kind).filter((id) => town.places[`${id}.door`]);
+  for (const [key, room] of Object.entries(interiors)) {
+    if (!withDoors.includes(key)) {
+      const ids = town.props.map((p) => p.id ?? p.kind);
+      const why = ids.includes(key) ? `prop "${key}" has no door place` : `there is no prop "${key}"`;
+      const guess = nearest(key, withDoors);
+      throw new Error(
+        `Town "${town.name}": interiors.${key} cannot be a room: ${why}. ` +
+          `Each key of interiors must be the id of a prop with a door place.${guess ? ` Did you mean "${guess}"?` : ''} ` +
+          `Props with a door: ${[...withDoors].sort().join(', ') || 'none'}.`,
+      );
+    }
+    if (!room || typeof room !== 'object' || !room.places) {
+      throw new Error(`Town "${town.name}": interiors.${key} must be a room built with defineTown({ ..., indoor: true }).`);
+    }
+    if (!room.places.door) {
+      throw unknownName('place', 'door', Object.keys(room.places), `(the room "${room.name}" for "${key}" needs a walkable place called door, just inside its entrance)`);
+    }
+    if (room.interiors && Object.keys(room.interiors).length > 0) {
+      throw new Error(`Room "${room.name}" (interiors.${key}) has rooms of its own: rooms cannot be nested.`);
+    }
+  }
+  return { ...interiors };
 }

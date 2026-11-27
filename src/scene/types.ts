@@ -5,6 +5,9 @@ import type { ArtRegistry, Dir, Town } from '../core/types';
 /**
  * Where something should go: a place name (`'cafe.door'`), a tile `[tx, ty]`,
  * or an actor handle (meaning "next to that actor" for walking, "on them" for the camera).
+ * A place inside a room is named `'<building>:<place>'`, e.g. `'bakery:counter.front'`.
+ * A tile is a tile of the location the actor is in (for walking, wandering and teleporting),
+ * or of the location the camera shows (for the camera and labels).
  */
 export type Target = string | [number, number] | ActorHandle;
 
@@ -28,6 +31,8 @@ export interface ActorOpts {
   id?: string;
   /** Start off the map, e.g. to `exit` a building later. */
   hidden?: boolean;
+  /** For a tile `at`: the room it is a tile of, by building id. Default: outside. */
+  inside?: string;
 }
 
 /** Options for `say`, `think` and `shout`. */
@@ -44,7 +49,7 @@ export interface ActorHandle {
   readonly character: string;
   /** Walk along a path that avoids solid tiles. Walking to an actor stops next to them, facing them. */
   walkTo(target: Target, opts?: { speed?: number }): void;
-  /** Turn to a direction or towards another actor. */
+  /** Turn to a direction or towards another actor, who must be in the same location. */
   face(dir: Dir | ActorHandle): void;
   /**
    * Speech bubble with a typewriter reveal, held long enough to read. A standing character
@@ -65,10 +70,19 @@ export interface ActorHandle {
   emote(name: string, opts?: { hold?: number }): void;
   /** Play one of the character's extra poses, then return to idle. */
   pose(name: string, opts?: { hold?: number }): void;
-  /** Walk to a prop's `door` place and fade out (the actor is then hidden). */
+  /**
+   * Walk to a prop's `door` place and go in. When the building has a room, the actor is then
+   * inside it, on the room's `door` place facing up; otherwise they are hidden.
+   */
   enter(prop: string, opts?: { speed?: number }): void;
-  /** Appear at a prop's `door` place and fade in, facing down. */
-  exit(prop: string): void;
+  /**
+   * Come out of a building's door, facing down, over 0.3 s:
+   * - from inside that building's room: walk to the room's `door` place, then go through;
+   * - from inside another room: fade out where they are and fade in at this building's door
+   *   (in at one door, out of another);
+   * - from outside: appear at the door and fade in.
+   */
+  exit(prop: string, opts?: { speed?: number }): void;
   /** Remove from the map. */
   hide(): void;
   /** Return to the map where the actor was. */
@@ -79,11 +93,29 @@ export interface ActorHandle {
 
 /** Camera calls. Targets that are actors are tracked while the camera moves to them. */
 export interface CameraBuilder {
-  /** Jump to a target. Zoom is an integer: 1 shows the whole frame, 2 is closer. */
+  /**
+   * Jump to a target. Zoom is an integer: 1 shows the whole frame, 2 is closer.
+   * A place in a room, or an actor who is inside at that moment, shows that room.
+   */
   cut(target: Target, opts?: { zoom?: number }): void;
-  /** Glide to a target with ease-in-out. A zoom change happens halfway. */
+  /**
+   * Cut to a room, framed on its centre. The default zoom is the largest at which the whole
+   * room fits the frame.
+   */
+  inside(building: string, opts?: { zoom?: number }): void;
+  /**
+   * Cut back to the town. With no target: to where the camera last was outside, at the zoom it
+   * had there (the opening view if it never was). With a target: to that place, tile or actor
+   * outside; a tile is always a tile of the town, and a place or actor in a room is an error.
+   */
+  outside(target?: Target, opts?: { zoom?: number }): void;
+  /** Glide to a target with ease-in-out. A zoom change happens halfway. It cannot leave the location shown: cut instead. */
   pan(target: Target, opts?: { duration?: number; zoom?: number }): void;
-  /** Keep an actor centred until the next camera call, or `follow(null)` to stop where it is. */
+  /**
+   * Keep an actor centred until the next camera call, or `follow(null)` to stop where it is.
+   * It shows the location the actor is in when it starts. While they are in another location
+   * it holds where they left it, and it follows them again when they come back.
+   */
   follow(actor: ActorHandle | null): void;
 }
 

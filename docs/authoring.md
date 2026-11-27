@@ -36,7 +36,7 @@ Two or three people carry the idea; anyone else is background, wandering, and sh
 
 ## 2. Pick or build the town
 
-**Willow Square** is the built-in town (`willowSquare`, exported by `simutown` and `simutown/towns`), with a square, shops, houses, a pond and a park.
+**Willow Square** is the built-in town (`willowSquare`, exported by `simutown` and `simutown/towns`), with a square, shops, houses, a pond and a park, and a room behind every door but the shed's (see [Going inside](#going-inside)).
 Use it when the story fits a town square, which is most of the time.
 
 Whatever town you use, list its places before you script.
@@ -408,6 +408,56 @@ The art is drawn for daylight, and the hours look like this:
 So "afternoon" in a caption needs about 17 or 18 to look like it; at 16 the picture is still plain daylight.
 Lamps and lit windows read best from 19.5 on.
 
+## Going inside
+
+Every building of Willow Square with a door, except the shed, has a room behind it: the cottage, the bakery, the cafe, the town hall, the library, the shop, the post office, the townhouse, the farmhouse, the school, the brick house and the red house.
+A room is a small map of its own, and a scene can go in and out of it.
+
+![Lin asks Bo for a loaf, inside the bakery](images/inside-day.png)
+
+`describeTown(willowSquare)` lists the rooms after the town, each with its own map, props and places:
+
+```bash
+pnpm tsx -e "import { describeTown, willowSquare } from 'simutown'; console.log(describeTown(willowSquare))"
+```
+
+Name what is inside as `'<building>:<place>'`: `bakery:counter.behind` is where Bo serves, `bakery:customer` is a step back from the counter, `red-house:hearth` is by the fire, `school:front` is in front of the blackboard.
+A seat is a prop in the room: `lin.sitOn('red-house:chair-2')`.
+A bare name is always outside, even for someone who is inside.
+
+Someone placed inside is in the room from the start; someone outside goes in with `enter`, and out with `exit`:
+
+```ts
+const bo = s.actor('bo', { at: 'bakery:oven.front', facing: 'up' }); // inside from the start
+const lin = s.actor('lin', { at: [1, 10] });
+
+lin.walkTo('bakery.door');                  // outside, to the door
+s.camera.inside('bakery');                  // the whole room, at zoom 2
+lin.enter('bakery');                        // she fades in on bakery:door
+lin.walkTo('bakery:customer');
+// ...
+lin.exit('bakery');                         // back to the room's door, then out onto the street
+s.camera.outside();                         // back to the street shot she came from
+```
+
+Every frame shows one place, outside or one room, and only the people in it.
+`s.camera.inside(building)` frames the whole room, at zoom 2 for every room of Willow Square.
+A cut to a place in a room, or to someone inside, also goes in, and a cut to a place outside comes out.
+A tile such as `[8, 9]` in `s.camera.cut` is a tile of the place the camera shows.
+To come back out, `s.camera.outside()` returns to the shot the camera had before it went in, at the same zoom; `s.camera.outside([8, 9])` or `s.camera.outside('square')` cuts to a town tile or place instead.
+
+Pacing indoors:
+
+- **Cut when someone goes through a door.** Going through takes 0.3 seconds, a fade out on one side and in on the other. Cut in the middle of it, and the viewer sees them leave the street and arrive on the doormat: `s.together(() => { lin.enter('bakery'); s.sequence(() => { s.wait(0.15); s.camera.inside('bakery'); }); })`. Coming out, cut with `s.camera.outside()` the same way. `scenes/fresh-bread.ts` does this both ways.
+- **Zoom 2 indoors.** A room is designed to fill the frame at zoom 2; do not pan inside it.
+- **Keep a step back from a counter.** A bubble sits above the speaker's head, so a customer right at the counter covers the face of whoever is behind it. `bakery:customer` is a tile further back.
+- **People behind a table show from the shoulders up**, and someone on a chair facing up shows their back: seat the people who talk where the viewer sees their faces.
+- **Rooms are calm.** They have no sky, so the hour changes only their lamps: by day the art's own colours; from about 17:30 a warm, slightly dimmer light, the fire, the lamps and the windows lit. Set the evening with `s.timeOfDay(20)` during a fade, then cut in.
+
+![Supper in the red house, in the evening](images/inside-evening.png)
+
+People inside live on when the camera is elsewhere: in `fresh-bread`, Raj and Noor sit down at their table in the first second, and are found there in the evening.
+
 ## Finding the times of your beats
 
 `pnpm simutown info` prints the total length, and with `--beats` a timeline of the scene: when each call starts and ends, who it is about, and what happens.
@@ -451,6 +501,10 @@ Mistakes throw when the scene is built, with the valid names and a guess.
 | Moves out of order inside `together` | `zara already has a move starting at 3.00s, later than this one at 0.00s. ...` | Inside `s.together`, give each actor its moves in time order. |
 | A fractional zoom | `Camera zoom must be a whole number from 1 to 16, got 1.5.` | Use 1, 2, 3, ... |
 | Two captions in a row | No error: the first one is never seen. | Give the first a `hold`, or put action between them. |
+| A room's place named from outside | `lin.walkTo: bakery:counter.front is inside bakery, but lin is outside at 0.00s. Use lin.enter('bakery') first.` | Go in first with `enter`; walk out of a room with `exit`. |
+| A bare name inside a room | `Unknown place "counter.front". lin is inside bakery: did you mean "bakery:counter.front"? ...` | Name what is inside as `bakery:<place>`. |
+| A pan into or out of a room | `s.camera.pan: square is outside, but the camera shows inside bakery at 0.00s. A pan cannot go through a wall: ...` | Cut instead: `s.camera.inside(...)` going in, `s.camera.outside()` coming out. |
+| A building without a room | `"shed" has a door but no room. Buildings with rooms: bakery, brick-house, cafe, ...` | Pick a building from the list. |
 | Art made but not registered | `simutown render: unknown character "lena" skipped. ...` | Register new art in the built-in registry; see [Making art](making-art.md). |
 
 In a town:
@@ -473,5 +527,6 @@ A scene is done when:
 4. Every caption is on screen long enough to read, and no two captions collide.
 5. It starts with a title or a fade in, and ends with a fade out.
 6. It is 15 to 60 seconds long.
-7. It renders: `pnpm simutown render <scene>` writes the MP4.
-8. If it lives in `scenes/`, `pnpm check` still passes.
+7. Indoors, every cut follows someone through a door or a fade, and the room is shot at zoom 2.
+8. It renders: `pnpm simutown render <scene>` writes the MP4.
+9. If it lives in `scenes/`, `pnpm check` still passes.

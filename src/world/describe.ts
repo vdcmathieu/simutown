@@ -23,8 +23,27 @@ function terrainMarks(ids: string[]): Map<string, string> {
  * A plain-text description of a town: size, an ASCII map with column and row numbers,
  * a legend, the props with their footprints, and every place name with its tile.
  * On the map, `#` is a prop footprint and digits or capitals mark places.
+ * The town's rooms follow, each with its own map, props and places under their
+ * qualified names (`bakery:door`), as scenes write them.
  */
 export function describeTown(town: Town, art: ArtRegistry = builtinArt): string {
+  const parts = [describeMap(town, art, '')];
+  const rooms = Object.entries(town.interiors ?? {});
+  if (rooms.length > 0) {
+    parts.push(
+      [
+        `Rooms: ${rooms.map(([b]) => b).join(', ')}.`,
+        'Each room has its own tiles, starting at [0, 0]. Go in with actor.enter(building) and out with actor.exit(building);',
+        'name what is inside as "<building>:<name>", e.g. "' + `${rooms[0]![0]}:door` + '".',
+      ].join('\n'),
+    );
+    for (const [building, room] of rooms) parts.push(`Room ${building} (inside prop "${building}")\n` + describeMap(room, art, `${building}:`));
+  }
+  return parts.join('\n\n');
+}
+
+/** One map: its size, the ASCII map, legend, props and places. Names get `prefix` (`bakery:` in a room). */
+function describeMap(town: Town, art: ArtRegistry, prefix: string): string {
   const ids = [...new Set(town.terrain)];
   const marks = terrainMarks(ids);
   const grid = town.terrain.map((id) => marks.get(id)!);
@@ -37,7 +56,7 @@ export function describeTown(town: Town, art: ArtRegistry = builtinArt): string 
   });
 
   const lines: string[] = [];
-  lines.push(`${town.name}: ${town.w} x ${town.h} tiles. x grows right, y grows down, [0, 0] is the top-left tile.`);
+  lines.push(`${town.name}${town.indoor ? ' (indoors)' : ''}: ${town.w} x ${town.h} tiles. x grows right, y grows down, [0, 0] is the top-left tile.`);
   lines.push('');
   const pad = String(town.h - 1).length;
   const head = (f: (x: number) => string): string => ' '.repeat(pad + 1) + Array.from({ length: town.w }, (_, x) => f(x)).join('');
@@ -56,11 +75,11 @@ export function describeTown(town: Town, art: ArtRegistry = builtinArt): string 
   for (const p of town.props) {
     const fp = art.props[p.kind]?.footprint;
     const size = fp ? `, footprint ${fp.w}x${fp.h} tiles` : ', no footprint (walkable)';
-    lines.push(`  ${p.id ?? p.kind} (${p.kind}) at ${fmtTile(p)}${size}`);
+    lines.push(`  ${prefix}${p.id ?? p.kind} (${p.kind}) at ${fmtTile(p)}${size}`);
   }
   lines.push('');
   lines.push('Places (walkable tiles you can use as targets):');
   if (places.length === 0) lines.push('  none');
-  places.forEach(([name, p], i) => lines.push(`  ${PLACE_MARKS[i] ?? '*'} ${name} ${fmtTile(p)}`));
+  places.forEach(([name, p], i) => lines.push(`  ${PLACE_MARKS[i] ?? '*'} ${prefix}${name} ${fmtTile(p)}`));
   return lines.join('\n');
 }

@@ -20,6 +20,9 @@ jobs:
     name: check (Node ${{ matrix.node }})
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The git-install test below clones this checkout, which needs real history.
+          fetch-depth: 0
       - uses: pnpm/action-setup@v6
         with:
           version: 11
@@ -34,5 +37,23 @@ jobs:
       - run: pnpm check
       - run: pnpm build
       - run: pnpm build:web
-      - name: Use the packed library from another project
-        run: pnpm test:package
+      - name: Use the packed library from another project, and install it from git with npm
+        run: pnpm test:package --git
+
+  # The build and the tools must also run on Windows, where node_modules/.bin holds .cmd files.
+  windows:
+    runs-on: windows-latest
+    name: build (Windows, Node 24)
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      # `prepare` builds the package during the install: this is the step that used to fail on Windows.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm check

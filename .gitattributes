@@ -1,0 +1,4 @@
+# Sprites, docs samples and tests compare text byte for byte: keep line endings the same on every system.
+* text=auto eol=lf
+*.png binary
+*.gif binary

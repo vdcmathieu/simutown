@@ -37,7 +37,7 @@ pnpm 10 and later build a dependency from git only once you allow it: the first 
 The package comes with the `simutown` command (`npx simutown`, or `pnpm simutown`):
 
 ```bash
-npx simutown new market-day              # a commented starter scene: scenes/market-day.ts, or ./market-day.ts without a scenes/ folder
+npx simutown new market-day              # a commented starter scene in scenes/, or in this folder if there is no scenes/
 npx simutown info market-day --beats     # build it, and list when each walk, line, caption and camera move starts
 npx simutown still market-day -t 4       # one frame as a PNG, out/market-day-4s.png
 npx simutown render market-day           # the film, out/market-day.mp4
@@ -55,6 +55,9 @@ A scene imports the library by name:
 The types come with it, for TypeScript set to `"moduleResolution": "bundler"` or `"nodenext"`.
 Node runs a `.ts` scene file as it is, by erasing its types, so a scene imports types with `import type` and writes relative imports with their extension (`./my-town.ts`; TypeScript accepts that with `allowImportingTsExtensions`).
 A scene can also be a plain `.js` file.
+A scene is an ES module.
+In a project whose `package.json` says `"type": "module"`, `simutown new` writes a `.ts` file; in any other project it writes `.mts`, which Node reads as an ES module whatever the project is.
+The command treats the folder of the nearest `package.json` above where you run it as the project: `scenes/` and `out/` are looked for there.
 
 ## A complete scene
 
